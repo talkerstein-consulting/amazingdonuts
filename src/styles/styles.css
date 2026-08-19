@@ -1,0 +1,486 @@
+/* ==========================================================================
+   Amazing Donuts — implementation of brand system option 3a "Sky & Sunshine"
+   No shadows. No gradients. No opacity transitions. Two motions: snap + twist,
+   and the label shuffle.
+   ========================================================================== */
+
+/* --- Tokens ------------------------------------------------------------- */
+:root {
+  --sky:            #00A3DC;
+  --sky-light:      #A8D9EF;
+  --sky-wash:       #E4F2FA;
+  --sky-deep:       #00688F;
+
+  --magenta:        #C4008C;
+  --magenta-light:  #F2A8D6;
+  --magenta-wash:   #FBE6F3;
+  --magenta-deep:   #A4007A;
+  --magenta-deepest:#8E0066;
+
+  --sunshine:       #F6B316;
+  --sunshine-light: #FBDD9C;
+  --sunshine-wash:  #FDF1D6;
+  --sunshine-deep:  #8A5E00;
+  --sunshine-deepest:#4A3200;
+
+  --ink:            #1B3A4B;
+  --cream:          #FCF4E7;
+  --white:          #FFFFFF;
+  --border:         #EFE2CC;
+  --body:           #5C5648;
+  --body-alt:       #6B6152;
+  --label-muted:    #8C8172;
+
+  --radius-button:  16px / 20px;
+  --radius-card:    26px / 34px;
+  --radius-panel:   18px;
+  --radius-sheet:   28px;
+  --radius-swatch:  14px;
+
+  --shape-button:   perspective(320px) rotateY(15deg) skewY(-1deg);
+  --shape-card:     perspective(1000px) rotateY(9deg) skewY(-0.6deg);
+
+  --snap:           140ms cubic-bezier(.34, 1.56, .64, 1);
+  --snap-card:      160ms cubic-bezier(.34, 1.56, .64, 1);
+  --shuffle:        260ms cubic-bezier(.2, .8, .3, 1);
+
+  --display: "venice-blvd", "Baloo 2", system-ui, sans-serif;
+  --label:   "Barlow Condensed", system-ui, sans-serif;
+  --text:    "Nunito Sans", system-ui, sans-serif;
+
+  --gutter: 28px;
+  --maxw:   1180px;
+}
+
+/* Family scoping. Every coloured surface declares a family; nothing in the
+   system reaches past --fam-* to a hard-coded hue. */
+[data-family="sky"] {
+  --fam: var(--sky); --fam-light: var(--sky-light); --fam-wash: var(--sky-wash);
+  --fam-deep: var(--sky-deep); --fam-deepest: var(--sky-deep); --fam-on: var(--white);
+  --cta-face: var(--sky); --cta-ink: var(--white);
+}
+[data-family="magenta"] {
+  --fam: var(--magenta); --fam-light: var(--magenta-light); --fam-wash: var(--magenta-wash);
+  --fam-deep: var(--magenta-deep); --fam-deepest: var(--magenta-deepest); --fam-on: var(--white);
+  --cta-face: var(--magenta); --cta-ink: var(--white);
+}
+[data-family="sunshine"] {
+  --fam: var(--sunshine); --fam-light: var(--sunshine-light); --fam-wash: var(--sunshine-wash);
+  --fam-deep: var(--sunshine-deep); --fam-deepest: var(--sunshine-deepest);
+  --fam-on: var(--sunshine-deepest);          /* never white on saturated sunshine */
+  --cta-face: var(--sunshine); --cta-ink: var(--sunshine-deepest);
+}
+/* On a sunshine light-tone card the CTA face darkens so its label can be white. */
+.card[data-family="sunshine"] { --cta-face: var(--sunshine-deep); --cta-ink: var(--white); }
+
+/* --- Reset -------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--white);
+  color: var(--body);
+  font-family: var(--text);
+  font-size: 17px;
+  line-height: 1.55;
+  text-wrap: pretty;
+  -webkit-font-smoothing: antialiased;
+}
+img { max-width: 100%; display: block; }
+a { color: inherit; }
+button { font: inherit; color: inherit; background: none; border: 0; }
+ul { margin: 0; padding: 0; list-style: none; }
+
+.wrap { width: 100%; max-width: var(--maxw); margin-inline: auto; padding-inline: var(--gutter); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* --- Type --------------------------------------------------------------- */
+.display { font-family: var(--display); font-weight: 700; line-height: 1.02; margin: 0; }
+h1.display { font-size: clamp(38px, 6.2vw, 56px); line-height: 0.98; }
+h2.display { font-size: clamp(30px, 4vw, 40px); line-height: 1.02; }
+h3.display { font-size: 28px; }
+
+.eyebrow {
+  font-family: var(--label); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.14em; font-size: 14pt; color: var(--label-muted); margin: 0 0 16px;
+}
+.meta {
+  font-family: var(--label); font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.12em; font-size: 14px;
+}
+.lede { font-size: 19px; margin: 0; max-width: 46ch; }
+p { margin: 0 0 16px; }
+p:last-child { margin-bottom: 0; }
+
+/* --- The wedge button --------------------------------------------------- */
+/* Two layers: a transformed ground so the shape leans forward, and an
+   untransformed label so the type stays true. */
+.wedge {
+  --lh: 22px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 17px 34px 17px 30px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform var(--snap);
+  -webkit-tap-highlight-color: transparent;
+}
+/* Plain pill. The bite lives only on the leading (left) edge, via the
+   .bite disc mechanic layered on top — see modules.css. No second cut here. */
+.wedge__ground {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--cta-face, var(--fam, var(--sky)));
+}
+.wedge__label {
+  position: relative;
+  height: var(--lh);
+  overflow: hidden;
+  color: var(--cta-ink, var(--fam-on, #fff));
+  font-family: var(--label);
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.wedge__track {
+  display: block;
+  transform: translateY(var(--sh, 0px));
+  transition: transform var(--shuffle);
+}
+.wedge__track > span { display: block; height: var(--lh); line-height: var(--lh); }
+
+.wedge:hover,
+.wedge:focus-visible { transform: scale(1.05) rotate(-1deg); --sh: calc(var(--lh) * -1); }
+.wedge:active { transform: translate(5px, 5px) scale(1) rotate(0deg); }
+.wedge:focus-visible { outline: 3px solid var(--ink); outline-offset: 6px; }
+
+/* Card-scale */
+.wedge--sm { --lh: 20px; padding: 14px 24px; }
+.wedge--sm .wedge__label { font-size: 17px; }
+
+/* Icon-only */
+.wedge--icon { width: 62px; padding: 17px 0; align-self: stretch; }
+.wedge--icon svg { position: relative; width: 17px; height: 17px; stroke: currentColor; stroke-width: 3; fill: none; color: var(--cta-ink, #fff); }
+
+/* --- Header ------------------------------------------------------------- */
+.masthead {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--sky);
+}
+.masthead__in {
+  display: flex; align-items: center; gap: 26px;
+  min-height: 84px; padding-block: 12px;
+}
+.logo { flex: none; }
+.logo img { width: 210px; height: auto; }
+
+.nav { display: flex; align-items: center; gap: 22px; margin-left: auto; }
+.nav a {
+  font-family: var(--label); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; font-size: 15px; color: var(--white);
+  text-decoration: none; padding: 6px 0;
+  border-bottom: 3px solid transparent;
+  transition: border-color var(--snap);
+}
+.nav a:hover, .nav a[aria-current="page"] { border-bottom-color: var(--sunshine); }
+
+.nav-toggle { display: none; }
+
+/* --- Hero --------------------------------------------------------------- */
+.hero { padding: clamp(48px, 7vw, 88px) 0 clamp(56px, 7vw, 96px); }
+.hero__in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr); gap: 56px; align-items: center; }
+.hero h1 { color: var(--ink); margin-bottom: 22px; }
+.hero h1 em { font-style: normal; color: var(--magenta); }
+.hero .lede { color: var(--body); margin-bottom: 34px; }
+.hero__cta { display: flex; flex-wrap: wrap; gap: 18px; }
+
+/* Stacked wedge panels holding the flavour cutouts. */
+.hero__art { position: relative; min-height: 440px; }
+.hero__panel {
+  position: absolute; border-radius: var(--radius-card);
+  background: var(--fam-light);
+  transform: var(--shape-card);
+}
+.hero__panel--a { inset: 0 78px 92px 0; }
+.hero__panel--b { inset: 172px 0 0 168px; }
+.hero__donut { position: absolute; }
+.hero__donut--a { width: 60%; left: 6%; top: 4%; }
+.hero__donut--b { width: 44%; right: 5%; bottom: 6%; }
+.hero__stamp {
+  position: absolute; right: 6px; top: 4px;
+  font-family: var(--display); font-weight: 700; font-size: 15px;
+  color: var(--sunshine-deepest); background: var(--sunshine);
+  padding: 10px 16px; border-radius: var(--radius-button);
+  transform: var(--shape-button);
+}
+
+/* --- Sections ----------------------------------------------------------- */
+.section { padding-block: clamp(52px, 6.5vw, 88px); }
+.section--ink { background: var(--ink); color: #D6E4EC; }
+.section--sky { background: var(--sky-wash); }
+.section--cream { background: var(--cream); }
+.section__head { margin-bottom: 40px; max-width: 62ch; }
+.section__head h2 { color: var(--ink); margin-bottom: 14px; }
+.section--ink .section__head h2 { color: var(--white); }
+.section__head p { color: var(--body-alt); }
+.section--ink .section__head p { color: #A9C3D0; }
+
+.rule { height: 3px; background: var(--border); border: 0; margin: 0; }
+
+/* --- Trust washes ------------------------------------------------------- */
+.washes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.wash {
+  position: relative; padding: 30px 28px 32px;
+  border-radius: var(--radius-panel);
+  background: var(--fam-wash);
+  color: var(--fam-deepest);          /* on a wash, the family's own deep tone */
+}
+.wash img { width: 62px; height: 62px; object-fit: contain; margin-bottom: 18px; }
+.wash h3 {
+  font-family: var(--label); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; font-size: 19px; margin: 0 0 8px; color: var(--fam-deepest);
+}
+.wash p { font-size: 15px; color: var(--fam-deep); margin: 0; }
+
+/* --- Product card ------------------------------------------------------- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+.card {
+  position: relative;
+  border-radius: 26px;
+  padding: 28px 28px 30px;
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+  transition: transform var(--snap-card);
+}
+.card__ground {
+  position: absolute; inset: 0;
+  border-radius: var(--radius-card);
+  background: var(--fam-light);
+  transform: var(--shape-card);
+}
+.card:hover { transform: scale(1.03) rotate(-1deg); }
+.card:focus-within { transform: scale(1.03) rotate(-1deg); }
+
+.card__media {
+  position: relative; flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  margin: -6px -18px 0;
+  min-height: 190px;
+}
+.card__media img { width: 262px; max-width: 100%; height: auto; object-fit: contain; }
+
+/* Photographic products get the wedge as a frame: the photo becomes the
+   ground, so no product ever sits on a white rectangle of its own. */
+.card__frame {
+  width: 262px; max-width: 100%; aspect-ratio: 1;
+  border-radius: 22px / 28px;
+  overflow: hidden;
+  transform: var(--shape-card);
+}
+.card__frame img { width: 100%; height: 100%; object-fit: cover; }
+
+.card__foot {
+  position: relative;
+  display: flex; flex-direction: column; gap: 18px; align-items: flex-start;
+}
+.card__name {
+  font-family: var(--display); font-weight: 700;
+  font-size: 32px; line-height: 1.05;
+  color: var(--fam-deepest);
+  margin: 0;
+}
+.card__sub {
+  font-family: var(--label); font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.14em; font-size: 12px; color: var(--fam-deep);
+  margin-top: -12px;                     /* rides under the name, not a new block */
+}
+.card__price {
+  font-family: var(--label); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; font-size: 15px; color: var(--fam-deepest);
+  margin-top: -8px;
+}
+/* Flag pinned to the card, clear of the name block. */
+.card__note {
+  position: absolute; top: 20px; right: 22px; z-index: 2;
+  font-family: var(--label); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; font-size: 11px;
+  color: var(--fam-deepest);
+  background: var(--fam-light);   /* stays legible where it crosses a photo frame */
+  border: 2px solid currentColor;
+  padding: 4px 9px; border-radius: 999px;
+}
+.card__frame--empty {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--fam-wash); color: var(--fam-deep);
+  text-align: center; padding: 0 18px;
+}
+.card--sm { min-height: 356px; padding: 24px 24px 26px; }
+.card--sm .card__name { font-size: 26px; }
+.card--sm .card__media img, .card--sm .card__frame { width: 214px; }
+
+/* --- Category tiles ----------------------------------------------------- */
+.cats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px; }
+.cat {
+  position: relative; display: flex; flex-direction: column; justify-content: flex-end;
+  min-height: 260px; padding: 34px; border-radius: 26px;
+  text-decoration: none;                 /* never clip the cutout — it sits whole */
+  transition: transform var(--snap-card);
+}
+.cat__ground {
+  position: absolute; inset: 0; border-radius: var(--radius-card);
+  background: transparent; transform: var(--shape-card);
+  transition: background-color 150ms linear;
+}
+.cat:hover .cat__ground,
+.cat:focus-visible .cat__ground { background-color: var(--fam-light); }
+/* The cutout is never cropped and never sits over the words: the card keeps a
+   text lane on the left, the product owns the right, and the colour panel
+   behind them only arrives on hover. */
+.cat img {
+  position: absolute; right: 20px; top: 50%;
+  width: 210px; height: 210px; object-fit: contain;
+  transform: translateY(-50%) rotate(-6deg);
+  transition: transform var(--snap-card);
+  z-index: 2;
+}
+.cat > span:last-child { position: relative; z-index: 3; max-width: calc(100% - 230px); }
+.cat:hover img,
+.cat:focus-visible img { transform: translateY(-52%) rotate(-2deg) scale(1.05); }
+.cat span { position: relative; }
+.cat__name { font-family: var(--display); font-weight: 700; font-size: 34px; color: var(--fam-deepest); line-height: 1.02; }
+.cat__count { display: block; font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; font-size: 14px; color: var(--fam-deep); margin-top: 6px; }
+.cat:hover, .cat:focus-visible { transform: scale(1.03) rotate(-1deg); }
+.cat:focus-visible { outline: 3px solid var(--ink); outline-offset: 6px; }
+
+/* --- Feature split ------------------------------------------------------ */
+.split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 56px; align-items: center; }
+.split__art { position: relative; }
+.split__frame {
+  border-radius: var(--radius-card); overflow: hidden;
+  aspect-ratio: 4 / 3; transform: var(--shape-card);
+}
+.split__frame img { width: 100%; height: 100%; object-fit: cover; }
+.split h2 { color: var(--ink); margin-bottom: 18px; }
+.split__body { color: var(--body-alt); margin-bottom: 28px; }
+
+.ticks { margin: 0 0 30px; display: grid; gap: 12px; }
+.ticks li { position: relative; padding-left: 34px; font-size: 16px; }
+.ticks li::before {
+  content: ""; position: absolute; left: 0; top: 8px;
+  width: 18px; height: 10px; border-left: 3px solid var(--magenta); border-bottom: 3px solid var(--magenta);
+  transform: rotate(-45deg);
+}
+.section--ink .ticks li::before { border-color: var(--sunshine); }
+
+/* --- Ink panel (logo lockup) -------------------------------------------- */
+.inkpanel { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 56px; align-items: center; }
+.inkpanel img { width: 100%; }
+.inkpanel h2 { color: var(--white); margin-bottom: 16px; }
+.inkpanel p { color: #A9C3D0; }
+
+/* --- Visit -------------------------------------------------------------- */
+.visit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.visit__block { padding: 28px; border-radius: var(--radius-panel); background: var(--fam-wash); color: var(--fam-deepest); }
+.visit__block h3 {
+  font-family: var(--label); font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.14em; font-size: 12px; margin: 0 0 14px; color: var(--fam-deep);
+}
+.visit__block p, .visit__block a { font-size: 17px; color: var(--fam-deepest); text-decoration: none; }
+.visit__block a:hover { text-decoration: underline; }
+.hours { display: grid; gap: 8px; }
+.hours div { display: flex; justify-content: space-between; gap: 18px; font-size: 16px; }
+.hours dt { font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.hours dd { margin: 0; }
+.hours .closed { color: var(--fam-deep); }
+
+/* --- Filters ------------------------------------------------------------ */
+.filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 40px; }
+.filter {
+  position: relative; cursor: pointer; padding: 12px 22px;
+  font-family: var(--label); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; font-size: 15px; color: var(--ink);
+  transition: transform var(--snap);
+}
+.filter__ground {
+  border-radius: 999px;
+  position: absolute; inset: 0; border-radius: var(--radius-button);
+  background: var(--white); transform: var(--shape-button);
+}
+.filter span { position: relative; }
+.filter:hover { transform: scale(1.06) rotate(-1.1deg); }
+.filter[aria-pressed="true"] { color: var(--white); }
+.filter[aria-pressed="true"] .filter__ground {
+  border-radius: 999px; background: var(--ink); }
+.filter:focus-visible { outline: 3px solid var(--ink); outline-offset: 6px; }
+
+.count { font-family: var(--label); font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; font-size: 13px; color: var(--label-muted); margin-bottom: 22px; }
+
+/* --- Footer ------------------------------------------------------------- */
+.foot { background: var(--ink); color: #A9C3D0; padding-block: 60px 40px; }
+.foot__in { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 40px; }
+.foot img.mark { width: 200px; margin-bottom: 20px; }
+.foot h4 {
+  font-family: var(--label); font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.14em; font-size: 12px; color: var(--sunshine); margin: 0 0 16px;
+}
+.foot a { color: #D6E4EC; text-decoration: none; font-size: 16px; }
+.foot a:hover { color: var(--sunshine); }
+.foot li { margin-bottom: 10px; }
+.foot__base {
+  margin-top: 46px; padding-top: 24px; border-top: 2px solid #2C4F62;
+  display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between;
+  font-size: 14px; color: #7E9AA9;
+}
+
+/* --- Responsive --------------------------------------------------------- */
+@media (max-width: 1023px) {
+  .grid, .cats, .washes, .visit { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero__in, .split, .inkpanel { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .inkpanel img { max-width: 260px; }
+  .hero__art { min-height: 380px; }
+  .foot__in { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  :root { --gutter: 20px; }
+  .nav {
+    position: fixed; inset: 84px 0 auto; background: var(--sky);
+    flex-direction: column; align-items: flex-start; gap: 0;
+    padding: 8px var(--gutter) 24px; margin: 0;
+    display: none;
+  }
+  .nav[data-open="true"] { display: flex; }
+  .nav a { width: 100%; padding: 14px 0; font-size: 18px; border-bottom: 2px solid rgba(255,255,255,.24); }
+  .nav a:hover, .nav a[aria-current="page"] { border-bottom-color: var(--sunshine); }
+  .nav .wedge { margin-top: 18px; }
+  .nav-toggle {
+    display: inline-flex; flex-direction: column; gap: 5px; margin-left: auto;
+    padding: 12px; cursor: pointer;
+  }
+  .nav-toggle i { display: block; width: 26px; height: 3px; background: var(--white); }
+  .logo img { width: 168px; }
+}
+@media (max-width: 639px) {
+  .grid, .cats, .washes, .visit, .foot__in { grid-template-columns: minmax(0, 1fr); }
+  .card { min-height: 360px; }
+  .hero__panel--a { inset: 0 40px 92px 0; }
+  .hero__panel--b { inset: 150px 0 0 110px; }
+}
+
+/* --- Reduced motion ----------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .wedge, .card, .cat, .filter { transition: none; }
+  .wedge:hover, .wedge:focus-visible, .wedge:active,
+  .card:hover, .card:focus-within, .cat:hover, .filter:hover { transform: none; }
+  .wedge__track { transition: none; }
+}

@@ -1,0 +1,6 @@
+/* Tailwind v4 for the React Bits blocks.
+   Preflight is deliberately left out — it would reset the brand stylesheet.
+   Only the theme (custom properties) and utilities are pulled in. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);

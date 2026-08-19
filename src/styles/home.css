@@ -1,0 +1,739 @@
+/* ==========================================================================
+   Amazing Donuts — homepage playground.
+   Extends styles.css. House rules hold: no shadows, no gradients, no fades.
+   Everything moves by transform, on the house spring.
+   ========================================================================== */
+
+/* --- Shared bits --------------------------------------------------------- */
+.chip {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-family: var(--label); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; font-size: 13px;
+  padding: 9px 16px; border-radius: 999px;
+  background: var(--fam-wash, var(--sky-wash)); color: var(--fam-deep, var(--sky-deep));
+}
+.chip__dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+
+.hand {
+  font-family: var(--label); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.12em; font-size: 12px; color: var(--magenta);
+}
+
+/* ==========================================================================
+   HERO — "the case"
+   Not in the brand system; built from its parts. Three wedge shelves stacked
+   like a bakery display, a donut sitting on each, names on hover.
+   ========================================================================== */
+.hero--case { padding: clamp(26px, 3.6vw, 46px) 0 clamp(34px, 4.5vw, 58px); }
+.hero--case .hero__in { align-items: center; gap: 48px; }
+.hero--case h1 { margin-bottom: 20px; }
+.hero--case .lede { margin-bottom: 30px; }
+
+/* The rolling headline. The window is a full line box taller than the glyphs,
+   so a neighbouring line can never peek in over an ascender. */
+.roller {
+  --step: 1.26em;
+  display: block; height: var(--step); overflow: hidden;
+}
+.roller__track {
+  display: block; transform: translateY(var(--roll, 0px));
+  transition: transform 460ms cubic-bezier(.34, 1.56, .64, 1);
+}
+.roller__track > span {
+  display: block; height: var(--step); line-height: var(--step);
+  white-space: nowrap; color: var(--magenta);
+}
+.roller__track > span:nth-child(4n+2) { color: var(--sky); }
+.roller__track > span:nth-child(4n+3) { color: var(--sunshine-deep); }
+.roller__track > span:nth-child(4n+4) { color: var(--ink); }
+
+.now { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
+.now__msg { font-family: var(--label); font-weight: 500; text-transform: uppercase; letter-spacing: .12em; font-size: 13px; color: var(--label-muted); }
+
+.hero__gag { margin-top: 26px; font-size: 14px; color: var(--label-muted); }
+.hero__gag button { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.hero__gag button:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+
+/* the case itself */
+.case { position: relative; display: grid; gap: 16px; }
+.shelf {
+  position: relative; display: flex; align-items: center; gap: 22px;
+  padding: 18px 26px; min-height: 132px;
+}
+.shelf__ground {
+  position: absolute; inset: 0; border-radius: var(--radius-card);
+  background: var(--fam-light); transform: var(--shape-card); transform-origin: center;
+}
+.shelf > *:not(.shelf__ground) { position: relative; }
+.shelf__donut {
+  border: 0; background: none; padding: 0; cursor: pointer; flex: none;
+  transition: transform var(--snap-card);
+  -webkit-tap-highlight-color: transparent;
+}
+.shelf__donut img { width: 118px; height: 118px; object-fit: contain; }
+.shelf:nth-child(2) .shelf__donut img { width: 132px; height: 132px; }
+.shelf__donut:hover { transform: translateY(-8px) rotate(-8deg) scale(1.06); }
+.shelf__donut:focus-visible { outline: 3px solid var(--ink); outline-offset: 6px; border-radius: 50%; }
+.shelf__donut.is-spun { animation: spin 700ms cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.shelf__name { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1.04; color: var(--fam-deepest); }
+.shelf__meta {
+  display: block; margin-top: 6px;
+  font-family: var(--label); font-weight: 500; text-transform: uppercase;
+  letter-spacing: .14em; font-size: 12px; color: var(--fam-deep);
+}
+
+.hero__stamp {
+  position: absolute; z-index: 3; right: -18px; top: -26px;
+  width: 116px; height: 116px; border-radius: 50%;
+  background: var(--sunshine); color: var(--sunshine-deepest);
+  display: grid; place-content: center; text-align: center;
+  font-family: var(--label); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; font-size: 13px; line-height: 1.2;
+  transform: rotate(-9deg);
+  animation: wobble 5s ease-in-out infinite;
+}
+@keyframes wobble { 0%, 100% { transform: rotate(-9deg); } 50% { transform: rotate(-2deg); } }
+
+/* sprinkle confetti */
+.sprinkle {
+  position: fixed; z-index: 90; width: 5px; height: 15px; border-radius: 3px;
+  pointer-events: none; will-change: transform;
+}
+
+/* --- Marquee ------------------------------------------------------------- */
+.marquee { background: var(--ink); color: var(--white); padding: 15px 0; overflow: hidden; white-space: nowrap; }
+.marquee--sun { background: var(--sunshine); color: var(--sunshine-deepest); }
+.marquee__track { display: inline-flex; align-items: center; gap: 34px; animation: slide 34s linear infinite; }
+.marquee--rev .marquee__track { animation-direction: reverse; }
+.marquee:hover .marquee__track { animation-play-state: paused; }
+.marquee__track span {
+  font-family: var(--label); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; font-size: 19px;
+}
+.marquee__track img { width: 34px; height: 34px; object-fit: contain; }
+@keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* ==========================================================================
+   BUILD YOUR DOZEN — a real box, twelve real slots
+   ========================================================================== */
+.builder { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 46px; align-items: start; }
+
+.tray { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.pick {
+  position: relative; padding: 16px 10px 14px; cursor: pointer; border: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  transition: transform var(--snap-card);
+  -webkit-tap-highlight-color: transparent;
+}
+.pick__ground {
+  position: absolute; inset: 0; border-radius: var(--radius-card);
+  background: var(--fam-wash); transform: var(--shape-card); transform-origin: center;
+}
+.pick img { position: relative; width: 84px; height: 84px; object-fit: contain; }
+.pick__name {
+  position: relative; font-family: var(--label); font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.1em; font-size: 11px; color: var(--fam-deep); text-align: center; line-height: 1.3;
+}
+.pick__price {
+  position: relative; font-family: var(--label); font-weight: 700; font-size: 12px;
+  letter-spacing: .08em; color: var(--fam-deepest);
+}
+.pick:hover { transform: scale(1.05) rotate(-1.4deg); }
+.pick:focus-visible { outline: 3px solid var(--ink); outline-offset: 5px; }
+.pick:not([data-count="0"]) .pick__ground { background: var(--fam-light); }
+.pick__tally {
+  position: absolute; z-index: 2; top: 4px; right: 4px;
+  min-width: 26px; height: 26px; border-radius: 50%; padding: 0 6px;
+  background: var(--ink); color: var(--white);
+  font-family: var(--label); font-weight: 700; font-size: 14px;
+  display: none; place-content: center;
+}
+.pick:not([data-count="0"]) .pick__tally { display: grid; }
+.pick.is-added { animation: pop 320ms cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes pop { 50% { transform: scale(1.14) rotate(2deg); } }
+
+/* the box */
+.boxwrap { position: sticky; top: 22px; }
+.dbox { position: relative; padding-top: 54px; }
+
+/* the lid, standing up behind the base */
+.dbox__lid {
+  position: absolute; left: 14px; right: 14px; top: 0; height: 108px;
+  border-radius: 18px 18px 0 0;
+  background: var(--ink); color: var(--white);
+  transform: perspective(900px) rotateX(34deg); transform-origin: bottom center;
+  display: flex; align-items: flex-start; justify-content: center; padding-top: 12px;
+}
+.dbox__lid span {
+  font-family: var(--label); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.18em; font-size: 13px; color: var(--sunshine);
+}
+
+.dbox__base {
+  position: relative;
+  background: var(--cream);
+  border: 3px solid var(--border);
+  border-radius: 8px 8px 20px 20px;
+  padding: 16px;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;
+}
+.dslot {
+  position: relative; aspect-ratio: 1; border-radius: 50%;
+  background: var(--sky-wash);
+  display: grid; place-items: center;
+  border: 0; padding: 0; cursor: default;
+  -webkit-tap-highlight-color: transparent;
+}
+.dslot--filled { cursor: pointer; background: var(--sunshine-wash); }
+.dslot img { width: 92%; height: 92%; object-fit: contain; }
+.dslot--filled:hover { transform: rotate(-6deg) scale(1.06); }
+.dslot { transition: transform var(--snap-card); }
+.dslot:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+.dslot.is-landing { animation: land 380ms cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes land {
+  from { transform: translateY(-46px) rotate(-24deg) scale(.7); }
+  to   { transform: none; }
+}
+
+.dbox__band {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+  margin-top: 18px;
+}
+.dbox__count { font-family: var(--display); font-weight: 700; font-size: 40px; line-height: 1; color: var(--ink); margin: 0; }
+.dbox__of { font-family: var(--label); font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; color: var(--label-muted); }
+.dbox__total { font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: 15px; color: var(--magenta); }
+.dbox__quip { font-size: 16px; color: var(--body-alt); min-height: 3.2em; margin: 12px 0 20px; }
+.dbox__acts { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.dbox__reset {
+  font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  font-size: 13px; color: var(--body-alt); cursor: pointer;
+}
+.dbox__reset:hover { text-decoration: underline; }
+
+/* ==========================================================================
+   THE INDECISION MACHINE — three reels, one lever, a donut that rolls out
+   ========================================================================== */
+.section--magenta { background: var(--magenta-wash); }
+.machine { display: grid; grid-template-columns: minmax(0, 1fr) 430px; gap: 52px; align-items: center; }
+.machine h2 { color: var(--magenta-deepest); margin-bottom: 14px; }
+.machine .lede { color: var(--magenta-deep); margin-bottom: 28px; }
+.verdict {
+  font-family: var(--display); font-weight: 700; font-size: clamp(23px, 2.9vw, 31px); line-height: 1.06;
+  color: var(--magenta-deepest); margin: 28px 0 0; min-height: 2.2em;
+}
+
+.slotm { position: relative; padding: 30px 30px 26px; }
+.slotm__ground {
+  position: absolute; inset: 0; border-radius: var(--radius-card);
+  background: var(--white); transform: var(--shape-card); transform-origin: center;
+}
+.slotm > *:not(.slotm__ground) { position: relative; }
+
+.slotm__head {
+  font-family: var(--label); font-weight: 700; text-transform: uppercase;
+  letter-spacing: .16em; font-size: 12px; color: var(--magenta); text-align: center;
+  margin-bottom: 14px;
+}
+.slotm__body { display: flex; align-items: stretch; gap: 18px; }
+.reels {
+  flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+  background: var(--ink); padding: 10px; border-radius: 16px;
+}
+.reel { height: 118px; overflow: hidden; border-radius: 12px; background: var(--cream); }
+.reel__track { display: block; will-change: transform; }
+.reel__track img { width: 100%; height: 118px; object-fit: contain; padding: 9px; }
+.reel.is-spinning .reel__track { animation: reelspin 380ms linear infinite; }
+@keyframes reelspin { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+
+/* the lever */
+.lever { position: relative; width: 34px; cursor: pointer; border: 0; background: none; padding: 0; }
+.lever__rail { position: absolute; left: 13px; top: 8px; bottom: 8px; width: 8px; border-radius: 4px; background: var(--magenta-light); }
+.lever__knob {
+  position: absolute; left: 0; top: 4px; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--magenta);
+  transition: transform 200ms cubic-bezier(.34, 1.56, .64, 1);
+}
+.lever:hover .lever__knob { transform: translateY(6px); }
+.lever.is-pulled .lever__knob { transform: translateY(56px); }
+.lever:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; border-radius: 20px; }
+
+/* the chute the donut rolls out of */
+.chute { position: relative; height: 128px; margin-top: 8px; }
+.chute__mouth {
+  position: absolute; left: 30px; right: 30px; top: 0; height: 12px;
+  border-radius: 6px; background: var(--magenta-wash);
+}
+.chute__donut {
+  position: absolute; left: 50%; top: 4px; width: 96px; height: 96px;
+  object-fit: contain; margin-left: -48px; visibility: hidden;
+}
+.chute__caption { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; }
+.chute__name { font-family: var(--display); font-weight: 700; font-size: 24px; line-height: 1.04; color: var(--ink); }
+.chute__price { font-family: var(--label); font-weight: 700; letter-spacing: .1em; font-size: 14px; color: var(--magenta); text-transform: uppercase; }
+
+.wedge[hidden] { display: none; }
+.machine__acts { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+
+/* --- Excuses -------------------------------------------------------------- */
+.excuses { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.excuse {
+  position: relative; padding: 30px 28px 32px; min-height: 212px;
+  display: flex; flex-direction: column;
+  transition: transform var(--snap-card);
+}
+.excuse__ground {
+  position: absolute; inset: 0; border-radius: var(--radius-card);
+  background: var(--fam-light); transform: var(--shape-card); transform-origin: center;
+}
+.excuse > *:not(.excuse__ground) { position: relative; }
+.excuse__no { font-family: var(--label); font-weight: 700; letter-spacing: .12em; font-size: 13px; color: var(--fam-deep); text-transform: uppercase; margin-bottom: 14px; }
+.excuse h3 { font-family: var(--display); font-weight: 700; font-size: 27px; line-height: 1.04; color: var(--fam-deepest); margin: 0 0 12px; }
+.excuse p { font-size: 15px; color: var(--fam-deep); margin: 0; }
+.excuse:hover { transform: scale(1.03) rotate(-1deg); }
+
+/* --- Responsive ---------------------------------------------------------- */
+@media (max-width: 1023px) {
+  .builder { grid-template-columns: minmax(0, 1fr); gap: 34px; }
+  .boxwrap { position: relative; top: 0; max-width: 420px; }
+  .machine { grid-template-columns: minmax(0, 1fr); }
+  .excuses { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  .hero__stamp { right: 0; top: -18px; width: 96px; height: 96px; font-size: 12px; }
+  .shelf { min-height: 112px; }
+  .shelf__donut img, .hero--case .shelf:nth-child(2) .shelf__donut img { width: 96px; height: 96px; }
+}
+@media (max-width: 639px) {
+  .tray { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .excuses { grid-template-columns: minmax(0, 1fr); }
+  .marquee__track span { font-size: 16px; }
+  .dbox__base { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .reel { height: 96px; }
+  .reel__track img { height: 96px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee__track { animation: none; }
+  .hero__stamp, .shelf__donut.is-spun, .pick.is-added, .dslot.is-landing { animation: none; }
+  .reel.is-spinning .reel__track { animation: none; }
+  .roller__track, .lever__knob { transition: none; }
+  .sprinkle { display: none; }
+}
+
+
+/* ==========================================================================
+   React Bits mounts — section chrome only; the components carry their own CSS
+   ========================================================================== */
+.section--cream { background: var(--cream); }
+.section--sun { background: var(--sunshine-wash); }
+.section__head--center { margin-inline: auto; text-align: center; }
+
+@media (max-width: 860px) {
+  }
+@media (prefers-reduced-motion: reduce) {
+  }
+
+
+/* ==========================================================================
+   HERO (React Bits Pro hero-24, rebuilt)
+   Full bleed, never cropped. The photograph is laid in at its own aspect
+   ratio (1824 x 1024) and the copy sits in the empty left third it already
+   carries — no scrim, no gradient, no cover-crop.
+   ========================================================================== */
+.hero24 {
+  position: relative; background: var(--white);
+  /* shared by the copy column and the fade below, so the fade starts at
+     exactly the text box's own right edge — nowhere else */
+  --hero-pad: clamp(26px, 5vw, 92px);
+  --hero-copy-w: min(40%, 580px);
+}
+
+.hero24__photo { display: block; }
+.hero24__photo img { display: block; width: 100%; height: auto; }
+
+/* A short blend from the page ground into the photograph, beginning at
+   calc(--hero-pad + --hero-copy-w) — the copy column's own right edge —
+   and finishing 160px later. Not a scrim over the image; the image is
+   untouched past that point. */
+.hero24__fade {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(
+    to right,
+    var(--white) 0,
+    var(--white) calc(var(--hero-pad) + var(--hero-copy-w)),
+    transparent calc(var(--hero-pad) + var(--hero-copy-w) + 160px)
+  );
+}
+
+.hero24__in {
+  position: absolute; inset: 0; z-index: 2;
+  width: 100%; padding-inline: var(--hero-pad);
+  display: grid; align-items: center;
+  pointer-events: none;                 /* only the controls take clicks */
+}
+.hero24__copy {
+  display: flex; flex-direction: column; align-items: flex-start; text-align: left;
+  /* the photograph's clear area runs to about 48% of its width */
+  width: var(--hero-copy-w);
+  pointer-events: auto;
+}
+.hero24 h1.display { color: var(--ink); font-size: clamp(26px, 3.4vw, 56px); }
+.hero24 .lede { color: var(--body); font-size: clamp(14px, 1.15vw, 19px); }
+.hero24 .now__msg { display: inline-block; vertical-align: middle; }
+
+/* Under 900px the photograph stops being a backdrop and simply leads the
+   section, still whole, with the copy underneath it. */
+@media (max-width: 900px) {
+  .hero24 { padding-bottom: 44px; }
+  .hero24__fade { display: none; }
+  .hero24__in { position: static; inset: auto; margin-top: 30px; }
+  .hero24__copy { width: 100%; }
+  .hero24 h1.display { font-size: clamp(34px, 8vw, 46px); }
+  .hero24 .lede { font-size: 17px; }
+}
+
+/* --- the sprinkle button, with its ring of words ------------------------- */
+.sprinkler { position: relative; display: inline-grid; place-items: center; width: 120px; height: 120px; }
+.sprinkler__ring {
+  position: absolute; inset: 0; width: 120px; height: 120px;
+  pointer-events: none;
+  fill: var(--magenta);
+  font-family: var(--label); font-weight: 700; font-size: 11.5px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  visibility: hidden;
+  transform: rotate(0deg);
+  transition: transform 600ms cubic-bezier(.2, .8, .3, 1);
+}
+.sprinkler:hover .sprinkler__ring,
+.sprinkler:focus-within .sprinkler__ring { visibility: visible; transform: rotate(360deg); }
+
+.sprinkler__btn {
+  position: relative; z-index: 1;
+  width: 58px; height: 58px; border-radius: 50%; border: 0;
+  background: var(--sunshine); color: var(--sunshine-deepest);
+  display: grid; place-items: center; cursor: pointer;
+  transition: transform var(--snap);
+  -webkit-tap-highlight-color: transparent;
+}
+.sprinkler__btn svg { width: 26px; height: 26px; fill: currentColor; }
+.sprinkler__btn:hover { transform: scale(1.08) rotate(-6deg); }
+.sprinkler__btn:active { transform: translate(4px, 4px); }
+.sprinkler__btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 5px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sprinkler__ring { transition: none; }
+}
+
+
+/* ==========================================================================
+   DONUT SLIDER (React Bits Pro showcase-6, rebuilt)
+   ========================================================================== */
+.slider__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; flex-wrap: wrap; margin-bottom: 34px; }
+.slider__head h2 { color: var(--ink); margin-top: 4px; }
+.slider__nav { display: flex; align-items: center; gap: 12px; }
+.slider__count { font-family: var(--label); font-weight: 500; text-transform: uppercase; letter-spacing: .14em; font-size: 12px; color: var(--sunshine-deep); margin-right: 6px; }
+
+.railbtn {
+  width: 52px; height: 52px; border: 0; border-radius: 50%;
+  background: var(--ink); color: var(--white);
+  display: grid; place-items: center; cursor: pointer;
+  transition: transform var(--snap), background-color 140ms linear;
+}
+.railbtn svg { width: 22px; height: 22px; }
+.railbtn:hover { transform: scale(1.08) rotate(-4deg); }
+.railbtn:active { transform: translate(3px, 3px); }
+.railbtn:disabled { background: var(--sunshine-light); color: var(--sunshine-deep); cursor: not-allowed; transform: none; }
+.railbtn:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+
+.slider {
+  display: flex; gap: 22px;
+  overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  padding: 10px max(28px, calc((100vw - var(--maxw)) / 2 + 28px)) 24px;
+  scrollbar-width: none;
+}
+.slider::-webkit-scrollbar { display: none; }
+
+.slidecard {
+  position: relative; flex: 0 0 254px; scroll-snap-align: start;
+  border: 0; background: none; padding: 20px 18px 22px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 14px; text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.slidecard__ground {
+  position: absolute; inset: 0; border-radius: var(--radius-card);
+  background: var(--fam-light); transform: var(--shape-card); transform-origin: center;
+}
+.slidecard__art { position: relative; display: grid; place-items: center; height: 186px; }
+.slidecard__art img { width: 174px; height: 174px; object-fit: contain; }
+.slidecard__foot { position: relative; display: flex; flex-direction: column; gap: 6px; }
+.slidecard__name { font-family: var(--display); font-weight: 700; font-size: 21px; line-height: 1.05; color: var(--fam-deepest); }
+.slidecard__price { font-family: var(--label); font-weight: 700; letter-spacing: .1em; font-size: 14px; color: var(--fam-deep); }
+.slidecard:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+
+/* ==========================================================================
+   PRODUCT CABINET (React Bits Pro ecommerce-4, rebuilt as a slide-out)
+   ========================================================================== */
+.cabinet { position: fixed; inset: 0; z-index: 120; display: flex; justify-content: flex-end; }
+.cabinet__scrim { position: absolute; inset: 0; border: 0; padding: 0; cursor: pointer; background: rgba(27, 58, 75, 0.55); }
+.cabinet__panel {
+  position: relative; width: min(470px, 100%); height: 100%;
+  background: var(--cream); overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.cabinet__close {
+  position: absolute; top: 18px; right: 18px; z-index: 2;
+  width: 44px; height: 44px; border: 0; border-radius: 50%;
+  background: var(--ink); color: var(--white);
+  display: grid; place-items: center; cursor: pointer;
+  transition: transform var(--snap);
+}
+.cabinet__close svg { width: 20px; height: 20px; }
+.cabinet__close:hover { transform: scale(1.08) rotate(-6deg); }
+.cabinet__close:focus-visible { outline: 3px solid var(--sunshine); outline-offset: 3px; }
+
+.cabinet__art { background: var(--fam-wash); display: grid; place-items: center; padding: 44px 24px 34px; }
+.cabinet__art img { width: 260px; height: 260px; object-fit: contain; }
+
+.cabinet__body { padding: 30px 30px 40px; }
+.cabinet__name { font-size: 34px; line-height: 1.03; color: var(--ink); margin: 0 0 6px; }
+.cabinet__sub { font-family: var(--label); font-weight: 500; text-transform: uppercase; letter-spacing: .14em; font-size: 12px; color: var(--label-muted); margin: 0 0 12px; }
+.cabinet__price { font-family: var(--label); font-weight: 700; letter-spacing: .1em; font-size: 22px; color: var(--magenta); margin: 0 0 20px; }
+
+.cabinet__facts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+.cabinet__facts span {
+  font-family: var(--label); font-weight: 500; text-transform: uppercase;
+  letter-spacing: .12em; font-size: 10.5px;
+  padding: 7px 11px; border-radius: 8px;
+  background: var(--sky-wash); color: var(--sky-deep);
+}
+
+.cabinet__acts { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; margin-bottom: 30px; }
+.cabinet__add {
+  width: 100%; border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 18px 22px; border-radius: 999px;
+  background: var(--ink); color: var(--white);
+  font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: 16px;
+  transition: transform var(--snap), background-color 140ms linear;
+}
+.cabinet__add svg { width: 18px; height: 18px; }
+.cabinet__add:hover { transform: scale(1.02) rotate(-0.6deg); }
+.cabinet__add:disabled { background: var(--border); color: var(--label-muted); cursor: not-allowed; transform: none; }
+.cabinet__add:focus-visible { outline: 3px solid var(--magenta); outline-offset: 4px; }
+
+.cabinet__sections { border-top: 2px solid var(--border); }
+.cabinet__row {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 17px 0; cursor: pointer; border: 0; border-bottom: 2px solid var(--border);
+  font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  font-size: 15px; color: var(--ink);
+}
+.cabinet__row svg { width: 17px; height: 17px; transition: transform 200ms cubic-bezier(.2,.8,.3,1); }
+.cabinet__row svg[data-open="true"] { transform: rotate(45deg); }
+.cabinet__copy { font-size: 15px; color: var(--body-alt); padding: 4px 0 18px; margin: 0; }
+
+@media (max-width: 639px) {
+  .slidecard { flex: 0 0 210px; }
+  .slidecard__art { height: 150px; }
+  .slidecard__art img { width: 140px; height: 140px; }
+  .cabinet__art img { width: 200px; height: 200px; }
+}
+
+
+/* ==========================================================================
+   REASONS (React Bits Pro features-12, rebuilt)
+   ========================================================================== */
+.excuse--tall { min-height: 340px; justify-content: space-between; }
+.excuse__icon { display: inline-flex; color: var(--fam-deepest); }
+.excuse__icon svg { width: 34px; height: 34px; }
+.excuse__foot { margin-top: auto; padding-top: 40px; }
+.excuse--tall p { font-size: 15.5px; }
+
+/* ==========================================================================
+   VISIT (React Bits Pro contact-9, rebuilt) — details left, live map right
+   ========================================================================== */
+.contact9 { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 26px; align-items: stretch; }
+
+.contact9__panel {
+  position: relative; padding: 38px 36px 40px;
+  border-radius: var(--radius-card); background: var(--sky-wash);
+  display: flex; flex-direction: column;
+}
+.contact9__badge {
+  display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+  font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .16em;
+  font-size: 11.5px; color: var(--sky-deep);
+  padding: 8px 14px; border-radius: 999px; border: 2px solid var(--sky-light);
+  margin-bottom: 20px;
+}
+.contact9__badge svg { width: 14px; height: 14px; }
+.contact9__panel h2 { color: var(--ink); margin-bottom: 14px; }
+.contact9__panel .lede { color: var(--sky-deep); margin-bottom: 30px; }
+
+.contact9__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 26px; margin-bottom: 30px; }
+.contact9__label {
+  font-family: var(--label); font-weight: 500; text-transform: uppercase; letter-spacing: .16em;
+  font-size: 11px; color: var(--label-muted); margin: 0 0 6px;
+}
+.contact9__grid p { font-size: 15.5px; color: var(--ink); margin: 0; }
+.contact9__grid a { color: var(--magenta); text-decoration: none; }
+.contact9__grid a:hover { text-decoration: underline; }
+
+.contact9__hours { border-top: 2px solid var(--sky-light); padding-top: 22px; margin-bottom: 30px; }
+.contact9__now { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.contact9__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  padding: 7px 10px; border-radius: 8px; font-size: 15px; color: var(--sky-deep);
+}
+.contact9__row span:last-child { font-family: var(--label); font-weight: 700; letter-spacing: .06em; color: var(--ink); }
+.contact9__row[data-today="true"] { background: var(--sunshine-light); color: var(--sunshine-deepest); }
+.contact9__row[data-today="true"] span:last-child { color: var(--sunshine-deepest); }
+
+.contact9__acts { margin-top: auto; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.contact9__call {
+  display: inline-flex; align-items: center; gap: 9px; text-decoration: none;
+  font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  font-size: 15px; color: var(--ink);
+}
+.contact9__call svg { width: 17px; height: 17px; }
+.contact9__call:hover { text-decoration: underline; }
+
+.contact9__map { position: relative; border-radius: var(--radius-card); overflow: hidden; min-height: 520px; background: var(--sky-light); }
+.contact9__map iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.contact9__maplink {
+  position: absolute; left: 20px; bottom: 20px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 9px; text-decoration: none;
+  padding: 13px 19px; border-radius: 12px;
+  background: var(--ink); color: var(--white);
+  font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: 13px;
+  transition: transform var(--snap);
+}
+.contact9__maplink svg { width: 15px; height: 15px; }
+.contact9__maplink:hover { transform: scale(1.05) rotate(-1deg); }
+
+/* ==========================================================================
+   FOOTER (React Bits Pro footer-5, rebuilt on Deep Ink)
+   ========================================================================== */
+.foot5 { background: var(--cream); padding: 40px 0 30px; }
+.foot5__panel {
+  position: relative; overflow: hidden;
+  border-radius: var(--radius-sheet); background: var(--ink);
+  padding: 52px 48px 96px;
+}
+.foot5__bars { position: absolute; inset: auto 0 0 0; display: flex; align-items: flex-end; pointer-events: none; }
+.foot5__bars span { flex: 1; display: block; background: var(--fam); }
+
+.foot5__grid { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr); gap: 48px; }
+.foot5__brand img { width: 220px; margin-bottom: 22px; }
+.foot5__brand p { color: #A9C3D0; font-size: 16px; max-width: 38ch; }
+.foot5__icons { display: flex; gap: 12px; margin-top: 26px; }
+.foot5__icons span {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--sunshine); color: var(--sunshine-deepest);
+  display: grid; place-items: center;
+}
+.foot5__icons svg { width: 21px; height: 21px; }
+
+.foot5__cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+.foot5__cols h3 {
+  font-family: var(--label); font-weight: 700; text-transform: uppercase; letter-spacing: .16em;
+  font-size: 13px; color: var(--sunshine); margin: 0 0 16px;
+}
+.foot5__cols li { margin-bottom: 11px; }
+.foot5__cols a { color: #D6E4EC; text-decoration: none; font-size: 15.5px; }
+.foot5__cols a:hover { color: var(--sunshine); }
+
+.foot5__base {
+  display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  padding-top: 22px; font-size: 13.5px; color: var(--label-muted);
+}
+
+@media (max-width: 1023px) {
+  .contact9 { grid-template-columns: minmax(0, 1fr); }
+  .contact9__map { min-height: 380px; }
+  .foot5__grid { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+}
+@media (max-width: 639px) {
+  .contact9__grid { grid-template-columns: minmax(0, 1fr); }
+  .foot5__panel { padding: 40px 26px 80px; }
+  .foot5__cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+
+/* ==========================================================================
+   Ground policy: white by default, tint reserved for the major beats
+   ========================================================================== */
+.section { background: var(--white); }
+.section--sky { background: var(--sky-wash); }
+.section--sun { background: var(--sunshine-wash); }
+.section--magenta { background: var(--magenta-wash); }
+.section--cream { background: var(--cream); }
+.section--ink { background: var(--ink); }
+.foot5 { background: var(--white); }
+.masthead { background: var(--sky); }
+
+/* Preheaders sit at 14pt, so nothing on the page reads as micro-type. */
+.slider__count, .cat__count, .contact9__label, .excuse__no, .now__msg,
+.dbox__of, .shelf__meta, .cabinet__sub {
+  font-size: 14px; letter-spacing: 0.12em;
+}
+.eyebrow { line-height: 1.2; }
+.pick__name { font-size: 12.5px; }
+.cabinet__facts span { font-size: 12px; }
+.slotm__head { font-size: 14px; }
+
+/* ==========================================================================
+   COUNTER (categories) — two prominent columns, product clear of the words
+   ========================================================================== */
+.cats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px; }
+.cat { min-height: 268px; padding: 36px; }
+.cat__name { font-size: 34px; }
+
+@media (max-width: 860px) {
+  .cats { grid-template-columns: minmax(0, 1fr); }
+  .cat { min-height: 230px; padding: 28px; }
+  .cat img { width: 168px; height: 168px; right: 12px; }
+  .cat > span:last-child { max-width: calc(100% - 180px); }
+}
+
+
+/* --- Ground corrections -------------------------------------------------- */
+/* The slider and the reasons block sit on white; tint stays on the box
+   builder, the machine, the printing band and the ink panel. */
+#flavours.section--sun { background: var(--white); }
+#reasons.section--sky { background: var(--white); }
+
+/* ==========================================================================
+   COUNTER TILES
+   Plain white at rest — no outline, no panel. On hover the family light tone
+   fills the tile, the card twists and the product grows past the edge.
+   The cutout is never cropped.
+   ========================================================================== */
+.cat {
+  align-items: stretch; justify-content: center;
+  border: 0;
+  transition: transform var(--snap-card);
+}
+.cat .cat__ground {   /* specificity must beat `.cat span { position: relative }` */
+  display: block;
+  position: absolute; inset: 0;
+  border-radius: var(--radius-card);
+  background: transparent;
+  transform: none;
+  transition: background-color 160ms linear;
+  z-index: 0;
+}
+.cat:hover .cat__ground,
+.cat:focus-visible .cat__ground { background-color: var(--fam-light); }
+.cat > span:last-child { z-index: 3; }        /* the words sit above the panel */
+
+/* the product owns the right of the tile and grows past its edge on hover */
+.cat img { right: 16px; width: 224px; height: 224px; }
+.cat:hover img, .cat:focus-visible img { transform: translateY(-52%) rotate(-3deg) scale(1.12); }
+
+/* names and counts stay legible on both grounds */
+.cat:hover .cat__name, .cat:focus-visible .cat__name { color: var(--fam-deepest); }
+.cat:hover .cat__count, .cat:focus-visible .cat__count { color: var(--fam-deep); }

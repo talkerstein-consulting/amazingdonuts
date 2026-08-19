@@ -1,0 +1,286 @@
+/* ==========================================================================
+   Build your own product
+   Same language as the rest: flat colour, skewed grounds, no shadows, snap +
+   twist. Availability is shown, never hidden — a chip that cannot be had says
+   so on its face.
+   ========================================================================== */
+
+@keyframes bldPop {
+  0%   { transform: scale(calc(var(--baseScale, 1) * .94)) rotate(-3deg); }
+  60%  { transform: scale(calc(var(--baseScale, 1) * 1.03)) rotate(1.2deg); }
+  100% { transform: scale(var(--baseScale, 1)) rotate(0deg); }
+}
+@keyframes bldDrop {
+  0%   { transform: scale(var(--baseScale, 1)) translateY(-14px) rotate(-8deg); }
+  100% { transform: scale(var(--baseScale, 1)) translateY(0) rotate(0deg); }
+}
+/* A new icing grows in from the centre instead of the whole build jumping. */
+@keyframes bldIris {
+  from { clip-path: circle(0% at 50% 50%); }
+  to   { clip-path: circle(75% at 50% 50%); }
+}
+
+.bld { padding: 96px 28px; background: var(--cream); }
+.bld__in { max-width: var(--maxw); margin: 0 auto; }
+
+.bld__head { max-width: 660px; margin: 0 0 46px; }
+.bld__eyebrow {
+  font-family: var(--label); font-weight: 500; font-size: 14px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--magenta-deep); margin: 0 0 14px;
+}
+.bld__head h2 {
+  font-family: var(--display); font-weight: 700; font-size: 56px; line-height: .98;
+  color: var(--magenta-deep); margin: 0 0 18px;
+}
+.bld__body {
+  font-family: var(--text); font-size: 19px; line-height: 1.55; color: var(--body);
+  margin: 0; text-wrap: pretty;
+}
+
+.bld__grid {
+  display: grid; grid-template-columns: 440px minmax(0, 1fr); gap: 48px; align-items: start;
+}
+
+/* --- stage ---------------------------------------------------------------- */
+.bld__stageWrap { position: sticky; top: 28px; }
+
+.bld__stage {
+  position: relative; padding: 30px 30px 26px; border-radius: var(--radius-card);
+  display: flex; flex-direction: column; align-items: center;
+}
+.bld__ground {
+  /* Fixed regardless of the chosen base's family — the stage should not
+     flash a new colour every time someone taps a different shape. */
+  position: absolute; inset: 0; border-radius: var(--radius-card);
+  background: var(--sunshine-wash); transform: var(--shape-card);
+}
+
+.bld__art {
+  --baseScale: 1;
+  position: relative; width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: center;
+  transform: scale(var(--baseScale));
+  transform-origin: 50% 50%;
+  transition: transform 420ms cubic-bezier(.34, 1.56, .64, 1);
+  animation: bldDrop 260ms cubic-bezier(.34, 1.56, .64, 1);
+}
+.bld__art.is-pop { animation: bldPop 420ms cubic-bezier(.34, 1.56, .64, 1); }
+.bld__layer {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; user-select: none; -webkit-user-drag: none;
+}
+/* Icing grows in with an iris-peel instead of the build cutting to the new
+   colour — the shape underneath still shows while it opens. */
+.bld__icing { animation: bldIris 480ms cubic-bezier(.65, 0, .35, 1); }
+
+/* Sprinkle preview — real per-shape art is still being drawn, so this scatters
+   the sprinkle's own colours and shape right over the build to see whether the
+   coverage reads before that art exists. */
+.bld__overlay { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
+.bld__overlay i { position: absolute; display: block; box-shadow: 0 1px 0 rgb(0 0 0 / .18); }
+.bld__overlay.mk--jimmy i { width: 5.5%; height: 2.1%; border-radius: 2px; }
+.bld__overlay.mk--flake i { width: 3.6%; height: 3.6%; border-radius: 1px; }
+.bld__overlay.mk--bead  i { width: 3.6%; height: 3.6%; border-radius: 50%; }
+.bld__overlay.mk--swirl i { width: 7%;   height: 7%;   border-radius: 50% 50% 45% 45%; }
+
+/* the uploaded print sits between icing and sprinkles, clipped to its disc */
+.bld__print { display: grid; place-items: center; pointer-events: none; }
+.bld__printDisc {
+  width: 34%; aspect-ratio: 1 / 1; border-radius: 50%;
+  background: var(--white); border: 3px dashed var(--fam-deep);
+  display: grid; place-items: center;
+  font-family: var(--label); font-weight: 700; font-size: 13px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--fam-deep);
+  transform: translateY(-6%) perspective(600px) rotateX(52deg);
+}
+
+.bld__read {
+  position: relative; margin: 14px 0 0; text-align: center;
+  font-family: var(--text); font-size: 16px; line-height: 1.45; color: var(--fam-deep);
+  text-wrap: pretty; min-height: 46px;
+}
+
+.bld__stageActs {
+  display: flex; align-items: center; gap: 16px; justify-content: center; margin-top: 18px;
+}
+.bld__plain {
+  border: 0; background: none; cursor: pointer; padding: 6px 2px;
+  font-family: var(--label); font-weight: 500; font-size: 13px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--body-alt);
+  border-bottom: 2px solid var(--border);
+}
+.bld__plain:hover { color: var(--ink); border-bottom-color: var(--ink); }
+.bld__plain:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+/* --- steps ---------------------------------------------------------------- */
+.bld__steps { display: flex; flex-direction: column; gap: 34px; }
+
+.bld__step { border-top: 2px solid var(--border); padding-top: 22px; }
+.bld__step.is-shut { border-top-color: #F3EADA; }
+
+.bld__stepH {
+  display: flex; align-items: center; gap: 12px; margin: 0 0 6px;
+  font-family: var(--display); font-weight: 700; font-size: 28px; line-height: 1.05;
+  color: var(--ink);
+}
+.bld__stepH i {
+  width: 30px; height: 30px; flex: none; border-radius: 50%; background: var(--sunshine);
+  display: grid; place-items: center; font-style: normal;
+  font-family: var(--label); font-weight: 700; font-size: 15px; color: var(--sunshine-deepest);
+}
+.is-shut .bld__stepH { color: var(--label-muted); }
+.is-shut .bld__stepH i { background: var(--border); color: var(--label-muted); }
+
+.bld__gate, .bld__tag, .bld__why {
+  font-family: var(--label); font-weight: 500; font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; font-style: normal;
+}
+.bld__gate { margin-left: auto; color: var(--label-muted); }
+
+.bld__stepNote {
+  font-family: var(--text); font-size: 15px; line-height: 1.5; color: var(--body-alt);
+  margin: 0 0 16px;
+}
+.bld__shutNote {
+  font-family: var(--text); font-size: 15px; line-height: 1.5; color: var(--label-muted);
+  margin: 0; max-width: 520px; text-wrap: pretty;
+}
+
+.bld__row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* chips */
+.bld__chip {
+  position: relative; display: inline-flex; align-items: center; gap: 9px;
+  padding: 10px 15px; border: 2px solid var(--border); background: var(--white);
+  border-radius: 999px; cursor: pointer;
+  font-family: var(--label); font-weight: 700; font-size: 13px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--body);
+  transition: transform var(--snap), background-color 120ms linear, border-color 120ms linear;
+  -webkit-tap-highlight-color: transparent;
+}
+.bld__chip:hover:not(:disabled) { transform: scale(1.05) rotate(-1deg); border-color: var(--ink); }
+.bld__chip:active:not(:disabled) { transform: translate(2px, 2px) scale(1); }
+.bld__chip.is-on { background: var(--ink); border-color: var(--ink); color: var(--white); }
+.bld__chip:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.bld__chip.is-off {
+  cursor: not-allowed; background: #F6EFE2; border-color: #F0E6D3; color: var(--label-muted);
+  padding-right: 13px;
+}
+.bld__why { margin-left: 4px; color: var(--magenta-deep); }
+.bld__tag { margin-left: 2px; color: var(--sunshine-deep); }
+.bld__chip.is-on .bld__tag { color: var(--sunshine-light); }
+
+.bld__dot {
+  width: 18px; height: 18px; border-radius: 50%; flex: none;
+  border: 2px solid rgb(27 58 75 / .18);
+}
+.bld__chipNone {
+  width: 18px; height: 18px; border-radius: 50%; flex: none; position: relative;
+  border: 2px dashed currentColor;
+}
+
+/* sprinkle marks drawn in CSS while the art is being finished */
+.bld__marks { position: relative; width: 22px; height: 18px; flex: none; display: block; }
+.bld__marks i { position: absolute; display: block; border-radius: 2px; }
+.bld__marks--jimmy i { width: 7px; height: 2.5px; }
+.bld__marks--flake i { width: 5px; height: 5px; border-radius: 1px; }
+.bld__marks--bead  i { width: 5px; height: 5px; border-radius: 50%; }
+.bld__marks--swirl i { width: 8px; height: 8px; border-radius: 50% 50% 45% 45%; }
+.bld__pending .bld__marks { width: 26px; height: 20px; }
+
+/* base cards */
+.bld__row--bases { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.bld__base {
+  position: relative; border: 2px solid var(--border); background: var(--white);
+  border-radius: 18px; padding: 12px 10px 13px; cursor: pointer; text-align: left;
+  display: flex; flex-direction: column; gap: 2px;
+  transition: transform var(--snap-card), border-color 120ms linear, background-color 120ms linear;
+  -webkit-tap-highlight-color: transparent;
+}
+.bld__baseArt {
+  display: block; height: 62px; margin-bottom: 6px;
+  background-repeat: no-repeat; background-position: center; background-size: contain;
+}
+.bld__baseName {
+  font-family: var(--label); font-weight: 700; font-size: 12px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink);
+}
+.bld__baseNote {
+  font-family: var(--text); font-size: 11.5px; line-height: 1.35; color: var(--label-muted);
+}
+.bld__base:hover { transform: scale(1.04) rotate(-1deg); border-color: var(--ink); }
+.bld__base:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.bld__base.is-on { border-color: transparent; background: var(--fam-light); }
+.bld__base.is-on .bld__baseName,
+.bld__base.is-on .bld__baseNote { color: var(--fam-deep); }
+
+/* colour comment — the sheet asks for room to say which colours */
+.bld__ask { display: block; margin-top: 16px; max-width: 460px; }
+.bld__askH {
+  display: block; margin-bottom: 7px;
+  font-family: var(--label); font-weight: 500; font-size: 12px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--magenta-deep);
+}
+.bld__ask input {
+  width: 100%; padding: 12px 14px; border: 2px solid var(--border); border-radius: 12px;
+  background: var(--white); font-family: var(--text); font-size: 15px; color: var(--ink);
+}
+.bld__ask input:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; border-color: var(--ink); }
+
+/* print upload */
+.bld__upload { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.bld__drop {
+  display: inline-flex; align-items: center; gap: 14px; cursor: pointer;
+  padding: 14px 20px 14px 14px; border: 2px dashed var(--sky); border-radius: 16px;
+  background: var(--sky-wash);
+  transition: transform var(--snap), background-color 120ms linear;
+  text-align: left;
+}
+.bld__drop:hover { transform: scale(1.02) rotate(-.6deg); background: #D8EBF6; }
+.bld__drop:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.bld__dropDisc {
+  width: 42px; height: 42px; flex: none; border-radius: 50%;
+  border: 3px dashed var(--sky-deep); background: var(--white);
+}
+.bld__drop span {
+  display: flex; flex-direction: column; gap: 3px;
+  font-family: var(--label); font-weight: 700; font-size: 14px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--sky-deep);
+}
+.bld__drop em {
+  font-family: var(--text); font-weight: 400; font-size: 12.5px; letter-spacing: 0;
+  text-transform: none; font-style: normal; color: var(--body-alt);
+}
+
+/* foot */
+.bld__foot {
+  border-top: 2px solid var(--border); padding-top: 22px;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+}
+.bld__summary {
+  margin: 0; flex: 1 1 260px; text-wrap: pretty;
+  font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.15;
+  color: var(--ink);
+}
+.bld__acts { display: flex; gap: 12px; flex-wrap: wrap; }
+
+/* --- responsive ----------------------------------------------------------- */
+@media (max-width: 1040px) {
+  .bld__grid { grid-template-columns: minmax(0, 1fr); gap: 34px; }
+  .bld__stageWrap { position: static; max-width: 420px; margin: 0 auto; }
+  .bld__row--bases { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .bld { padding: 64px 20px; }
+  .bld__head h2 { font-size: 40px; }
+  .bld__body { font-size: 17px; }
+  .bld__row--bases { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bld__stepH { font-size: 24px; }
+  .bld__gate { margin-left: 0; flex-basis: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bld__art, .bld__art.is-pop { animation: none; transition: none; }
+  .bld__icing { animation: none; }
+  .bld__chip, .bld__base, .bld__drop { transition: background-color 120ms linear, border-color 120ms linear; }
+  .bld__chip:hover:not(:disabled), .bld__base:hover, .bld__drop:hover { transform: none; }
+}
