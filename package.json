@@ -5,6 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "node --watch server/index.js",
+    "start:api": "node server/index.js",
+    "db:migrate": "node server/scripts/migrate.js",
+    "data:analyze": "node server/scripts/analyze-legacy-data.js",
+    "catalog:import": "node server/scripts/import-square-catalog.js",
+    "test": "node --test server/test/*.test.js",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"
@@ -13,13 +19,21 @@
     "@paper-design/shaders-react": "^0.0.80",
     "@tailwindcss/vite": "^4.3.3",
     "clsx": "^2.1.1",
+    "cors": "^2.8.6",
+    "csv-parse": "^7.0.2",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
     "gsap": "^3.15.0",
+    "helmet": "^8.3.0",
     "lucide-react": "^1.32.0",
     "motion": "^13.1.0",
+    "pg": "^8.23.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tailwind-merge": "^3.6.0",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

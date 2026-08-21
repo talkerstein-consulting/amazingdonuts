@@ -11,5 +11,8 @@ export default defineConfig({
     // honour the harness's assigned port instead of Vite's own 5173 default
     port: Number(process.env.PORT) || 5173,
     strictPort: false,
+    proxy: {
+      '/api': 'http://localhost:3001',
+    },
   },
 })

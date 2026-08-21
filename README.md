@@ -8,9 +8,36 @@ with state instead of DOM scripting.
 
 ```
 npm install
-npm run dev      # http://localhost:5189
+npm run dev      # http://localhost:5173
 npm run build    # dist/
 ```
+
+## Backend
+
+The Square/PostgreSQL API lives in `server/`. Copy `.env.example` to `.env`, add Square Sandbox
+credentials and a PostgreSQL connection, then run:
+
+```sh
+docker compose up -d postgres  # optional local PostgreSQL
+npm run db:migrate
+npm run dev:api  # http://localhost:3001
+npm test
+```
+
+Vite proxies local `/api` requests to port 3001.
+
+### Vercel
+
+The production deployment builds the Vite site and exposes the Express application through
+`api/index.js`. `vercel.json` routes `/api/*` to that function. Configure all variables from
+`.env.example` in Vercel, use a pooled PostgreSQL `DATABASE_URL`, run `npm run db:migrate`, and
+then deploy with `vercel --prod`.
+
+Current production project: <https://amazing-donuts.vercel.app>
+
+The frontend remains independently runnable while the ordering screens are connected. See
+[`docs/backend-architecture.md`](docs/backend-architecture.md) for API contracts, Square webhook
+subscriptions, source-of-truth rules, and the House Account Phase 0 gate.
 
 ## React Bits blocks
 
