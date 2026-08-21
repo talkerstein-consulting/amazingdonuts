@@ -96,7 +96,7 @@ export default function CheckoutDrawer({ cart, open, onOpen, onRemove, onQuantit
       attachedCard?.destroy?.();
       setCard(null);
     };
-  }, [open, config, card]);
+  }, [open, config]);
 
   useEffect(() => {
     if (!open) {
