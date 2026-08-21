@@ -18,6 +18,7 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1),
   SQUARE_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
   SQUARE_ACCESS_TOKEN: z.string().min(1),
+  SQUARE_APPLICATION_ID: optionalString(z.string().min(1)),
   SQUARE_LOCATION_ID: optionalString(z.string().min(1)),
   SQUARE_API_VERSION: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default("2026-07-15"),
   SQUARE_WEBHOOK_SIGNATURE_KEY: z.string().min(1),

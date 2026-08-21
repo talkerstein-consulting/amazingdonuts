@@ -1,0 +1,114 @@
+const FLAVOUR_SKUS = {
+  zap: "DZP-PBW",
+  barbie: "DBR-PW",
+  glazed: "AD-LEGACY-193",
+  choc: "DC-GLZ",
+  twist: "CTWST",
+  petite: "AD-LEGACY-169",
+  heart: "DHART",
+  star: "DSTRD",
+  custom: "DSPCL-SPR"
+};
+
+const CUSTOM_SKU = "DSPCL-SPR";
+
+const money = (amount, currency = "CAD") => ({ amount: Number(amount || 0), currency });
+
+export function indexCatalog(catalog) {
+  const variationsBySku = new Map();
+  for (const product of catalog?.products || []) {
+    for (const variation of product.variations || []) {
+      if (variation.sku) variationsBySku.set(variation.sku, { ...variation, product });
+    }
+  }
+  const modifierListsByName = new Map(
+    (catalog?.modifierLists || []).map((list) => [list.name, list])
+  );
+  return { variationsBySku, modifierListsByName };
+}
+
+function modifierId(index, listName, optionName) {
+  const list = index.modifierListsByName.get(listName);
+  return list?.modifiers.find((modifier) => modifier.name === optionName)?.id || null;
+}
+
+function defaultCustomModifiers(index) {
+  return [
+    modifierId(index, "Builder: Shape", "Round Donut"),
+    modifierId(index, "Builder: Icing", "Vanilla · Pink"),
+    modifierId(index, "Builder: Filling", "No Filling"),
+    modifierId(index, "Builder: Topping", "Rainbow")
+  ].filter(Boolean).map((catalogObjectId) => ({ catalogObjectId, quantity: 1 }));
+}
+
+export function dozenCartItem(flavours, index) {
+  const quantities = new Map();
+  for (const flavour of flavours) quantities.set(flavour.id, (quantities.get(flavour.id) || 0) + 1);
+
+  const lineItems = [...quantities].map(([id, quantity]) => {
+    const variation = index.variationsBySku.get(FLAVOUR_SKUS[id]);
+    if (!variation) throw new Error(`Square is missing the ${id} donut SKU.`);
+    return {
+      catalogObjectId: variation.id,
+      quantity,
+      modifiers: id === "custom" ? defaultCustomModifiers(index) : [],
+      ...(id === "custom" ? { note: "Dozen builder default: round, pink vanilla, no filling, rainbow." } : {})
+    };
+  });
+  const total = flavours.reduce((sum, flavour) => {
+    const variation = index.variationsBySku.get(FLAVOUR_SKUS[flavour.id]);
+    return sum + Number(variation?.priceMoney?.amount || 0);
+  }, 0);
+
+  return {
+    id: crypto.randomUUID(),
+    kind: "dozen",
+    name: "Build Your Dozen",
+    description: flavours.map((flavour) => flavour.name).join(", "),
+    quantity: 1,
+    priceMoney: money(total),
+    imageUrl: "/assets/redesign/donut-zap.png",
+    lineItems
+  };
+}
+
+export function customDonutCartItem(build, index) {
+  const variation = index.variationsBySku.get(CUSTOM_SKU);
+  if (!variation) throw new Error("Square is missing the customizable donut SKU.");
+  const selected = [
+    ["Builder: Shape", build.base.name],
+    ["Builder: Icing", build.icing.name],
+    ["Builder: Filling", build.filling.name],
+    ["Builder: Topping", build.sprinkle.name]
+  ];
+  const modifiers = selected.map(([listName, optionName]) => {
+    const catalogObjectId = modifierId(index, listName, optionName);
+    if (!catalogObjectId) throw new Error(`Square is missing ${optionName}.`);
+    return { catalogObjectId, quantity: 1 };
+  });
+  const notes = [
+    build.line,
+    build.colourNote ? `Colour request: ${build.colourNote}` : null,
+    build.printName ? `Edible print file selected: ${build.printName}. Contact customer for artwork.` : null
+  ].filter(Boolean);
+
+  return {
+    id: crypto.randomUUID(),
+    kind: "custom",
+    name: "Custom Donut",
+    description: build.line,
+    quantity: 1,
+    priceMoney: variation.priceMoney || money(0),
+    imageUrl: "/assets/redesign/donut-customizable.png",
+    lineItems: [{ catalogObjectId: variation.id, quantity: 1, modifiers, note: notes.join(" ") }]
+  };
+}
+
+export const cartTotal = (cart) => cart.reduce(
+  (sum, item) => sum + Number(item.priceMoney?.amount || 0) * item.quantity,
+  0
+);
+
+export const checkoutLineItems = (cart) => cart.flatMap((item) =>
+  item.lineItems.map((lineItem) => ({ ...lineItem, quantity: lineItem.quantity * item.quantity }))
+);

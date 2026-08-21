@@ -6,6 +6,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import "dotenv/config";
 import { parse } from "csv-parse";
+import { BASES, FILLINGS, ICINGS, SPRINKLES } from "../../src/data/builder.js";
 import { PRODUCTS } from "../../src/data/products.js";
 import { SquareClient } from "../square/client.js";
 
@@ -45,6 +46,13 @@ const slugAliases = new Map([
   ["mini-boston-cream-6", "mini-boston-cream-6-pack"],
   ["hot-dog-special-order", "hot-dog-bun-special-order"]
 ]);
+
+const builderModifierSpecs = [
+  { name: "Builder: Shape", options: BASES, min: 1, max: 1 },
+  { name: "Builder: Icing", options: ICINGS, min: 1, max: 1 },
+  { name: "Builder: Filling", options: FILLINGS, min: 0, max: 1 },
+  { name: "Builder: Topping", options: SPRINKLES, min: 0, max: 1 }
+];
 
 function stableKey(prefix, value) {
   return `${prefix}-${createHash("sha256").update(value).digest("hex").slice(0, 48)}`;
@@ -116,16 +124,20 @@ async function findProductImages(rows) {
 
 function indexCatalog(objects) {
   const categories = new Map();
+  const modifierLists = new Map();
   const itemsBySku = new Map();
   for (const object of objects) {
     if (object.type === "CATEGORY") categories.set(object.category_data?.name, object);
+    if (object.type === "MODIFIER_LIST") {
+      modifierLists.set(object.modifier_list_data?.name, object);
+    }
     if (object.type !== "ITEM") continue;
     for (const variation of object.item_data?.variations || []) {
       const sku = variation.item_variation_data?.sku;
       if (sku) itemsBySku.set(sku, { item: object, variation });
     }
   }
-  return { categories, itemsBySku };
+  return { categories, modifierLists, itemsBySku };
 }
 
 function buildObjects(rows, existingCatalog) {
@@ -146,6 +158,42 @@ function buildObjects(rows, existingCatalog) {
           present_at_all_locations: true,
           category_data: { name, online_visibility: true }
         };
+  });
+
+  const modifierRefs = new Map();
+  const modifierLists = builderModifierSpecs.map((spec, listIndex) => {
+    const existing = existingCatalog.modifierLists.get(spec.name);
+    const id = existing?.id || `#builder-list-${listIndex}`;
+    const existingModifiers = new Map(
+      (existing?.modifier_list_data?.modifiers || []).map((modifier) => [
+        modifier.modifier_data?.name,
+        modifier
+      ])
+    );
+    modifierRefs.set(spec.name, id);
+
+    const modifiers = spec.options.map((option, optionIndex) => {
+      const current = existingModifiers.get(option.name);
+      return {
+        ...(current ? stripReadOnly(current) : {}),
+        type: "MODIFIER",
+        id: current?.id || `#builder-${listIndex}-${optionIndex}`,
+        present_at_all_locations: true,
+        modifier_data: { name: option.name, on_by_default: false }
+      };
+    });
+
+    return {
+      ...(existing ? stripReadOnly(existing) : {}),
+      type: "MODIFIER_LIST",
+      id,
+      present_at_all_locations: true,
+      modifier_list_data: {
+        name: spec.name,
+        selection_type: "SINGLE",
+        modifiers
+      }
+    };
   });
 
   const items = rows.map((row) => {
@@ -170,23 +218,45 @@ function buildObjects(rows, existingCatalog) {
       }
     };
 
+    const itemData = {
+      ...(existing?.item.item_data || {}),
+      name: row.Name.trim(),
+      description_html: row.Description?.trim() || "",
+      product_type: existing?.item.item_data?.product_type || "REGULAR",
+      ecom_visibility: "VISIBLE",
+      categories: productCategories(row).map((name) => ({ id: categoryRefs.get(name) })),
+      variations: [variation]
+    };
+
+    if (sku === "DSPCL-SPR") {
+      const builderListIds = new Set(
+        builderModifierSpecs
+          .map((spec) => existingCatalog.modifierLists.get(spec.name)?.id)
+          .filter(Boolean)
+      );
+      const preserved = (existing?.item.item_data?.modifier_list_info || []).filter(
+        (info) => !builderListIds.has(info.modifier_list_id)
+      );
+      itemData.modifier_list_info = [
+        ...preserved,
+        ...builderModifierSpecs.map((spec) => ({
+          modifier_list_id: modifierRefs.get(spec.name),
+          min_selected_modifiers: spec.min,
+          max_selected_modifiers: spec.max,
+          enabled: true
+        }))
+      ];
+    }
+
     return {
       ...(existing ? stripReadOnly(existing.item) : {}),
       type: "ITEM",
       id: itemId,
       present_at_all_locations: true,
-      item_data: {
-        ...(existing?.item.item_data || {}),
-        name: row.Name.trim(),
-        description_html: row.Description?.trim() || "",
-        product_type: existing?.item.item_data?.product_type || "REGULAR",
-        ecom_visibility: "VISIBLE",
-        categories: productCategories(row).map((name) => ({ id: categoryRefs.get(name) })),
-        variations: [variation]
-      }
+      item_data: itemData
     };
   });
-  return [...categories, ...items];
+  return [...categories, ...modifierLists, ...items];
 }
 
 function idMappingsByClientId(response) {
@@ -196,7 +266,7 @@ function idMappingsByClientId(response) {
 const rows = await readProducts();
 const images = await findProductImages(rows);
 const current = await square.searchCatalog({
-  object_types: ["ITEM", "CATEGORY", "IMAGE"],
+  object_types: ["ITEM", "CATEGORY", "IMAGE", "MODIFIER_LIST"],
   include_related_objects: true,
   include_deleted_objects: false,
   limit: 100
@@ -270,6 +340,7 @@ console.log(
       environment,
       products: rows.length,
       categories: objects.filter((object) => object.type === "CATEGORY").length,
+      modifierLists: objects.filter((object) => object.type === "MODIFIER_LIST").length,
       imagesMatched: images.size,
       imagesUploaded: uploadedImages.length,
       imagesSkipped: skippedImages,

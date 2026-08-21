@@ -45,7 +45,23 @@ test("normalizes Square items, modifiers, images, and stock", () => {
         }
       }
     ],
-    relatedObjects: [{ type: "IMAGE", id: "IMG_1", image_data: { url: "https://example.com/donut.jpg" } }],
+    relatedObjects: [
+      { type: "IMAGE", id: "IMG_1", image_data: { url: "https://example.com/donut.jpg" } },
+      {
+        type: "MODIFIER_LIST",
+        id: "MOD_LIST_1",
+        modifier_list_data: {
+          name: "Icing",
+          selection_type: "SINGLE",
+          modifiers: [
+            {
+              id: "MOD_1",
+              modifier_data: { name: "Chocolate", price_money: { amount: 25, currency: "CAD" } }
+            }
+          ]
+        }
+      }
+    ],
     counts: [{ catalog_object_id: "VAR_1", location_id: "LOC_1", quantity: "4" }]
   });
 
@@ -53,4 +69,5 @@ test("normalizes Square items, modifiers, images, and stock", () => {
   assert.equal(result.products[0].variations[0].soldOut, false);
   assert.equal(result.products[0].imageUrl, "https://example.com/donut.jpg");
   assert.equal(result.modifierLists[0].modifiers[0].priceMoney.amount, 25);
+  assert.equal(result.modifierLists.length, 1);
 });

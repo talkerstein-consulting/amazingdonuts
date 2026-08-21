@@ -11,8 +11,8 @@ const locationEnabled = (object, locationId) => {
 };
 
 export function normalizeCatalog({ objects, relatedObjects = [], counts = [], locationId }) {
-  const all = [...objects, ...relatedObjects];
-  const byId = new Map(all.map((object) => [object.id, object]));
+  const byId = new Map([...objects, ...relatedObjects].map((object) => [object.id, object]));
+  const all = [...byId.values()];
   const inventoryByVariation = new Map(
     counts
       .filter((count) => !locationId || count.location_id === locationId)

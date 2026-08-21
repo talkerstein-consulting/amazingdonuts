@@ -143,6 +143,14 @@ export class SquareClient {
     return this.request("/v2/online-checkout/payment-links", { method: "POST", body });
   }
 
+  async createOrder(body) {
+    return this.request("/v2/orders", { method: "POST", body });
+  }
+
+  async createPayment(body) {
+    return this.request("/v2/payments", { method: "POST", body });
+  }
+
   async searchCustomers(filter) {
     return this.request("/v2/customers/search", {
       method: "POST",

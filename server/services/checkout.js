@@ -14,6 +14,7 @@ const addressSchema = z.object({
 
 export const checkoutSchema = z.object({
   idempotencyKey: z.string().uuid(),
+  redirectUrl: z.string().url().optional(),
   locationId: z.string().min(1),
   customer: z.object({
     firstName: z.string().min(1).max(255),
@@ -48,6 +49,11 @@ export const checkoutSchema = z.object({
       note: z.string().max(500).optional()
     })
   ])
+});
+
+export const paymentSchema = checkoutSchema.omit({ redirectUrl: true }).extend({
+  sourceId: z.string().min(1).max(255),
+  verificationToken: z.string().min(1).max(2048).optional()
 });
 
 const toSquareAddress = (address) => ({
@@ -142,9 +148,9 @@ function fulfillmentFor(input, config) {
   };
 }
 
-export function buildPaymentLinkRequest(input, config, customerId) {
+export function buildSquareOrder(input, config, customerId) {
   const idempotencyKey = input.idempotencyKey || randomUUID();
-  const order = {
+  return {
     location_id: input.locationId,
     reference_id: `web-${idempotencyKey}`.slice(0, 40),
     customer_id: customerId,
@@ -161,13 +167,18 @@ export function buildPaymentLinkRequest(input, config, customerId) {
     fulfillments: [fulfillmentFor(input, config)],
     pricing_options: { auto_apply_taxes: true, auto_apply_discounts: true }
   };
+}
+
+export function buildPaymentLinkRequest(input, config, customerId) {
+  const idempotencyKey = input.idempotencyKey || randomUUID();
+  const order = buildSquareOrder(input, config, customerId);
 
   return {
     idempotency_key: idempotencyKey,
     order,
     checkout_options: {
       allow_tipping: config.ALLOW_TIPPING,
-      redirect_url: config.CHECKOUT_REDIRECT_URL,
+      redirect_url: input.redirectUrl || config.CHECKOUT_REDIRECT_URL,
       ...(config.MERCHANT_SUPPORT_EMAIL
         ? { merchant_support_email: config.MERCHANT_SUPPORT_EMAIL }
         : {})
@@ -183,8 +194,7 @@ export function buildPaymentLinkRequest(input, config, customerId) {
   };
 }
 
-export async function createRetailCheckout({ square, config, body }) {
-  const input = checkoutSchema.parse(body);
+function validateCheckoutCapabilities(input, config) {
   if (config.SQUARE_LOCATION_ID && input.locationId !== config.SQUARE_LOCATION_ID) {
     throw new AppError(400, "INVALID_LOCATION", "This location is not enabled for online checkout.");
   }
@@ -195,16 +205,37 @@ export async function createRetailCheckout({ square, config, body }) {
       "Delivery checkout is disabled until the Square delivery workflow is verified."
     );
   }
+}
 
-  await validateSchedule(square, input, config);
-
-  const customer = await findOrCreateSquareCustomer(square, {
+async function prepareCustomer({ square, input }) {
+  return findOrCreateSquareCustomer(square, {
     ...input.customer,
     idempotencyKey: `customer-${input.idempotencyKey || randomUUID()}`,
     ...(input.fulfillment.type === "DELIVERY"
       ? { address: toSquareAddress(input.fulfillment.address) }
       : {})
   });
+}
+
+export async function createRetailCheckout({ square, config, body }) {
+  const input = checkoutSchema.parse(body);
+  if (input.redirectUrl) {
+    const allowedHosts = new Set([
+      new URL(config.APP_ORIGIN).host,
+      new URL(config.CHECKOUT_REDIRECT_URL).host,
+      "amazingdonuts.vercel.app",
+      "amazingdonuts.com",
+      "www.amazingdonuts.com"
+    ]);
+    if (!allowedHosts.has(new URL(input.redirectUrl).host)) {
+      throw new AppError(400, "INVALID_REDIRECT", "Checkout redirect URL is not allowed.");
+    }
+  }
+  validateCheckoutCapabilities(input, config);
+
+  await validateSchedule(square, input, config);
+
+  const customer = await prepareCustomer({ square, input });
   const request = buildPaymentLinkRequest(input, config, customer.id);
   const result = await square.createPaymentLink(request);
 
@@ -213,5 +244,43 @@ export async function createRetailCheckout({ square, config, body }) {
     paymentLinkId: result.payment_link?.id,
     checkoutUrl: result.payment_link?.url,
     customerId: customer.id
+  };
+}
+
+export async function createRetailPayment({ square, config, body }) {
+  const input = paymentSchema.parse(body);
+  validateCheckoutCapabilities(input, config);
+  await validateSchedule(square, input, config);
+
+  const customer = await prepareCustomer({ square, input });
+  const orderResult = await square.createOrder({
+    idempotency_key: `order-${input.idempotencyKey}`,
+    order: buildSquareOrder(input, config, customer.id)
+  });
+  const order = orderResult.order;
+  if (!order?.id || !order.total_money?.amount || !order.total_money.currency) {
+    throw new AppError(502, "INVALID_SQUARE_ORDER", "Square did not return a payable order total.");
+  }
+
+  const paymentResult = await square.createPayment({
+    idempotency_key: `payment-${input.idempotencyKey}`,
+    source_id: input.sourceId,
+    amount_money: order.total_money,
+    order_id: order.id,
+    location_id: input.locationId,
+    customer_id: customer.id,
+    autocomplete: true,
+    reference_id: order.reference_id,
+    note: "Amazing Donuts website order",
+    ...(input.verificationToken ? { verification_token: input.verificationToken } : {})
+  });
+
+  return {
+    orderId: order.id,
+    paymentId: paymentResult.payment?.id,
+    paymentStatus: paymentResult.payment?.status,
+    customerId: customer.id,
+    totalMoney: order.total_money,
+    receiptUrl: paymentResult.payment?.receipt_url || null
   };
 }

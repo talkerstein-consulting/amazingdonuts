@@ -11,7 +11,7 @@ const COUNT_WORD = { 6: "six", 8: "eight", 10: "ten", 12: "twelve" };
  * Tapping a flavour flies the donut into the next empty slot; tapping a filled
  * slot takes it back out; closing a full lid fires the compliment banner.
  */
-export default function BuildABox({ box, limit, add, removeAt, reset }) {
+export default function BuildABox({ box, limit, add, removeAt, reset, onAddToCart, orderingReady }) {
   const slots = box.slots;
   const filled = slots.filter(Boolean);
   const full = filled.length >= limit;
@@ -181,7 +181,14 @@ export default function BuildABox({ box, limit, add, removeAt, reset }) {
           <p className="boxnote">{boxNote(filled.length, limit, closed)}</p>
 
           <div className="boxacts">
-            <Wedge label="Call the Bakery" href="tel:+14163987546" family="magenta" biteBg="#E4F2FA" onClick={callBakery} />
+            <Wedge
+              label="Add Dozen to Cart"
+              family="magenta"
+              biteBg="#E4F2FA"
+              onClick={onAddToCart}
+              disabled={!full || !orderingReady}
+              title={!full ? "Fill all twelve slots first" : !orderingReady ? "Connecting to Square" : undefined}
+            />
             <Wedge
               label={closed && full ? "Open the Box" : "Close the Lid"}
               family="sky"
@@ -191,6 +198,7 @@ export default function BuildABox({ box, limit, add, removeAt, reset }) {
             <button className="boxacts__empty" type="button" onClick={reset}>
               Empty the box
             </button>
+            <a className="boxacts__empty" href="tel:+14163987546" onClick={callBakery}>Call the bakery</a>
           </div>
         </div>
       </div>

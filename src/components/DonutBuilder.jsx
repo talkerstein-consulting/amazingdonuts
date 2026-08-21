@@ -84,7 +84,7 @@ function SprinkleMark({ sprinkle }) {
   );
 }
 
-export default function DonutBuilder() {
+export default function DonutBuilder({ onAddToCart, orderingReady }) {
   const [s, dispatch] = useReducer(reducer, initial);
   const reduced = useReducedMotion();
   const fileRef = useRef(null);
@@ -113,6 +113,15 @@ export default function DonutBuilder() {
   }, [base, icing, filling, sprinkle, s.print]);
 
   const line = describe({ base, icing, filling, sprinkle, printOn: !!s.print });
+  const addToCart = () => onAddToCart({
+    base,
+    icing,
+    filling,
+    sprinkle,
+    line,
+    colourNote: s.colourNote,
+    printName: s.print?.name || null
+  });
 
   const surprise = useCallback(() => {
     const b = BASES[Math.floor(Math.random() * BASES.length)];
@@ -396,7 +405,13 @@ export default function DonutBuilder() {
             <div className="bld__foot">
               <p className="bld__summary">{line}</p>
               <div className="bld__acts">
-                <Wedge label="Add to the Box" family="magenta" />
+                <Wedge
+                  label="Add to Cart"
+                  family="magenta"
+                  onClick={addToCart}
+                  disabled={!done || !orderingReady}
+                  title={!done ? "Finish the donut first" : !orderingReady ? "Connecting to Square" : undefined}
+                />
                 <Wedge label="Call the Bakery" href="tel:+14163987546" family="sky" />
               </div>
             </div>
