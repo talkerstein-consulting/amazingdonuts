@@ -4,7 +4,8 @@ import {
   buildPaymentLinkRequest,
   buildSquareOrder,
   checkoutSchema,
-  createRetailPayment
+  createRetailPayment,
+  validateCatalogSelection
 } from "../services/checkout.js";
 
 const pickup = {
@@ -25,6 +26,20 @@ const pickup = {
     }
   ],
   fulfillment: { type: "PICKUP", scheduledAt: "2026-08-22T14:00:00-04:00" }
+};
+
+const normalizedCatalog = {
+  products: [{
+    name: "Filled Donut",
+    modifierListIds: [{ id: "LIST_1", minSelected: 0, maxSelected: 1, enabled: true }],
+    variations: [{ id: "VAR_FILLED", sku: "FILLED", soldOut: false, trackInventory: true, quantityAvailable: 4 }]
+  }],
+  modifierLists: [{
+    id: "LIST_1",
+    name: "Icing",
+    selectionType: "SINGLE",
+    modifiers: [{ id: "MOD_CHOCOLATE", name: "Chocolate" }]
+  }]
 };
 
 test("builds a hosted checkout order from catalog IDs, not browser prices", () => {
@@ -58,6 +73,13 @@ test("requires phone and a valid Square catalog variation", () => {
   assert.equal(result.success, false);
 });
 
+test("rejects hidden items, unrelated modifiers, and unavailable quantities", () => {
+  const input = checkoutSchema.parse(pickup);
+  assert.throws(() => validateCatalogSelection({ ...input, lineItems: [{ catalogObjectId: "HIDDEN", quantity: 1, modifiers: [] }] }, normalizedCatalog), /unavailable or hidden/);
+  assert.throws(() => validateCatalogSelection({ ...input, lineItems: [{ catalogObjectId: "VAR_FILLED", quantity: 1, modifiers: [{ catalogObjectId: "OTHER", quantity: 1 }] }] }, normalizedCatalog), /not available/);
+  assert.throws(() => validateCatalogSelection({ ...input, lineItems: [{ catalogObjectId: "VAR_FILLED", quantity: 5, modifiers: [] }] }, normalizedCatalog), /no longer available/);
+});
+
 test("builds the same Square order for embedded and hosted checkout", () => {
   const input = checkoutSchema.parse(pickup);
   const config = { PREP_TIME_MINUTES: 30 };
@@ -69,8 +91,15 @@ test("builds the same Square order for embedded and hosted checkout", () => {
 
 test("creates and pays a Square order using the Square-calculated total", async () => {
   const calls = [];
+  const scheduledAt = new Date(Date.now() + 86_400_000);
+  const scheduledDay = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][scheduledAt.getUTCDay()];
   const square = {
-    listLocations: async () => ({ locations: [{ id: "LOC_1", status: "ACTIVE" }] }),
+    listLocations: async () => ({ locations: [{
+      id: "LOC_1",
+      status: "ACTIVE",
+      timezone: "UTC",
+      business_hours: { periods: [{ day_of_week: scheduledDay, start_local_time: "00:00:00", end_local_time: "23:59:59" }] }
+    }] }),
     searchCustomers: async () => ({ customers: [{ id: "CUSTOMER_1" }] }),
     createOrder: async (body) => {
       calls.push(["order", body]);
@@ -96,10 +125,11 @@ test("creates and pays a Square order using the Square-calculated total", async 
       MAX_ORDER_ADVANCE_DAYS: 365,
       PREP_TIME_MINUTES: 30
     },
+    catalogLoader: async () => normalizedCatalog,
     body: {
       ...pickup,
       redirectUrl: undefined,
-      fulfillment: { type: "PICKUP", scheduledAt: new Date(Date.now() + 86_400_000).toISOString() },
+      fulfillment: { type: "PICKUP", scheduledAt: scheduledAt.toISOString() },
       sourceId: "cnon:card-nonce-ok"
     }
   });

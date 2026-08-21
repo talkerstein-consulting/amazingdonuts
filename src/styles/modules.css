@@ -435,11 +435,11 @@
 .checkout {
   position: fixed; z-index: 89; inset: 0 0 0 auto; width: min(520px, 100%);
   background: var(--white); transform: translateX(102%); transition: transform 260ms cubic-bezier(.22, 1, .36, 1);
-  display: flex; flex-direction: column; overflow: hidden;
+  display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden;
 }
 .checkout.is-open { transform: translateX(0); }
 .checkout__head {
-  flex: none; display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  position: sticky; z-index: 2; top: 0; flex: none; display: flex; align-items: center; justify-content: space-between; gap: 20px;
   padding: 24px 26px; border-bottom: 2px solid var(--border); background: var(--sky-wash);
 }
 .checkout__head p { margin: 0 0 3px; font: 700 12px/1.2 var(--label); text-transform: uppercase; color: var(--sky-deep); }
@@ -449,7 +449,7 @@
   display: grid; place-items: center; cursor: pointer; background: var(--white); color: var(--ink);
 }
 .checkout__head button svg { width: 20px; }
-.checkout__items { flex: 0 1 auto; min-height: 0; overflow-y: auto; padding: 8px 26px 0; }
+.checkout__items { flex: none; min-height: 0; overflow: visible; padding: 8px 26px 0; }
 .checkout__empty { margin: 52px auto; max-width: 28ch; text-align: center; color: var(--body-alt); }
 .cart-line { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 14px; padding: 18px 0; border-bottom: 2px solid var(--border); }
 .cart-line > img { width: 72px; height: 72px; object-fit: contain; background: var(--sunshine-wash); border-radius: 6px; }
@@ -461,7 +461,7 @@
 .cart-line__acts button:last-child { margin-left: auto; color: var(--magenta-deep); }
 .cart-line__acts svg { width: 15px; height: 15px; }
 .cart-line__acts span { min-width: 24px; text-align: center; font: 700 14px/1 var(--label); }
-.checkout__form { flex: 1 1 auto; overflow-y: auto; padding: 20px 26px 32px; }
+.checkout__form { flex: none; overflow: visible; padding: 20px 26px 32px; }
 .checkout__total { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; }
 .checkout__total span { font: 700 13px/1 var(--label); text-transform: uppercase; color: var(--body-alt); }
 .checkout__total strong { font: 700 27px/1 var(--display); color: var(--ink); }
@@ -470,11 +470,13 @@
 .checkout__fields--two { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 12px; }
 .checkout__fields label { min-width: 0; }
 .checkout__fields label > span { display: block; margin: 0 0 6px; font: 700 12px/1.2 var(--label); text-transform: uppercase; color: var(--body-alt); }
-.checkout__fields input, .checkout__fields textarea {
+.checkout__fields input, .checkout__fields textarea, .checkout__fields select {
   width: 100%; min-width: 0; padding: 11px 12px; border: 2px solid var(--border); border-radius: 6px;
   background: var(--white); color: var(--ink); font: 400 15px/1.3 var(--text);
 }
-.checkout__fields input:focus, .checkout__fields textarea:focus { outline: 3px solid var(--sky-light); border-color: var(--sky); }
+.checkout__fields input:focus, .checkout__fields textarea:focus, .checkout__fields select:focus { outline: 3px solid var(--sky-light); border-color: var(--sky); }
+.checkout__fields select:disabled { opacity: 1; color: var(--ink); background: var(--cream); }
+.checkout__schedule { margin: 0; }
 .checkout__card { min-height: 90px; margin-top: 18px; }
 .checkout__notice, .checkout__error { margin: 10px 0; padding: 11px 12px; border-radius: 6px; font-size: 13px; line-height: 1.4; }
 .checkout__notice { background: var(--sunshine-wash); color: var(--sunshine-deepest); }
@@ -492,6 +494,7 @@
 .checkout__success dt { font: 700 12px/1.4 var(--label); text-transform: uppercase; color: var(--label-muted); }
 .checkout__success dd { margin: 0; overflow-wrap: anywhere; color: var(--ink); }
 .checkout__success a { color: var(--magenta-deep); font-weight: 700; }
+.checkout__again { margin-top: 24px; }
 .order-toast { position: fixed; z-index: 95; left: 18px; bottom: 18px; max-width: min(420px, calc(100% - 36px)); margin: 0; padding: 13px 16px; border-radius: 6px; background: var(--ink); color: var(--white); }
 .wedge:disabled, button.wedge:disabled { opacity: .48; cursor: not-allowed; transform: none; }
 

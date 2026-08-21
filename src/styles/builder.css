@@ -261,6 +261,9 @@
   font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.15;
   color: var(--ink);
 }
+.bld__summaryWrap { flex: 1 1 260px; }
+.bld__summaryWrap .bld__summary { margin: 0; }
+.bld__orderNote { margin: 8px 0 0; max-width: 52ch; color: var(--magenta-deep); font-size: 13px; line-height: 1.4; }
 .bld__acts { display: flex; gap: 12px; flex-wrap: wrap; }
 
 /* --- responsive ----------------------------------------------------------- */

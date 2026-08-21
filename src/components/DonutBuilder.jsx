@@ -122,6 +122,7 @@ export default function DonutBuilder({ onAddToCart, orderingReady }) {
     colourNote: s.colourNote,
     printName: s.print?.name || null
   });
+  const printableOrderNeedsCall = Boolean(s.print);
 
   const surprise = useCallback(() => {
     const b = BASES[Math.floor(Math.random() * BASES.length)];
@@ -403,15 +404,24 @@ export default function DonutBuilder({ onAddToCart, orderingReady }) {
             </section>
 
             <div className="bld__foot">
-              <p className="bld__summary">{line}</p>
+              <div className="bld__summaryWrap">
+                <p className="bld__summary">{line}</p>
+                {printableOrderNeedsCall ? (
+                  <p className="bld__orderNote">Your artwork is previewed only, not uploaded. Printed orders need bakery confirmation by phone.</p>
+                ) : null}
+              </div>
               <div className="bld__acts">
-                <Wedge
-                  label="Add to Cart"
-                  family="magenta"
-                  onClick={addToCart}
-                  disabled={!done || !orderingReady}
-                  title={!done ? "Finish the donut first" : !orderingReady ? "Connecting to Square" : undefined}
-                />
+                {printableOrderNeedsCall ? (
+                  <Wedge label="Call About This Print" href="tel:+14163987546" family="magenta" />
+                ) : (
+                  <Wedge
+                    label="Add to Cart"
+                    family="magenta"
+                    onClick={addToCart}
+                    disabled={!done || !orderingReady}
+                    title={!done ? "Finish the donut first" : !orderingReady ? "Connecting to Square" : undefined}
+                  />
+                )}
                 <Wedge label="Call the Bakery" href="tel:+14163987546" family="sky" />
               </div>
             </div>

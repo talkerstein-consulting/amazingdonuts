@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { AppError } from "../lib/errors.js";
+import { getPublicCatalog } from "./catalog.js";
 import { findOrCreateSquareCustomer } from "./customers.js";
 
 const addressSchema = z.object({
@@ -66,6 +67,11 @@ const toSquareAddress = (address) => ({
 });
 
 const dayNames = { Sun: "SUN", Mon: "MON", Tue: "TUE", Wed: "WED", Thu: "THU", Fri: "FRI", Sat: "SAT" };
+const fallbackBusinessPeriods = [
+  { day_of_week: "SUN", start_local_time: "08:00:00", end_local_time: "13:00:00" },
+  ...["MON", "TUE", "WED", "THU"].map((day_of_week) => ({ day_of_week, start_local_time: "07:30:00", end_local_time: "16:00:00" })),
+  { day_of_week: "FRI", start_local_time: "07:30:00", end_local_time: "13:00:00" }
+];
 
 function localScheduleParts(date, timezone) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -81,9 +87,13 @@ function localScheduleParts(date, timezone) {
 }
 
 function insideBusinessHours(date, location) {
-  const periods = location.business_hours?.periods || [];
-  if (!periods.length) return true;
-  const local = localScheduleParts(date, location.timezone || "America/Toronto");
+  const periods = location.business_hours?.periods?.length
+    ? location.business_hours.periods
+    : fallbackBusinessPeriods;
+  const timezone = /default test account/i.test(location.name || "")
+    ? "America/Toronto"
+    : location.timezone || "America/Toronto";
+  const local = localScheduleParts(date, timezone);
   return periods.some(
     (period) =>
       period.day_of_week === local.day &&
@@ -207,6 +217,84 @@ function validateCheckoutCapabilities(input, config) {
   }
 }
 
+const invalidCart = (message) => {
+  throw new AppError(400, "INVALID_CART", message);
+};
+
+export function validateCatalogSelection(input, catalog) {
+  const variationMap = new Map();
+  for (const product of catalog.products || []) {
+    for (const variation of product.variations || []) variationMap.set(variation.id, { product, variation });
+  }
+  const modifierMap = new Map();
+  for (const list of catalog.modifierLists || []) {
+    for (const modifier of list.modifiers || []) modifierMap.set(modifier.id, { list, modifier });
+  }
+
+  const quantities = new Map();
+  for (const item of input.lineItems) {
+    const record = variationMap.get(item.catalogObjectId);
+    if (!record) invalidCart("An item is unavailable or hidden from online ordering.");
+    if (record.variation.soldOut) invalidCart(`${record.product.name} is sold out.`);
+    quantities.set(item.catalogObjectId, (quantities.get(item.catalogObjectId) || 0) + item.quantity);
+
+    const allowedLists = new Map(
+      record.product.modifierListIds
+        .filter((info) => info.enabled)
+        .map((info) => [info.id, info])
+    );
+    const selections = new Map();
+    const selectedNames = new Map();
+    const seenModifiers = new Set();
+    for (const selection of item.modifiers) {
+      if (seenModifiers.has(selection.catalogObjectId)) invalidCart("A modifier was selected more than once.");
+      seenModifiers.add(selection.catalogObjectId);
+      const modifier = modifierMap.get(selection.catalogObjectId);
+      if (!modifier || !allowedLists.has(modifier.list.id)) {
+        invalidCart(`A modifier is not available for ${record.product.name}.`);
+      }
+      if (modifier.list.selectionType === "SINGLE" && selection.quantity !== 1) {
+        invalidCart(`${modifier.list.name} accepts one selection.`);
+      }
+      selections.set(modifier.list.id, (selections.get(modifier.list.id) || 0) + selection.quantity);
+      selectedNames.set(modifier.list.name, modifier.modifier.name);
+    }
+    for (const [listId, info] of allowedLists) {
+      const count = selections.get(listId) || 0;
+      if (info.minSelected !== null && count < info.minSelected) invalidCart("Required product options are missing.");
+      if (info.maxSelected !== null && count > info.maxSelected) invalidCart("Too many product options were selected.");
+    }
+
+    if (record.variation.sku === "DSPCL-SPR") {
+      const required = ["Builder: Shape", "Builder: Icing", "Builder: Filling", "Builder: Topping"];
+      if (required.some((name) => !selectedNames.has(name))) invalidCart("Every custom donut layer must be selected.");
+      const shape = selectedNames.get("Builder: Shape");
+      const icing = selectedNames.get("Builder: Icing");
+      const filling = selectedNames.get("Builder: Filling");
+      const topping = selectedNames.get("Builder: Topping");
+      if (!["Sofgania / Boston", "Kids Size Sofgania"].includes(shape) && filling !== "No Filling") {
+        invalidCart(`${shape} cannot be filled.`);
+      }
+      if (icing === "No Icing" && topping !== "No Sprinkles") invalidCart("Toppings require icing.");
+      if (["Twist", "Mini Cupcakes", '2" Cookie'].includes(shape) && topping === "Gold Flakes") {
+        invalidCart(`Gold Flakes are not available on ${shape}.`);
+      }
+    }
+  }
+
+  for (const [variationId, quantity] of quantities) {
+    const variation = variationMap.get(variationId).variation;
+    if (variation.trackInventory && variation.quantityAvailable !== null && quantity > variation.quantityAvailable) {
+      invalidCart("The requested quantity is no longer available.");
+    }
+  }
+}
+
+async function validateCheckoutCart(square, input, catalogLoader) {
+  const catalog = await catalogLoader(square, input.locationId);
+  validateCatalogSelection(input, catalog);
+}
+
 async function prepareCustomer({ square, input }) {
   return findOrCreateSquareCustomer(square, {
     ...input.customer,
@@ -217,7 +305,7 @@ async function prepareCustomer({ square, input }) {
   });
 }
 
-export async function createRetailCheckout({ square, config, body }) {
+export async function createRetailCheckout({ square, config, body, catalogLoader = getPublicCatalog }) {
   const input = checkoutSchema.parse(body);
   if (input.redirectUrl) {
     const allowedHosts = new Set([
@@ -232,6 +320,7 @@ export async function createRetailCheckout({ square, config, body }) {
     }
   }
   validateCheckoutCapabilities(input, config);
+  await validateCheckoutCart(square, input, catalogLoader);
 
   await validateSchedule(square, input, config);
 
@@ -247,9 +336,10 @@ export async function createRetailCheckout({ square, config, body }) {
   };
 }
 
-export async function createRetailPayment({ square, config, body }) {
+export async function createRetailPayment({ square, config, body, catalogLoader = getPublicCatalog }) {
   const input = paymentSchema.parse(body);
   validateCheckoutCapabilities(input, config);
+  await validateCheckoutCart(square, input, catalogLoader);
   await validateSchedule(square, input, config);
 
   const customer = await prepareCustomer({ square, input });

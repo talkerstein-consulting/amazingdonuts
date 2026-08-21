@@ -58,7 +58,7 @@ export default function Wedge({
       data-family={family}
       data-frame={bites ? frame : undefined}
       style={bites ? { "--bite-bg": biteBg } : undefined}
-      aria-label={ariaLabel}
+      aria-label={ariaLabel || label}
       hidden={hidden || undefined}
       onClick={onClick}
       onMouseEnter={enter}
@@ -83,7 +83,7 @@ export default function Wedge({
       <span className="wedge__label">
         <span className="wedge__track">
           <span>{label}</span>
-          <span>{label}</span>
+          <span aria-hidden="true">{label}</span>
         </span>
       </span>
     </Tag>

@@ -450,7 +450,7 @@ p:last-child { margin-bottom: 0; }
   .hero__art { min-height: 380px; }
   .foot__in { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   :root { --gutter: 20px; }
   .nav {
     position: fixed; inset: 84px 0 auto; background: var(--sky);

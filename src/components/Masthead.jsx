@@ -36,7 +36,7 @@ export default function Masthead() {
               {label}
             </a>
           ))}
-          <Wedge label="Order Ahead" href="tel:+14163987546" family="sunshine" biteBg="#00A3DC" />
+          <Wedge label="Order Ahead" href="#build" family="sunshine" biteBg="#00A3DC" onClick={() => setOpen(false)} />
         </nav>
       </div>
     </header>
