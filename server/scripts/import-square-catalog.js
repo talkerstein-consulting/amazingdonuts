@@ -48,10 +48,9 @@ const slugAliases = new Map([
 ]);
 
 const builderModifierSpecs = [
-  { name: "Builder: Shape", options: BASES, min: 1, max: 1 },
   { name: "Builder: Icing", options: ICINGS, min: 1, max: 1 },
-  { name: "Builder: Filling", options: FILLINGS, min: 0, max: 1 },
-  { name: "Builder: Topping", options: SPRINKLES, min: 0, max: 1 }
+  { name: "Builder: Filling", options: FILLINGS, min: 1, max: 1 },
+  { name: "Builder: Topping", options: SPRINKLES, min: 1, max: 1 }
 ];
 
 function stableKey(prefix, value) {
@@ -179,7 +178,7 @@ function buildObjects(rows, existingCatalog) {
         type: "MODIFIER",
         id: current?.id || `#builder-${listIndex}-${optionIndex}`,
         present_at_all_locations: true,
-        modifier_data: { name: option.name, on_by_default: false }
+        modifier_data: { name: option.name, kitchen_name: option.name, on_by_default: false }
       };
     });
 
@@ -202,7 +201,7 @@ function buildObjects(rows, existingCatalog) {
     const existing = existingCatalog.itemsBySku.get(sku);
     const itemId = existing?.item.id || `#item-${legacyId}`;
     const variationId = existing?.variation.id || `#variation-${legacyId}`;
-    const variation = {
+    const defaultVariation = {
       ...(existing ? stripReadOnly(existing.variation) : {}),
       type: "ITEM_VARIATION",
       id: variationId,
@@ -217,6 +216,26 @@ function buildObjects(rows, existingCatalog) {
         track_inventory: row["Product Inventoried"] === "Y"
       }
     };
+    const variations = sku === "DSPCL-SPR"
+      ? BASES.map((base, index) => {
+          const baseExisting = existingCatalog.itemsBySku.get(base.sku);
+          return {
+            ...(baseExisting ? stripReadOnly(baseExisting.variation) : {}),
+            type: "ITEM_VARIATION",
+            id: baseExisting?.variation.id || `#builder-base-${index}`,
+            present_at_all_locations: true,
+            item_variation_data: {
+              ...(baseExisting?.variation.item_variation_data || {}),
+              item_id: itemId,
+              name: base.name,
+              sku: base.sku,
+              pricing_type: "FIXED_PRICING",
+              price_money: { amount: productPriceCents(row), currency: "CAD" },
+              track_inventory: false
+            }
+          };
+        })
+      : [defaultVariation];
 
     const itemData = {
       ...(existing?.item.item_data || {}),
@@ -225,13 +244,13 @@ function buildObjects(rows, existingCatalog) {
       product_type: existing?.item.item_data?.product_type || "REGULAR",
       ecom_visibility: "VISIBLE",
       categories: productCategories(row).map((name) => ({ id: categoryRefs.get(name) })),
-      variations: [variation]
+      variations
     };
 
     if (sku === "DSPCL-SPR") {
       const builderListIds = new Set(
-        builderModifierSpecs
-          .map((spec) => existingCatalog.modifierLists.get(spec.name)?.id)
+        ["Builder: Shape", ...builderModifierSpecs.map((spec) => spec.name)]
+          .map((name) => existingCatalog.modifierLists.get(name)?.id)
           .filter(Boolean)
       );
       const preserved = (existing?.item.item_data?.modifier_list_info || []).filter(

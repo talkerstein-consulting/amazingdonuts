@@ -270,6 +270,7 @@ export function validateCatalogSelection(input, catalog) {
       if (!modifier || !allowedLists.has(modifier.list.id)) {
         invalidCart(`A modifier is not available for ${record.product.name}.`);
       }
+      if (modifier.modifier.soldOut) invalidCart(`${modifier.modifier.name} is sold out.`);
       if (modifier.list.selectionType === "SINGLE" && selection.quantity !== 1) {
         invalidCart(`${modifier.list.name} accepts one selection.`);
       }
@@ -282,15 +283,18 @@ export function validateCatalogSelection(input, catalog) {
       if (info.maxSelected !== null && count > info.maxSelected) invalidCart("Too many product options were selected.");
     }
 
-    if (record.variation.sku === "DSPCL-SPR") {
-      const required = ["Builder: Shape", "Builder: Icing", "Builder: Filling", "Builder: Topping"];
+    if (record.variation.sku === "DSPCL-SPR" || record.variation.sku?.startsWith("AD-BUILD-")) {
+      const required = ["Builder: Icing", "Builder: Filling", "Builder: Topping"];
       if (required.some((name) => !selectedNames.has(name))) invalidCart("Every custom donut layer must be selected.");
-      const shape = selectedNames.get("Builder: Shape");
+      const shape = record.variation.name;
       const icing = selectedNames.get("Builder: Icing");
       const filling = selectedNames.get("Builder: Filling");
       const topping = selectedNames.get("Builder: Topping");
       if (!["Sofgania / Boston", "Kids Size Sofgania"].includes(shape) && filling !== "No Filling") {
         invalidCart(`${shape} cannot be filled.`);
+      }
+      if (["Sofgania / Boston", "Kids Size Sofgania"].includes(shape) && filling === "No Filling") {
+        invalidCart(`${shape} requires a filling.`);
       }
       if (icing === "No Icing" && topping !== "No Sprinkles") invalidCart("Toppings require icing.");
       if (["Twist", "Mini Cupcakes", '2" Cookie'].includes(shape) && topping === "Gold Flakes") {

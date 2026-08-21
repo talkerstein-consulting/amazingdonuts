@@ -23,7 +23,8 @@ test("normalizes Square items, modifiers, images, and stock", () => {
               item_variation_data: {
                 name: "Filled",
                 price_money: { amount: 350, currency: "CAD" },
-                track_inventory: true
+                track_inventory: true,
+                location_overrides: [{ location_id: "LOC_1", sold_out: true }]
               }
             }
           ]
@@ -39,7 +40,11 @@ test("normalizes Square items, modifiers, images, and stock", () => {
           modifiers: [
             {
               id: "MOD_1",
-              modifier_data: { name: "Chocolate", price_money: { amount: 25, currency: "CAD" } }
+              modifier_data: {
+                name: "Chocolate",
+                price_money: { amount: 25, currency: "CAD" },
+                location_overrides: [{ location_id: "LOC_1", sold_out: true }]
+              }
             }
           ]
         }
@@ -56,7 +61,11 @@ test("normalizes Square items, modifiers, images, and stock", () => {
           modifiers: [
             {
               id: "MOD_1",
-              modifier_data: { name: "Chocolate", price_money: { amount: 25, currency: "CAD" } }
+              modifier_data: {
+                name: "Chocolate",
+                price_money: { amount: 25, currency: "CAD" },
+                location_overrides: [{ location_id: "LOC_1", sold_out: true }]
+              }
             }
           ]
         }
@@ -66,8 +75,9 @@ test("normalizes Square items, modifiers, images, and stock", () => {
   });
 
   assert.equal(result.products[0].variations[0].quantityAvailable, 4);
-  assert.equal(result.products[0].variations[0].soldOut, false);
+  assert.equal(result.products[0].variations[0].soldOut, true);
   assert.equal(result.products[0].imageUrl, "https://example.com/donut.jpg");
   assert.equal(result.modifierLists[0].modifiers[0].priceMoney.amount, 25);
+  assert.equal(result.modifierLists[0].modifiers[0].soldOut, true);
   assert.equal(result.modifierLists.length, 1);
 });

@@ -10,8 +10,6 @@ const FLAVOUR_SKUS = {
   custom: "DSPCL-SPR"
 };
 
-const CUSTOM_SKU = "DSPCL-SPR";
-
 const money = (amount, currency = "CAD") => ({ amount: Number(amount || 0), currency });
 
 export function indexCatalog(catalog) {
@@ -41,12 +39,11 @@ export function catalogFlavours(flavours, index) {
 
 function modifierId(index, listName, optionName) {
   const list = index.modifierListsByName.get(listName);
-  return list?.modifiers.find((modifier) => modifier.name === optionName)?.id || null;
+  return list?.modifiers.find((modifier) => modifier.name === optionName && !modifier.soldOut)?.id || null;
 }
 
 function defaultCustomModifiers(index) {
   return [
-    modifierId(index, "Builder: Shape", "Round Donut"),
     modifierId(index, "Builder: Icing", "Vanilla · Pink"),
     modifierId(index, "Builder: Filling", "No Filling"),
     modifierId(index, "Builder: Topping", "Rainbow")
@@ -85,10 +82,9 @@ export function dozenCartItem(flavours, index) {
 }
 
 export function customDonutCartItem(build, index) {
-  const variation = index.variationsBySku.get(CUSTOM_SKU);
-  if (!variation) throw new Error("Square is missing the customizable donut SKU.");
+  const variation = index.variationsBySku.get(build.base.sku);
+  if (!variation || variation.soldOut) throw new Error(`${build.base.name} is sold out in Square.`);
   const selected = [
-    ["Builder: Shape", build.base.name],
     ["Builder: Icing", build.icing.name],
     ["Builder: Filling", build.filling.name],
     ["Builder: Topping", build.sprinkle.name]
@@ -113,6 +109,25 @@ export function customDonutCartItem(build, index) {
     priceMoney: variation.priceMoney || money(0),
     imageUrl: "/assets/redesign/donut-customizable.png",
     lineItems: [{ catalogObjectId: variation.id, quantity: 1, modifiers, note: notes.join(" ") }]
+  };
+}
+
+export function customBuilderAvailability(index, groups) {
+  const availableModifiers = (listName, options) => {
+    const list = index.modifierListsByName.get(listName);
+    return Object.fromEntries(options.map((option) => [
+      option.id,
+      Boolean(list?.modifiers.some((modifier) => modifier.name === option.name && !modifier.soldOut))
+    ]));
+  };
+  return {
+    bases: Object.fromEntries(groups.bases.map((base) => {
+      const variation = index.variationsBySku.get(base.sku);
+      return [base.id, Boolean(variation && !variation.soldOut && variation.priceMoney)];
+    })),
+    icings: availableModifiers("Builder: Icing", groups.icings),
+    fillings: availableModifiers("Builder: Filling", groups.fillings),
+    sprinkles: availableModifiers("Builder: Topping", groups.sprinkles)
   };
 }
 

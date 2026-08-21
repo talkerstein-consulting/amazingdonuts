@@ -84,7 +84,7 @@ function SprinkleMark({ sprinkle }) {
   );
 }
 
-export default function DonutBuilder({ onAddToCart, orderingReady }) {
+export default function DonutBuilder({ availability, onAddToCart, orderingReady }) {
   const [s, dispatch] = useReducer(reducer, initial);
   const reduced = useReducedMotion();
   const fileRef = useRef(null);
@@ -99,6 +99,10 @@ export default function DonutBuilder({ onAddToCart, orderingReady }) {
   const canTop    = RULES.takesSprinkles(s.icingId);
   const canPrint  = RULES.takesPrint(s.baseId);
   const asksColour = s.sprinkleId === "whip-color";
+  const available = useCallback(
+    (group, id) => availability?.[group]?.[id] !== false,
+    [availability]
+  );
 
   /* The stack, bottom up. A filling is a whole dough, so it stands in for the
      plain base; icing and sprinkles are cut to their own shape and sit over it. */
@@ -125,10 +129,14 @@ export default function DonutBuilder({ onAddToCart, orderingReady }) {
   const printableOrderNeedsCall = Boolean(s.print);
 
   const surprise = useCallback(() => {
-    const b = BASES[Math.floor(Math.random() * BASES.length)];
-    const ice = ICINGS.filter((i) => !i.bare)[Math.floor(Math.random() * (ICINGS.length - 1))];
-    const tops = SPRINKLES.filter((p) => !p.bare && RULES.sprinkleAllowed(b.id, p.id));
-    const fills = FILLINGS.filter((f) => !f.bare);
+    const bases = BASES.filter((item) => available("bases", item.id));
+    const b = bases[Math.floor(Math.random() * bases.length)];
+    if (!b) return;
+    const icings = ICINGS.filter((item) => !item.bare && available("icings", item.id));
+    const ice = icings[Math.floor(Math.random() * icings.length)];
+    const tops = SPRINKLES.filter((item) => !item.bare && available("sprinkles", item.id) && RULES.sprinkleAllowed(b.id, item.id));
+    const fills = FILLINGS.filter((item) => !item.bare && available("fillings", item.id));
+    if (!ice || !tops.length || (RULES.takesFilling(b.id) && !fills.length)) return;
     dispatch({
       type: "surprise",
       build: {
@@ -140,12 +148,16 @@ export default function DonutBuilder({ onAddToCart, orderingReady }) {
           : "none"
       }
     });
-  }, []);
+  }, [available]);
 
   /* A small cheer when the build is complete enough to be worth ordering.
      Tied to popSeq, not every change — base and icing get their own quieter
      transitions (a smooth resize and an iris-peel) instead of the full pop. */
-  const done = !icing.bare && (!canFill || !filling.bare);
+  const done = !icing.bare && (!canFill || !filling.bare)
+    && available("bases", base.id)
+    && available("icings", icing.id)
+    && available("fillings", filling.id)
+    && available("sprinkles", sprinkle.id);
   useEffect(() => {
     if (!done) return;
     setCheer(s.popSeq);
@@ -236,7 +248,7 @@ export default function DonutBuilder({ onAddToCart, orderingReady }) {
                 {BASES.map((b) => (
                   <button
                     key={b.id}
-                    {...chipProps(b.id === s.baseId, false)}
+                    {...chipProps(b.id === s.baseId, !available("bases", b.id), !available("bases", b.id) ? "Sold out in Square" : null)}
                     className={`bld__base${b.id === s.baseId ? " is-on" : ""}`}
                     data-family={b.family}
                     aria-pressed={b.id === s.baseId}
@@ -258,7 +270,7 @@ export default function DonutBuilder({ onAddToCart, orderingReady }) {
                 {ICINGS.map((i) => (
                   <button
                     key={i.id}
-                    {...chipProps(i.id === s.icingId, false)}
+                    {...chipProps(i.id === s.icingId, !available("icings", i.id), !available("icings", i.id) ? "Sold out in Square" : null)}
                     onClick={() => dispatch({ type: "icing", id: i.id })}
                   >
                     {i.bare ? (
@@ -285,7 +297,7 @@ export default function DonutBuilder({ onAddToCart, orderingReady }) {
                     {FILLINGS.map((f) => (
                       <button
                         key={f.id}
-                        {...chipProps(f.id === s.fillingId, false)}
+                        {...chipProps(f.id === s.fillingId, !available("fillings", f.id), !available("fillings", f.id) ? "Sold out in Square" : null)}
                         onClick={() => dispatch({ type: "filling", id: f.id })}
                       >
                         {f.bare ? (
@@ -317,8 +329,9 @@ export default function DonutBuilder({ onAddToCart, orderingReady }) {
                   <p className="bld__stepNote">{STEP_NOTES.sprinkle}</p>
                   <div className="bld__row bld__row--tops">
                     {SPRINKLES.map((p) => {
-                      const ok = RULES.sprinkleAllowed(s.baseId, p.id);
-                      const why = RULES.sprinkleReason(s.baseId, p.id, s.icingId);
+                      const inStock = available("sprinkles", p.id);
+                      const ok = inStock && RULES.sprinkleAllowed(s.baseId, p.id);
+                      const why = inStock ? RULES.sprinkleReason(s.baseId, p.id, s.icingId) : "Sold out in Square";
                       return (
                         <button
                           key={p.id}

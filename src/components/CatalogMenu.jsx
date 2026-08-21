@@ -25,7 +25,7 @@ function ProductDialog({ product, modifierLists, onClose, onAdd }) {
     .filter((info) => info.enabled)
     .map((info) => ({ ...info, list: modifierLists.find((list) => list.id === info.id) }))
     .filter((info) => info.list && !info.list.name.startsWith("Builder:"));
-  const chosen = lists.flatMap(({ list }) => list.modifiers.filter((modifier) => selected[list.id]?.includes(modifier.id)));
+  const chosen = lists.flatMap(({ list }) => list.modifiers.filter((modifier) => !modifier.soldOut && selected[list.id]?.includes(modifier.id)));
   const requirementsMet = lists.every(({ list, minSelected }) => (selected[list.id]?.length || 0) >= Number(minSelected || 0));
   const custom = product.variations.some((item) => item.sku === "DSPCL-SPR");
   const imageUrl = product.imageUrl || fallbackImage(product);
@@ -66,10 +66,10 @@ function ProductDialog({ product, modifierLists, onClose, onAdd }) {
                 <legend>{info.list.name}{info.minSelected ? <small>Choose {info.minSelected}</small> : <small>Optional</small>}</legend>
                 {info.list.modifiers.map((modifier) => {
                   const active = selected[info.list.id]?.includes(modifier.id);
-                  return <label key={modifier.id}>
-                    <input type={info.list.selectionType === "SINGLE" ? "radio" : "checkbox"} name={info.list.id} checked={Boolean(active)} onChange={() => toggle(info, modifier.id)} />
+                  return <label key={modifier.id} className={modifier.soldOut ? "is-disabled" : ""}>
+                    <input type={info.list.selectionType === "SINGLE" ? "radio" : "checkbox"} name={info.list.id} checked={Boolean(active)} disabled={modifier.soldOut} onChange={() => toggle(info, modifier.id)} />
                     <span>{active ? <Check aria-hidden="true" /> : null}{modifier.name}</span>
-                    <strong>{modifier.priceMoney?.amount ? `+${currency(modifier.priceMoney)}` : "Included"}</strong>
+                    <strong>{modifier.soldOut ? "Sold out" : modifier.priceMoney?.amount ? `+${currency(modifier.priceMoney)}` : "Included"}</strong>
                   </label>;
                 })}
               </fieldset>)}

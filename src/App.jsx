@@ -11,8 +11,9 @@ import { Footer5 } from "./components/footer-5.tsx";
 import CheckoutDrawer from "./components/CheckoutDrawer.jsx";
 import CatalogMenu from "./components/CatalogMenu.jsx";
 import AccountDrawer from "./components/AccountDrawer.jsx";
-import { catalogFlavours, customDonutCartItem, dozenCartItem, indexCatalog } from "./lib/squareCart.js";
+import { catalogFlavours, customBuilderAvailability, customDonutCartItem, dozenCartItem, indexCatalog } from "./lib/squareCart.js";
 import { FLAVOURS } from "./data/flavours.js";
+import { BASES, FILLINGS, ICINGS, SPRINKLES } from "./data/builder.js";
 import {
   Categories,
   Certifications,
@@ -76,6 +77,9 @@ export default function App() {
   const full = box.slots.every(Boolean);
   const squareIndex = useMemo(() => indexCatalog(catalog), [catalog]);
   const pricedFlavours = useMemo(() => catalogFlavours(FLAVOURS, squareIndex), [squareIndex]);
+  const builderAvailability = useMemo(() => customBuilderAvailability(squareIndex, {
+    bases: BASES, fillings: FILLINGS, icings: ICINGS, sprinkles: SPRINKLES
+  }), [squareIndex]);
 
   useEffect(() => {
     fetch("/api/catalog")
@@ -178,7 +182,7 @@ export default function App() {
           orderingReady={Boolean(catalog) && !catalogError}
           flavours={pricedFlavours}
         />
-        <DonutBuilder onAddToCart={addCustomToCart} orderingReady={Boolean(catalog) && !catalogError} />
+        <DonutBuilder availability={builderAvailability} onAddToCart={addCustomToCart} orderingReady={Boolean(catalog) && !catalogError} />
         <JackpotSlot onTake={addFromMachine} boxFull={full} />
         <Categories />
         <CustomPrint />

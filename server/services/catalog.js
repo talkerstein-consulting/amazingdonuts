@@ -10,6 +10,13 @@ const locationEnabled = (object, locationId) => {
   return object.present_at_location_ids?.includes(locationId) ?? true;
 };
 
+const soldOutAtLocation = (data, locationId) => {
+  if (!locationId) return false;
+  return data?.location_overrides?.some(
+    (override) => override.location_id === locationId && override.sold_out === true
+  ) || false;
+};
+
 export function normalizeCatalog({ objects, relatedObjects = [], counts = [], locationId }) {
   const byId = new Map([...objects, ...relatedObjects].map((object) => [object.id, object]));
   const all = [...byId.values()];
@@ -40,7 +47,8 @@ export function normalizeCatalog({ objects, relatedObjects = [], counts = [], lo
           id: modifier.id,
           name: modifier.modifier_data?.name || "Option",
           priceMoney: money(modifier.modifier_data?.price_money),
-          ordinal: modifier.modifier_data?.ordinal ?? null
+          ordinal: modifier.modifier_data?.ordinal ?? null,
+          soldOut: soldOutAtLocation(modifier.modifier_data, locationId)
         }))
     }));
 
@@ -80,9 +88,11 @@ export function normalizeCatalog({ objects, relatedObjects = [], counts = [], lo
             quantityAvailable: inventoryByVariation.has(variation.id)
               ? inventoryByVariation.get(variation.id)
               : null,
-            soldOut: variation.item_variation_data?.track_inventory === true
-              ? !inventoryByVariation.has(variation.id) || inventoryByVariation.get(variation.id) <= 0
-              : false
+            soldOut: soldOutAtLocation(variation.item_variation_data, locationId) || (
+              variation.item_variation_data?.track_inventory === true
+                ? !inventoryByVariation.has(variation.id) || inventoryByVariation.get(variation.id) <= 0
+                : false
+            )
           }))
       };
     });

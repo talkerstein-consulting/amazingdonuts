@@ -8,18 +8,18 @@ const ART = "/assets/builder";
 /* Each base keeps its own folder and a slug the layer files are named with:
    base_<slug>.png, icing_<slug>_<icing>.png, filling_<slug>_<filling>.png. */
 export const BASES = [
-  { id: "round",        name: "Round Donut",         folder: "round_donut",               slug: "round_donut",         family: "sky",      note: "The one people picture." },
-  { id: "kids-round",   name: "Kids Size Round",     folder: "kids_size_round",           slug: "kids_round",          family: "magenta",  note: "Same donut, smaller hands." },
-  { id: "sofgania",     name: "Sofgania / Boston",   folder: "sofgania_boston",           slug: "sofgania_boston",     family: "sunshine", note: "No hole. Room for filling.", filled: true },
-  { id: "kids-sofgania",name: "Kids Size Sofgania",  folder: "kids_size_sofgania_boston", slug: "kids_sofgania_boston",family: "sky",      note: "A small one, still filled.", filled: true },
-  { id: "twist",        name: "Twist",               folder: "twist",                     slug: "twist",               family: "magenta",  note: "Braided, glazed end to end." },
-  { id: "heart",        name: "Heart Shape",         folder: "heart_shape_donuts",        slug: "heart_donut",         family: "sunshine", note: "For the occasion you know about." },
-  { id: "bites",        name: "Amazing Bites",       folder: "amazing_bites",             slug: "amazing_bites",       family: "sky",      note: "One bite. Then eleven more." },
-  { id: "cupcake",      name: "Cupcakes",            folder: "cupcakes",                  slug: "cupcake",             family: "magenta",  note: "Cake, in a paper collar." },
-  { id: "mini-cupcake", name: "Mini Cupcakes",       folder: "mini_cupcakes",             slug: "mini_cupcake",        family: "sunshine", note: "Two bites, tops." },
-  { id: "cookie-2",     name: '2" Cookie',           folder: "cookie_2in",                slug: "cookie_2in",          family: "sky",      note: "Small, flat, iced." },
-  { id: "cookie-3",     name: '3" Cookie',           folder: "cookie_3in",                slug: "cookie_3in",          family: "magenta",  note: "The printing size." },
-  { id: "cookie-lg",    name: "Large Cookie",        folder: "large_cookie",              slug: "cookie_large",        family: "sunshine", note: "Big enough to share. Nobody does." }
+  { id: "round",         sku: "DSPCL-SPR",                 name: "Round Donut",        folder: "round_donut",               slug: "round_donut",          family: "sky",      note: "The one people picture." },
+  { id: "kids-round",    sku: "AD-BUILD-KIDS-ROUND",       name: "Kids Size Round",    folder: "kids_size_round",           slug: "kids_round",           family: "magenta",  note: "Same donut, smaller hands." },
+  { id: "sofgania",      sku: "AD-BUILD-SOFGANIA",         name: "Sofgania / Boston",  folder: "sofgania_boston",           slug: "sofgania_boston",      family: "sunshine", note: "No hole. Room for filling.", filled: true },
+  { id: "kids-sofgania", sku: "AD-BUILD-KIDS-SOFGANIA",    name: "Kids Size Sofgania", folder: "kids_size_sofgania_boston", slug: "kids_sofgania_boston", family: "sky",      note: "A small one, still filled.", filled: true },
+  { id: "twist",         sku: "AD-BUILD-TWIST",            name: "Twist",              folder: "twist",                     slug: "twist",                family: "magenta",  note: "Braided, glazed end to end." },
+  { id: "heart",         sku: "AD-BUILD-HEART",            name: "Heart Shape",        folder: "heart_shape_donuts",        slug: "heart_donut",          family: "sunshine", note: "For the occasion you know about." },
+  { id: "bites",         sku: "AD-BUILD-BITES",            name: "Amazing Bites",      folder: "amazing_bites",             slug: "amazing_bites",        family: "sky",      note: "One bite. Then eleven more." },
+  { id: "cupcake",       sku: "AD-BUILD-CUPCAKE",          name: "Cupcakes",           folder: "cupcakes",                  slug: "cupcake",              family: "magenta",  note: "Cake, in a paper collar." },
+  { id: "mini-cupcake",  sku: "AD-BUILD-MINI-CUPCAKE",     name: "Mini Cupcakes",      folder: "mini_cupcakes",             slug: "mini_cupcake",         family: "sunshine", note: "Two bites, tops." },
+  { id: "cookie-2",      sku: "AD-BUILD-COOKIE-2",         name: '2" Cookie',          folder: "cookie_2in",                slug: "cookie_2in",           family: "sky",      note: "Small, flat, iced." },
+  { id: "cookie-3",      sku: "AD-BUILD-COOKIE-3",         name: '3" Cookie',          folder: "cookie_3in",                slug: "cookie_3in",           family: "magenta",  note: "The printing size." },
+  { id: "cookie-lg",     sku: "AD-BUILD-COOKIE-LARGE",     name: "Large Cookie",       folder: "large_cookie",              slug: "cookie_large",         family: "sunshine", note: "Big enough to share. Nobody does." }
 ];
 
 /* Icing. `key` is the filename fragment; `swatch` drives the chip. */

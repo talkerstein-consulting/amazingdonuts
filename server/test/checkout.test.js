@@ -80,6 +80,32 @@ test("rejects hidden items, unrelated modifiers, and unavailable quantities", ()
   assert.throws(() => validateCatalogSelection({ ...input, lineItems: [{ catalogObjectId: "VAR_FILLED", quantity: 5, modifiers: [] }] }, normalizedCatalog), /no longer available/);
 });
 
+test("validates Square-first builder variations and compatibility", () => {
+  const catalog = {
+    products: [{
+      name: "Customizable Donut",
+      modifierListIds: ["Icing", "Filling", "Topping"].map((id) => ({ id, minSelected: 1, maxSelected: 1, enabled: true })),
+      variations: [
+        { id: "ROUND", name: "Round Donut", sku: "DSPCL-SPR", soldOut: false },
+        { id: "FILLED", name: "Sofgania / Boston", sku: "AD-BUILD-SOFGANIA", soldOut: false }
+      ]
+    }],
+    modifierLists: [
+      { id: "Icing", name: "Builder: Icing", selectionType: "SINGLE", modifiers: [{ id: "PINK", name: "Vanilla · Pink" }, { id: "BARE", name: "No Icing" }] },
+      { id: "Filling", name: "Builder: Filling", selectionType: "SINGLE", modifiers: [{ id: "NONE", name: "No Filling" }, { id: "CUSTARD", name: "Custard" }] },
+      { id: "Topping", name: "Builder: Topping", selectionType: "SINGLE", modifiers: [{ id: "RAINBOW", name: "Rainbow" }, { id: "NO_TOP", name: "No Sprinkles" }] }
+    ]
+  };
+  const input = checkoutSchema.parse({ ...pickup, lineItems: [{ catalogObjectId: "ROUND", quantity: 1, modifiers: [
+    { catalogObjectId: "PINK", quantity: 1 }, { catalogObjectId: "NONE", quantity: 1 }, { catalogObjectId: "RAINBOW", quantity: 1 }
+  ] }] });
+  assert.doesNotThrow(() => validateCatalogSelection(input, catalog));
+  assert.throws(() => validateCatalogSelection({ ...input, lineItems: [{ ...input.lineItems[0], catalogObjectId: "FILLED" }] }, catalog), /requires a filling/);
+  assert.throws(() => validateCatalogSelection({ ...input, lineItems: [{ ...input.lineItems[0], modifiers: [
+    { catalogObjectId: "BARE", quantity: 1 }, { catalogObjectId: "NONE", quantity: 1 }, { catalogObjectId: "RAINBOW", quantity: 1 }
+  ] }] }, catalog), /Toppings require icing/);
+});
+
 test("builds the same Square order for embedded and hosted checkout", () => {
   const input = checkoutSchema.parse(pickup);
   const config = { PREP_TIME_MINUTES: 30 };
