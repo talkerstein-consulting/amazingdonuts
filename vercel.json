@@ -22,6 +22,12 @@
   "rewrites": [
     {
       "source": "/api/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "amazingdonuts.vercel.app"
+        }
+      ],
       "destination": "https://amazing-donuts.vercel.app/api/:path*"
     },
     {
