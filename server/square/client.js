@@ -147,6 +147,10 @@ export class SquareClient {
     return this.request("/v2/orders", { method: "POST", body });
   }
 
+  async retrieveOrder(orderId) {
+    return this.request(`/v2/orders/${encodeURIComponent(orderId)}`);
+  }
+
   async createPayment(body) {
     return this.request("/v2/payments", { method: "POST", body });
   }

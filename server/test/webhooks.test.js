@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { resolveWebhookOrder } from "../db/webhooks.js";
 import { verifySquareWebhook } from "../square/webhooks.js";
 
 test("verifies Square's documented webhook signature vector", () => {
@@ -24,4 +25,19 @@ test("rejects an altered webhook body", () => {
     }),
     false
   );
+});
+
+test("hydrates referenced Square orders before projecting webhooks", async () => {
+  const calls = [];
+  const order = await resolveWebhookOrder(
+    { data: { object: { order_updated: { order_id: "ORDER_1", version: 2 } } } },
+    {
+      retrieveOrder: async (orderId) => {
+        calls.push(orderId);
+        return { order: { id: orderId, location_id: "LOC_1", state: "OPEN" } };
+      }
+    }
+  );
+  assert.deepEqual(calls, ["ORDER_1"]);
+  assert.equal(order.location_id, "LOC_1");
 });

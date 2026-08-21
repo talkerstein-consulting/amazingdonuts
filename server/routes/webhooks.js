@@ -3,7 +3,7 @@ import { AppError } from "../lib/errors.js";
 import { persistWebhook } from "../db/webhooks.js";
 import { verifySquareWebhook } from "../square/webhooks.js";
 
-export function webhooksRouter({ config, pool }) {
+export function webhooksRouter({ config, pool, square }) {
   const router = Router();
 
   router.post("/square", async (request, response, next) => {
@@ -22,7 +22,7 @@ export function webhooksRouter({ config, pool }) {
       if (!event.event_id || !event.type) {
         throw new AppError(400, "INVALID_WEBHOOK_EVENT", "Square event ID and type are required.");
       }
-      const result = await persistWebhook(pool, event);
+      const result = await persistWebhook(pool, event, square);
       response.status(200).json({ received: true, duplicate: result.duplicate });
     } catch (error) {
       next(error);

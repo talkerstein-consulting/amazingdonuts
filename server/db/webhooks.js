@@ -45,7 +45,18 @@ async function upsertOrder(client, order) {
   );
 }
 
-export async function persistWebhook(pool, event) {
+export async function resolveWebhookOrder(event, square) {
+  const object = event.data?.object || {};
+  const candidate = object.order || object.order_updated || object.order_created || object.order_fulfillment_updated;
+  if (candidate?.id && candidate.location_id) return candidate;
+  const orderId = candidate?.order_id || object.order_id;
+  if (!orderId || !square?.retrieveOrder) return null;
+  const result = await square.retrieveOrder(orderId);
+  return result.order || null;
+}
+
+export async function persistWebhook(pool, event, square) {
+  const order = await resolveWebhookOrder(event, square);
   return withTransaction(pool, async (client) => {
     const inserted = await client.query(
       `INSERT INTO webhook_events (
@@ -59,7 +70,6 @@ export async function persistWebhook(pool, event) {
 
     try {
       const object = event.data?.object || {};
-      const order = object.order || object.order_updated || object.order_created;
       await upsertOrder(client, order);
 
       if (event.type === "catalog.version.updated") {

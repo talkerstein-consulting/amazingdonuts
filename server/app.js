@@ -22,7 +22,7 @@ export function createApp({ config, square, pool }) {
   app.use(
     "/api/webhooks",
     express.raw({ type: "application/json", limit: "1mb" }),
-    webhooksRouter({ config, pool })
+    webhooksRouter({ config, pool, square })
   );
   app.use(express.json({ limit: "256kb" }));
 
