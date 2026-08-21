@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import cors from "cors";
 import express from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import helmet from "helmet";
 import { errorResponse } from "./lib/errors.js";
 import { catalogRouter } from "./routes/catalog.js";
@@ -15,6 +15,7 @@ import { sessionUser } from "./services/auth.js";
 export function createApp({ config, square, pool }) {
   const app = express();
   app.disable("x-powered-by");
+  app.set("trust proxy", 1);
   app.use(helmet());
   app.use(cors({ origin: config.APP_ORIGIN, methods: ["GET", "POST"] }));
   app.use((request, response, next) => {
@@ -51,7 +52,13 @@ export function createApp({ config, square, pool }) {
   app.use("/api", houseAccountsRouter({ pool, square, config }));
   app.use(
     "/api",
-    rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }),
+    rateLimit({
+      windowMs: 60_000,
+      limit: 30,
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (request) => ipKeyGenerator(request.ip)
+    }),
     checkoutRouter({ square, config, pool })
   );
 

@@ -34,10 +34,20 @@ export function authRouter({ pool, square, config }) {
       const input = registration.parse(request.body);
       const existing = await pool.query("SELECT 1 FROM retail_users WHERE email = $1", [input.email]);
       if (existing.rowCount) throw new AppError(409, "EMAIL_IN_USE", "An account already uses this email.");
-      const squareCustomer = await findOrCreateSquareCustomer(square, {
+      let squareCustomer = await findOrCreateSquareCustomer(square, {
         ...input,
         idempotencyKey: `retail-${crypto.randomUUID()}`
       });
+      const claimed = await pool.query("SELECT 1 FROM retail_users WHERE square_customer_id = $1", [squareCustomer.id]);
+      if (claimed.rowCount) {
+        squareCustomer = (await square.createCustomer({
+          idempotency_key: `retail-${crypto.randomUUID()}`,
+          given_name: input.firstName,
+          family_name: input.lastName,
+          email_address: input.email,
+          phone_number: input.phone
+        })).customer;
+      }
       const result = await pool.query(
         `INSERT INTO retail_users (email, password_hash, first_name, last_name, phone, square_customer_id)
          VALUES ($1,$2,$3,$4,$5,$6)
