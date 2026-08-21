@@ -68,6 +68,7 @@ export default function CheckoutDrawer({ cart, open, onOpen, onRemove, onQuantit
   const [error, setError] = useState("");
   const [confirmation, setConfirmation] = useState(null);
   const cardRef = useRef(null);
+  const paymentCardRef = useRef(null);
   const total = useMemo(() => cartTotal(cart), [cart]);
 
   useEffect(() => {
@@ -82,18 +83,22 @@ export default function CheckoutDrawer({ cart, open, onOpen, onRemove, onQuantit
   }, [open, config]);
 
   useEffect(() => {
-    if (!open || !config?.applicationId || !config.locationId || card || !cardRef.current) return;
+    if (!open || !config?.applicationId || !config.locationId || paymentCardRef.current || !cardRef.current) return;
     let disposed = false;
     let attachedCard;
     loadSquare(config.environment).then(async (Square) => {
       const payments = Square.payments(config.applicationId, config.locationId);
       attachedCard = await payments.card();
       await attachedCard.attach(cardRef.current);
-      if (!disposed) setCard(attachedCard);
+      if (!disposed) {
+        paymentCardRef.current = attachedCard;
+        setCard(attachedCard);
+      }
     }).catch((cause) => setError(cause.message || "The secure payment form could not start."));
     return () => {
       disposed = true;
       attachedCard?.destroy?.();
+      paymentCardRef.current = null;
       setCard(null);
     };
   }, [open, config]);
