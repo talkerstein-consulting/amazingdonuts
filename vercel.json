@@ -31,6 +31,10 @@
       "destination": "https://amazing-donuts.vercel.app/api/:path*"
     },
     {
+      "source": "/api/:path*",
+      "destination": "/api/index?__path=:path*"
+    },
+    {
       "source": "/:path*",
       "destination": "/index.html"
     }

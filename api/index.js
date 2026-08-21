@@ -11,4 +11,15 @@ const square = new SquareClient({
   apiVersion: config.SQUARE_API_VERSION
 });
 
-export default createApp({ config, square, pool });
+const app = createApp({ config, square, pool });
+
+export default function handler(request, response) {
+  const originalPath = request.query?.__path;
+  if (typeof originalPath === "string" && originalPath) {
+    const url = new URL(request.url, "http://localhost");
+    url.pathname = `/api/${originalPath}`;
+    url.searchParams.delete("__path");
+    request.url = `${url.pathname}${url.search}`;
+  }
+  return app(request, response);
+}
