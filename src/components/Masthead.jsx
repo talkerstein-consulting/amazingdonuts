@@ -1,17 +1,16 @@
 import { useState } from "react";
+import { User } from "lucide-react";
 import Wedge from "./Wedge.jsx";
 
 const LINKS = [
-  ["Donuts", "#build"],
-  ["Muffins", "#build"],
-  ["Cupcakes", "#build"],
-  ["Cookies", "#build"],
-  ["Challah", "#counter"],
+  ["Menu", "#menu"],
+  ["Build a Dozen", "#build"],
+  ["Custom Donut", "#build-your-own"],
   ["Our Bakery", "#bakery"],
   ["Visit", "#visit"]
 ];
 
-export default function Masthead() {
+export default function Masthead({ onAccount, user }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -36,6 +35,7 @@ export default function Masthead() {
               {label}
             </a>
           ))}
+          <button className="nav-account" type="button" onClick={() => { setOpen(false); onAccount(); }} aria-label={user ? `Open account for ${user.firstName}` : "Sign in or create account"} title="Account"><User /><span>{user ? user.firstName : "Account"}</span></button>
           <Wedge label="Order Ahead" href="#build" family="sunshine" biteBg="#00A3DC" onClick={() => setOpen(false)} />
         </nav>
       </div>

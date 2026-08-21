@@ -72,6 +72,29 @@ export async function persistWebhook(pool, event, square) {
       const object = event.data?.object || {};
       await upsertOrder(client, order);
 
+      const payment = object.payment;
+      if (payment?.id && payment.status === "COMPLETED" && payment.order_id) {
+        const invoice = await client.query(
+          `SELECT id,account_id,amount,currency FROM b2b_invoices WHERE square_order_id=$1`,
+          [payment.order_id]
+        );
+        if (invoice.rowCount) {
+          const record = invoice.rows[0];
+          await client.query(
+            `INSERT INTO house_account_payments (account_id,square_payment_id,amount,currency,status,received_at,metadata)
+             VALUES ($1,$2,$3,$4,'completed',now(),$5) ON CONFLICT (square_payment_id) DO NOTHING`,
+            [record.account_id,payment.id,Number(payment.total_money?.amount||payment.amount_money?.amount||record.amount),payment.total_money?.currency||payment.amount_money?.currency||record.currency,{ invoiceId: record.id }]
+          );
+          await client.query(
+            `INSERT INTO ledger_entries (account_id,square_order_id,square_payment_id,entry_type,amount,currency,description,idempotency_key,metadata)
+             VALUES ($1,$2,$3,'payment',$4,$5,'Square invoice payment',$6,$7)
+             ON CONFLICT (idempotency_key) DO NOTHING`,
+            [record.account_id,payment.order_id,payment.id,-Number(payment.total_money?.amount||payment.amount_money?.amount||record.amount),payment.total_money?.currency||payment.amount_money?.currency||record.currency,`invoice-payment-${payment.id}`,{ invoiceId: record.id }]
+          );
+          await client.query(`UPDATE b2b_invoices SET status='PAID',updated_at=now() WHERE id=$1`, [record.id]);
+        }
+      }
+
       if (event.type === "catalog.version.updated") {
         await client.query(
           `UPDATE catalog_sync_state

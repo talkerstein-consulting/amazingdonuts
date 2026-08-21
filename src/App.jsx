@@ -9,6 +9,8 @@ import { Features12 } from "./components/features-12.tsx";
 import Contact9 from "./components/contact-9.tsx";
 import { Footer5 } from "./components/footer-5.tsx";
 import CheckoutDrawer from "./components/CheckoutDrawer.jsx";
+import CatalogMenu from "./components/CatalogMenu.jsx";
+import AccountDrawer from "./components/AccountDrawer.jsx";
 import { catalogFlavours, customDonutCartItem, dozenCartItem, indexCatalog } from "./lib/squareCart.js";
 import { FLAVOURS } from "./data/flavours.js";
 import {
@@ -68,6 +70,9 @@ export default function App() {
   const [catalogError, setCatalogError] = useState("");
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [houseAccount, setHouseAccount] = useState(null);
   const full = box.slots.every(Boolean);
   const squareIndex = useMemo(() => indexCatalog(catalog), [catalog]);
   const pricedFlavours = useMemo(() => catalogFlavours(FLAVOURS, squareIndex), [squareIndex]);
@@ -81,6 +86,14 @@ export default function App() {
       })
       .catch((error) => setCatalogError(error.message));
   }, []);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then((response) => response.json()).then((body) => setUser(body.user || null)).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (!user) { setHouseAccount(null); return; }
+    fetch("/api/house/account").then((response) => response.json()).then((body) => setHouseAccount(body.account || null)).catch(() => setHouseAccount(null));
+  }, [user]);
 
   const add = useCallback((product) => dispatch({ type: "add", product }), []);
   const removeAt = useCallback((index) => dispatch({ type: "remove", index }), []);
@@ -122,13 +135,39 @@ export default function App() {
       .filter((item) => item.quantity > 0));
   }, []);
 
+  const addCatalogToCart = useCallback((item) => {
+    setCart((current) => [...current, item]);
+    setCartOpen(true);
+  }, []);
+
+  const reorder = useCallback((order) => {
+    const variationMap = new Map(catalog?.products.flatMap((product) => product.variations.map((variation) => [variation.id, { product, variation }])) || []);
+    const modifierMap = new Map(catalog?.modifierLists.flatMap((list) => list.modifiers.map((modifier) => [modifier.id, modifier])) || []);
+    const restored = order.lineItems.map((line) => {
+      const record = variationMap.get(line.catalogObjectId);
+      if (!record) return null;
+      const modifiers = line.modifiers.map((item) => modifierMap.get(item.catalog_object_id)).filter(Boolean);
+      return {
+        id: crypto.randomUUID(), kind: "reorder", name: record.product.name,
+        description: [record.variation.name, ...modifiers.map((item) => item.name)].filter(Boolean).join(" / "),
+        quantity: line.quantity,
+        priceMoney: { amount: Number(record.variation.priceMoney?.amount || 0) + modifiers.reduce((sum, item) => sum + Number(item.priceMoney?.amount || 0), 0), currency: record.variation.priceMoney?.currency || "CAD" },
+        imageUrl: record.product.imageUrl || "/assets/logo-amazing-donuts.webp",
+        lineItems: [{ catalogObjectId: record.variation.id, quantity: 1, modifiers: modifiers.map((item) => ({ catalogObjectId: item.id, quantity: 1 })), ...(line.note ? { note: line.note } : {}) }]
+      };
+    }).filter(Boolean);
+    if (!restored.length) { setCatalogError("Those products are no longer available in today’s Square menu."); return; }
+    setCart((current) => [...current, ...restored]); setAccountOpen(false); setCartOpen(true);
+  }, [catalog]);
+
   return (
     <>
-      <Masthead />
+      <Masthead onAccount={() => setAccountOpen(true)} user={user} />
       <main>
         <Hero24 />
         <Ticker lines={TICKER_TOP} />
         <Certifications />
+        <CatalogMenu catalog={catalog} error={catalogError} onAdd={addCatalogToCart} />
         <BuildABox
           box={box}
           limit={BOX_LIMIT}
@@ -155,7 +194,10 @@ export default function App() {
         onRemove={(id) => setCart((current) => current.filter((item) => item.id !== id))}
         onQuantity={changeQuantity}
         onComplete={() => setCart([])}
+        user={user}
+        houseAccount={houseAccount}
       />
+      <AccountDrawer open={accountOpen} onOpen={setAccountOpen} user={user} onUser={setUser} onReorder={reorder} />
       {catalogError ? <p className="order-toast" role="alert">{catalogError}</p> : null}
     </>
   );

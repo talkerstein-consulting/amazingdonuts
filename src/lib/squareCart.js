@@ -116,6 +116,29 @@ export function customDonutCartItem(build, index) {
   };
 }
 
+export function catalogCartItem({ product, variation, modifiers = [], imageUrl }) {
+  const modifierTotal = modifiers.reduce((sum, modifier) => sum + Number(modifier.priceMoney?.amount || 0), 0);
+  const optionNames = modifiers.map((modifier) => modifier.name);
+  const variationName = variation.name && variation.name !== "Regular" ? variation.name : null;
+  return {
+    id: crypto.randomUUID(),
+    kind: "catalog",
+    name: product.name,
+    description: [variationName, ...optionNames].filter(Boolean).join(" / ") || product.description || "From the bakery case",
+    quantity: 1,
+    priceMoney: {
+      amount: Number(variation.priceMoney?.amount || 0) + modifierTotal,
+      currency: variation.priceMoney?.currency || "CAD"
+    },
+    imageUrl: imageUrl || "/assets/logo-amazing-donuts.webp",
+    lineItems: [{
+      catalogObjectId: variation.id,
+      quantity: 1,
+      modifiers: modifiers.map((modifier) => ({ catalogObjectId: modifier.id, quantity: 1 }))
+    }]
+  };
+}
+
 export const cartTotal = (cart) => cart.reduce(
   (sum, item) => sum + Number(item.priceMoney?.amount || 0) * item.quantity,
   0

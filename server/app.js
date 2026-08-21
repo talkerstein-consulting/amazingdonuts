@@ -6,7 +6,11 @@ import helmet from "helmet";
 import { errorResponse } from "./lib/errors.js";
 import { catalogRouter } from "./routes/catalog.js";
 import { checkoutRouter } from "./routes/checkout.js";
+import { accountRouter } from "./routes/account.js";
+import { authRouter } from "./routes/auth.js";
+import { houseAccountsRouter } from "./routes/houseAccounts.js";
 import { webhooksRouter } from "./routes/webhooks.js";
+import { sessionUser } from "./services/auth.js";
 
 export function createApp({ config, square, pool }) {
   const app = express();
@@ -25,6 +29,12 @@ export function createApp({ config, square, pool }) {
     webhooksRouter({ config, pool, square })
   );
   app.use(express.json({ limit: "256kb" }));
+  app.use(async (request, _response, next) => {
+    try {
+      request.user = await sessionUser(pool, request);
+      next();
+    } catch (error) { next(error); }
+  });
 
   app.get("/api/health", async (_request, response, next) => {
     try {
@@ -36,10 +46,13 @@ export function createApp({ config, square, pool }) {
   });
 
   app.use("/api", catalogRouter({ square, config }));
+  app.use("/api", authRouter({ pool, square, config }));
+  app.use("/api", accountRouter({ pool, square, config }));
+  app.use("/api", houseAccountsRouter({ pool, square, config }));
   app.use(
     "/api",
     rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }),
-    checkoutRouter({ square, config })
+    checkoutRouter({ square, config, pool })
   );
 
   app.use((_request, response) => {

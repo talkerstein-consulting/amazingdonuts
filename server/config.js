@@ -25,11 +25,16 @@ const schema = z.object({
   SQUARE_WEBHOOK_NOTIFICATION_URL: z.string().url(),
   CHECKOUT_REDIRECT_URL: z.string().url(),
   MERCHANT_SUPPORT_EMAIL: optionalString(z.string().email()),
+  ADMIN_EMAILS: z.string().default(""),
+  SESSION_SECRET: optionalString(z.string().min(32)),
   ALLOW_TIPPING: z
     .enum(["true", "false"])
     .default("true")
     .transform((value) => value === "true"),
   ENABLE_DELIVERY: booleanFromEnv,
+  DELIVERY_POSTAL_PREFIXES: z.string().default(""),
+  DELIVERY_MINIMUM_AMOUNT: z.coerce.number().int().min(0).default(2500),
+  DELIVERY_FEE_AMOUNT: z.coerce.number().int().min(0).default(800),
   ENABLE_HOUSE_ACCOUNTS: booleanFromEnv,
   PREP_TIME_MINUTES: z.coerce.number().int().min(0).max(1440).default(30),
   MIN_ORDER_LEAD_MINUTES: z.coerce.number().int().min(0).max(10080).default(60),
@@ -45,7 +50,19 @@ export function loadConfig(env = process.env) {
     throw new Error(`Invalid backend configuration:\n${details}`);
   }
 
-  return parsed.data;
+  const config = parsed.data;
+  if (config.NODE_ENV === "production" && !config.SESSION_SECRET) {
+    throw new Error("Invalid backend configuration:\nSESSION_SECRET: Required in production");
+  }
+  return {
+    ...config,
+    SESSION_SECRET: config.SESSION_SECRET || "local-amazing-donuts-session-secret-change-me",
+    DELIVERY_POSTAL_PREFIXES: config.DELIVERY_POSTAL_PREFIXES
+      .split(",")
+      .map((value) => value.trim().toUpperCase())
+      .filter(Boolean),
+    ADMIN_EMAILS: config.ADMIN_EMAILS.split(",").map((value) => value.trim().toLowerCase()).filter(Boolean)
+  };
 }
 
 export function loadDatabaseConfig(env = process.env) {

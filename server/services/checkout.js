@@ -54,7 +54,9 @@ export const checkoutSchema = z.object({
 
 export const paymentSchema = checkoutSchema.omit({ redirectUrl: true }).extend({
   sourceId: z.string().min(1).max(255),
-  verificationToken: z.string().min(1).max(2048).optional()
+  verificationToken: z.string().min(1).max(2048).optional(),
+  tipAmount: z.coerce.number().int().min(0).max(100_000).default(0),
+  saveCard: z.boolean().default(false)
 });
 
 const toSquareAddress = (address) => ({
@@ -163,7 +165,7 @@ export function buildSquareOrder(input, config, customerId) {
   return {
     location_id: input.locationId,
     reference_id: `web-${idempotencyKey}`.slice(0, 40),
-    customer_id: customerId,
+    ...(customerId ? { customer_id: customerId } : {}),
     source: { name: "Amazing Donuts Website" },
     line_items: input.lineItems.map((item) => ({
       catalog_object_id: item.catalogObjectId,
@@ -174,6 +176,15 @@ export function buildSquareOrder(input, config, customerId) {
       })),
       ...(item.note ? { note: item.note } : {})
     })),
+    ...(input.fulfillment.type === "DELIVERY" && config.DELIVERY_FEE_AMOUNT
+      ? { service_charges: [{
+          name: "Local delivery",
+          amount_money: { amount: config.DELIVERY_FEE_AMOUNT, currency: "CAD" },
+          calculation_phase: "TOTAL_PHASE",
+          taxable: true,
+          scope: "ORDER"
+        }] }
+      : {}),
     fulfillments: [fulfillmentFor(input, config)],
     pricing_options: { auto_apply_taxes: true, auto_apply_discounts: true }
   };
@@ -214,6 +225,12 @@ function validateCheckoutCapabilities(input, config) {
       "DELIVERY_NOT_ENABLED",
       "Delivery checkout is disabled until the Square delivery workflow is verified."
     );
+  }
+  if (input.fulfillment.type === "DELIVERY" && config.DELIVERY_POSTAL_PREFIXES.length) {
+    const normalized = input.fulfillment.address.postalCode.replace(/\s/g, "").toUpperCase();
+    if (!config.DELIVERY_POSTAL_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
+      throw new AppError(409, "OUTSIDE_DELIVERY_ZONE", "This address is outside the current delivery area.");
+    }
   }
 }
 
@@ -295,7 +312,8 @@ async function validateCheckoutCart(square, input, catalogLoader) {
   validateCatalogSelection(input, catalog);
 }
 
-async function prepareCustomer({ square, input }) {
+async function prepareCustomer({ square, input, customerId }) {
+  if (customerId) return { id: customerId };
   return findOrCreateSquareCustomer(square, {
     ...input.customer,
     idempotencyKey: `customer-${input.idempotencyKey || randomUUID()}`,
@@ -336,13 +354,13 @@ export async function createRetailCheckout({ square, config, body, catalogLoader
   };
 }
 
-export async function createRetailPayment({ square, config, body, catalogLoader = getPublicCatalog }) {
+export async function createRetailPayment({ square, config, body, catalogLoader = getPublicCatalog, customerId }) {
   const input = paymentSchema.parse(body);
   validateCheckoutCapabilities(input, config);
   await validateCheckoutCart(square, input, catalogLoader);
   await validateSchedule(square, input, config);
 
-  const customer = await prepareCustomer({ square, input });
+  const customer = await prepareCustomer({ square, input, customerId });
   const orderResult = await square.createOrder({
     idempotency_key: `order-${input.idempotencyKey}`,
     order: buildSquareOrder(input, config, customer.id)
@@ -351,11 +369,18 @@ export async function createRetailPayment({ square, config, body, catalogLoader 
   if (!order?.id || !order.total_money?.amount || !order.total_money.currency) {
     throw new AppError(502, "INVALID_SQUARE_ORDER", "Square did not return a payable order total.");
   }
+  if (input.fulfillment.type === "DELIVERY") {
+    const merchandise = Number(order.subtotal_money?.amount || 0);
+    if (merchandise < config.DELIVERY_MINIMUM_AMOUNT) {
+      throw new AppError(409, "DELIVERY_MINIMUM", `Delivery requires a minimum merchandise order of $${(config.DELIVERY_MINIMUM_AMOUNT / 100).toFixed(2)}.`);
+    }
+  }
 
   const paymentResult = await square.createPayment({
     idempotency_key: `payment-${input.idempotencyKey}`,
     source_id: input.sourceId,
     amount_money: order.total_money,
+    ...(input.tipAmount ? { tip_money: { amount: input.tipAmount, currency: order.total_money.currency } } : {}),
     order_id: order.id,
     location_id: input.locationId,
     customer_id: customer.id,
@@ -365,12 +390,51 @@ export async function createRetailPayment({ square, config, body, catalogLoader 
     ...(input.verificationToken ? { verification_token: input.verificationToken } : {})
   });
 
+  let savedCard = null;
+  if (input.saveCard && paymentResult.payment?.id) {
+    const cardResult = await square.createCard({
+      idempotency_key: `card-${input.idempotencyKey}`,
+      source_id: paymentResult.payment.id,
+      card: {
+        customer_id: customer.id,
+        cardholder_name: `${input.customer.firstName} ${input.customer.lastName}`,
+        reference_id: `retail-${customer.id}`.slice(0, 40)
+      }
+    });
+    savedCard = cardResult.card || null;
+  }
+
   return {
     orderId: order.id,
     paymentId: paymentResult.payment?.id,
     paymentStatus: paymentResult.payment?.status,
     customerId: customer.id,
-    totalMoney: order.total_money,
+    totalMoney: paymentResult.payment?.total_money || {
+      amount: Number(order.total_money.amount) + input.tipAmount,
+      currency: order.total_money.currency
+    },
+    tipMoney: paymentResult.payment?.tip_money || { amount: input.tipAmount, currency: order.total_money.currency },
+    savedCard: savedCard ? { id: savedCard.id, brand: savedCard.card_brand, last4: savedCard.last_4 } : null,
     receiptUrl: paymentResult.payment?.receipt_url || null
+  };
+}
+
+export async function createRetailQuote({ square, config, body, catalogLoader = getPublicCatalog }) {
+  const input = checkoutSchema.omit({ redirectUrl: true }).parse(body);
+  validateCheckoutCapabilities(input, config);
+  await validateCheckoutCart(square, input, catalogLoader);
+  await validateSchedule(square, input, config);
+  const result = await square.calculateOrder({ order: buildSquareOrder(input, config, null) });
+  const order = result.order;
+  if (!order?.total_money) throw new AppError(502, "INVALID_SQUARE_QUOTE", "Square could not calculate this order.");
+  if (input.fulfillment.type === "DELIVERY" && Number(order.subtotal_money?.amount || 0) < config.DELIVERY_MINIMUM_AMOUNT) {
+    throw new AppError(409, "DELIVERY_MINIMUM", `Delivery requires a minimum merchandise order of $${(config.DELIVERY_MINIMUM_AMOUNT / 100).toFixed(2)}.`);
+  }
+  return {
+    subtotalMoney: order.subtotal_money,
+    taxMoney: order.total_tax_money,
+    serviceChargeMoney: order.total_service_charge_money,
+    discountMoney: order.total_discount_money,
+    totalMoney: order.total_money
   };
 }

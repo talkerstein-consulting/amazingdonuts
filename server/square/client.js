@@ -147,12 +147,40 @@ export class SquareClient {
     return this.request("/v2/orders", { method: "POST", body });
   }
 
+  async calculateOrder(body) {
+    return this.request("/v2/orders/calculate", { method: "POST", body });
+  }
+
   async retrieveOrder(orderId) {
     return this.request(`/v2/orders/${encodeURIComponent(orderId)}`);
   }
 
   async createPayment(body) {
     return this.request("/v2/payments", { method: "POST", body });
+  }
+
+  async createCard(body) {
+    return this.request("/v2/cards", { method: "POST", body });
+  }
+
+  async listCards(customerId) {
+    return this.request("/v2/cards", { query: { customer_id: customerId, include_disabled: false } });
+  }
+
+  async disableCard(cardId) {
+    return this.request(`/v2/cards/${encodeURIComponent(cardId)}/disable`, { method: "POST" });
+  }
+
+  async refundPayment(body) {
+    return this.request("/v2/refunds", { method: "POST", body });
+  }
+
+  async createInvoice(body) {
+    return this.request("/v2/invoices", { method: "POST", body });
+  }
+
+  async publishInvoice(invoiceId, body) {
+    return this.request(`/v2/invoices/${encodeURIComponent(invoiceId)}/publish`, { method: "POST", body });
   }
 
   async searchCustomers(filter) {

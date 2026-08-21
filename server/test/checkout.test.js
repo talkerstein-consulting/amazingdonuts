@@ -130,11 +130,34 @@ test("creates and pays a Square order using the Square-calculated total", async 
       ...pickup,
       redirectUrl: undefined,
       fulfillment: { type: "PICKUP", scheduledAt: scheduledAt.toISOString() },
-      sourceId: "cnon:card-nonce-ok"
+      sourceId: "cnon:card-nonce-ok",
+      tipAmount: 100
     }
   });
 
   assert.equal(calls[1][1].amount_money.amount, 675);
+  assert.equal(calls[1][1].tip_money.amount, 100);
   assert.equal(calls[1][1].order_id, "ORDER_1");
   assert.equal(result.paymentStatus, "COMPLETED");
+});
+
+test("adds a configurable own-driver delivery fee to the Square order", () => {
+  const input = checkoutSchema.parse({
+    ...pickup,
+    fulfillment: {
+      type: "DELIVERY",
+      scheduledAt: "2026-08-24T14:00:00-04:00",
+      address: {
+        addressLine1: "3499 Bathurst Street",
+        locality: "Toronto",
+        administrativeDistrictLevel1: "ON",
+        postalCode: "M6A 2C5",
+        country: "CA"
+      }
+    }
+  });
+  const order = buildSquareOrder(input, { PREP_TIME_MINUTES: 30, DELIVERY_FEE_AMOUNT: 800 }, "CUSTOMER_1");
+  assert.equal(order.fulfillments[0].type, "DELIVERY");
+  assert.equal(order.service_charges[0].name, "Local delivery");
+  assert.equal(order.service_charges[0].amount_money.amount, 800);
 });
