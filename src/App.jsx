@@ -9,7 +9,8 @@ import { Features12 } from "./components/features-12.tsx";
 import Contact9 from "./components/contact-9.tsx";
 import { Footer5 } from "./components/footer-5.tsx";
 import CheckoutDrawer from "./components/CheckoutDrawer.jsx";
-import { customDonutCartItem, dozenCartItem, indexCatalog } from "./lib/squareCart.js";
+import { catalogFlavours, customDonutCartItem, dozenCartItem, indexCatalog } from "./lib/squareCart.js";
+import { FLAVOURS } from "./data/flavours.js";
 import {
   Categories,
   Certifications,
@@ -69,6 +70,7 @@ export default function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const full = box.slots.every(Boolean);
   const squareIndex = useMemo(() => indexCatalog(catalog), [catalog]);
+  const pricedFlavours = useMemo(() => catalogFlavours(FLAVOURS, squareIndex), [squareIndex]);
 
   useEffect(() => {
     fetch("/api/catalog")
@@ -87,11 +89,11 @@ export default function App() {
   const addFromMachine = useCallback(
     (product) => {
       if (full) return false;
-      add(product);
+      add(pricedFlavours.find((flavour) => flavour.id === product.id) || product);
       document.querySelector(".dbox__base")?.scrollIntoView({ block: "center", behavior: "smooth" });
       return true;
     },
-    [add, full]
+    [add, full, pricedFlavours]
   );
 
   const addDozenToCart = useCallback(() => {
@@ -135,6 +137,7 @@ export default function App() {
           reset={reset}
           onAddToCart={addDozenToCart}
           orderingReady={Boolean(catalog) && !catalogError}
+          flavours={pricedFlavours}
         />
         <DonutBuilder onAddToCart={addCustomToCart} orderingReady={Boolean(catalog) && !catalogError} />
         <JackpotSlot onTake={addFromMachine} boxFull={full} />

@@ -27,6 +27,18 @@ export function indexCatalog(catalog) {
   return { variationsBySku, modifierListsByName };
 }
 
+export function catalogFlavours(flavours, index) {
+  return flavours.map((flavour) => {
+    const variation = index.variationsBySku.get(FLAVOUR_SKUS[flavour.id]);
+    return variation ? {
+      ...flavour,
+      price: Number(variation.priceMoney?.amount || 0) / 100,
+      currency: variation.priceMoney?.currency || "CAD",
+      soldOut: variation.soldOut
+    } : { ...flavour, soldOut: true };
+  });
+}
+
 function modifierId(index, listName, optionName) {
   const list = index.modifierListsByName.get(listName);
   return list?.modifiers.find((modifier) => modifier.name === optionName)?.id || null;

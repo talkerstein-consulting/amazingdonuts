@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Wedge from "./Wedge.jsx";
-import { COMPLIMENTS, FLAVOURS, art, boxNote, pick } from "../data/flavours.js";
+import { COMPLIMENTS, art, boxNote, pick } from "../data/flavours.js";
 import { useReducedMotion } from "../hooks/useReducedMotion.js";
 
 const SPRINKLE_COLORS = ["#00A3DC", "#C4008C", "#F6B316", "#A8D9EF", "#F2A8D6", "#FBDD9C"];
@@ -11,7 +11,7 @@ const COUNT_WORD = { 6: "six", 8: "eight", 10: "ten", 12: "twelve" };
  * Tapping a flavour flies the donut into the next empty slot; tapping a filled
  * slot takes it back out; closing a full lid fires the compliment banner.
  */
-export default function BuildABox({ box, limit, add, removeAt, reset, onAddToCart, orderingReady }) {
+export default function BuildABox({ box, limit, add, removeAt, reset, onAddToCart, orderingReady, flavours }) {
   const slots = box.slots;
   const filled = slots.filter(Boolean);
   const full = filled.length >= limit;
@@ -111,19 +111,20 @@ export default function BuildABox({ box, limit, add, removeAt, reset, onAddToCar
           </p>
 
           <div className="bab__grid">
-            {FLAVOURS.map((f) => (
+            {flavours.map((f) => (
               <button
                 key={f.id}
                 type="button"
                 className="flav"
                 data-family={f.family}
-                aria-label={`Add ${f.name}, $${f.price.toFixed(2)}, to the box`}
+                aria-label={f.soldOut ? `${f.name} is sold out` : `Add ${f.name}, $${f.price.toFixed(2)}, to the box`}
+                disabled={f.soldOut}
                 onClick={(e) => takeFlight(f, e.currentTarget.querySelector(".flav__art"))}
               >
                 <span className="flav__back" />
                 <span className="flav__art" style={{ backgroundImage: `url(${art(f)})` }} />
                 <span className="flav__name">{f.name}</span>
-                <span className="flav__price">${f.price.toFixed(2)}</span>
+                <span className="flav__price">{f.soldOut ? "Sold out" : `$${f.price.toFixed(2)}`}</span>
               </button>
             ))}
           </div>

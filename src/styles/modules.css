@@ -505,3 +505,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) { .checkout, .cart-fab { transition: none; } }
+.flav:disabled { cursor: not-allowed; filter: grayscale(1); }
+.flav:disabled:hover { transform: none; }

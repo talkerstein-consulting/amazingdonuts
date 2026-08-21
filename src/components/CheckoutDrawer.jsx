@@ -248,7 +248,7 @@ export default function CheckoutDrawer({ cart, open, onOpen, onRemove, onQuantit
             <button className="checkout__pay checkout__again" type="button" onClick={() => {
               setConfirmation(null);
               onOpen(false);
-              document.querySelector("#build")?.scrollIntoView({ behavior: "smooth" });
+              document.querySelector("#build")?.scrollIntoView({ block: "start" });
             }}>Start another order</button>
           </div>
         ) : (

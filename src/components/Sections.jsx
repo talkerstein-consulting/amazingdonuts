@@ -86,7 +86,8 @@ export function Categories() {
               <a
                 className="cat"
                 key={c.id}
-                href="#build"
+                href={c.id === "donuts" ? "#build" : c.id === "cakes" ? "#printing" : "tel:+14163987546"}
+                aria-label={c.id === "donuts" ? `Build an order of ${c.label}` : c.id === "cakes" ? `See ${c.label} ordering` : `Call the bakery to order ${c.label}`}
                 data-family={FAMILIES[(i + Math.floor(i / 3)) % 3]}
               >
                 <span className="cat__ground" />
