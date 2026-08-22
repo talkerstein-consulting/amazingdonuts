@@ -1,0 +1,67 @@
+/* ==========================================================================
+   Rolling-donut preloader.
+
+   Sits above everything while it runs. The navy field is the same colour as
+   the navbar, so when it collapses to the bar's height the swap is invisible;
+   the wordmark lands on the real header logo's measured box at the same
+   moment.
+   ========================================================================== */
+
+.pre {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Anchored to the top so shrinking its height reads as sliding up into
+   the navbar rather than closing in from both edges. */
+.pre__field {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--navy);
+  will-change: height;
+}
+
+/* Wrapper owns the fade; the inner stage owns the fit transform, so the two
+   never fight over the same property. */
+.pre__stageWrap {
+  position: absolute;
+  inset: 0;
+  will-change: opacity;
+}
+
+/* Authored 1920x1080 space — everything inside uses stage coordinates. */
+.pre__stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.pre__crumb {
+  position: absolute;
+  will-change: transform, opacity;
+}
+
+.pre__donut {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+
+/* Positioned by transform from the top-left so the flight to the navbar is a
+   single translate+scale — no layout involved. */
+.pre__logo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}

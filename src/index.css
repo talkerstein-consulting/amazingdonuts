@@ -1,0 +1,423 @@
+@import 'tailwindcss';
+
+@font-face {
+  font-family: 'NCL Qikober';
+  src: url('/fonts/NCLQikober-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Fonts */
+  --font-display: 'NCL Qikober', 'Fredoka', sans-serif;
+  --font-body: 'Red Hat Text', system-ui, sans-serif;
+  --font-cta: 'Red Hat Display', system-ui, sans-serif;
+  --font-label: 'DM Sans', system-ui, sans-serif;
+
+  /* Base size */
+  --fs-base: 18px;
+
+  /* Perfect fifth (ratio 1.5) type scale, derived from the 18px base */
+  --fs-2: 8px;    /* base / 1.5^2 */
+  --fs-1: 12px;   /* base / 1.5   */
+  --fs0: 18px;    /* base         */
+  --fs1: 27px;    /* base * 1.5   */
+  --fs2: 40px;    /* base * 1.5^2 */
+  --fs3: 61px;    /* base * 1.5^3 */
+  --fs4: 91px;    /* base * 1.5^4 */
+  --fs5: 137px;   /* base * 1.5^5 */
+  --fs6: 205px;   /* base * 1.5^6 */
+  --fs7: 308px;   /* base * 1.5^7 */
+
+  /* Role sizes, fluid between two scale steps — enlarged a full step over the previous pass */
+  --type-hero: clamp(58px, 19vw, 72px);
+  --type-section: clamp(var(--fs3), 8vw, var(--fs5));
+  --type-card-title: clamp(68px, 17vw, var(--fs5));
+  /* One scale step below --type-section, for the feature cards. */
+  --type-card-heading: clamp(var(--fs2), 6vw, var(--fs4));
+  --type-card-heading-sm: clamp(var(--fs1), 4.4vw, var(--fs3));
+  --type-cert: clamp(var(--fs1), 3.4vw, var(--fs3));
+  --type-body: var(--fs0);
+  --type-cta: var(--fs0);
+  --type-label: var(--fs-1);
+
+  /* Section rhythm — tightened */
+  --gap-section-y: clamp(16px, 2vw, 32px);
+  --gap-section-y-lg: clamp(20px, 2.6vw, 40px);
+
+  /* Colors */
+  --navy: #0e3e69;
+  --cream: #fbf7ef;
+  --sand: #f7eee0;
+  --pink: #fbbfec;
+  --blue: #4790fe;
+  --orange: #ff6832;
+}
+
+/* Above phone widths the headline goes back to scaling with the page. */
+@media (min-width: 566px) {
+  :root {
+    --type-hero: clamp(52px, 12vw, var(--fs7));
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--cream);
+  /* Firefox */
+  scrollbar-color: rgba(14, 62, 105, 0.35) var(--cream);
+  scrollbar-width: thin;
+}
+
+/* WebKit */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--cream);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(14, 62, 105, 0.32);
+  border: 3px solid var(--cream);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(14, 62, 105, 0.5);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--cream);
+}
+
+body {
+  margin: 0;
+  /* clip, not hidden: `overflow: hidden` would turn an ancestor into a scroll
+     container and stop position: sticky from engaging in the card stack */
+  overflow-x: clip;
+  background: var(--cream);
+  color: var(--navy);
+  font-family: var(--font-body);
+  font-size: var(--fs-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: var(--navy);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--orange);
+}
+
+img {
+  display: block;
+}
+
+::selection {
+  background: var(--pink);
+  color: var(--navy);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.btn,
+nav a,
+.label {
+  font-family: var(--font-cta);
+  font-weight: 700;
+}
+
+.nav-link:hover {
+  color: var(--pink) !important;
+}
+
+.icon-btn {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 99px;
+  transition: background 0.18s ease;
+}
+
+.icon-btn:hover {
+  background: rgba(251, 247, 239, 0.12);
+}
+
+.lift-card {
+  transition: transform 0.2s ease;
+}
+
+.lift-card:hover {
+  transform: translateY(-4px);
+}
+
+.lift-row {
+  transition: transform 0.2s ease;
+}
+
+.lift-row:hover {
+  transform: translateY(-3px);
+}
+
+.social-btn {
+  width: 70px;
+  height: 66px;
+  border-radius: 29px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.18s ease;
+}
+
+.social-btn:hover {
+  transform: translateY(-2px);
+}
+
+.footer-icon-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cream);
+  transition: background 0.18s ease;
+}
+
+.footer-icon-btn:hover {
+  background: rgba(251, 247, 239, 0.12);
+}
+
+.footer-link:hover {
+  color: var(--cream) !important;
+}
+
+/* Wordmark drawn as a mask so it inherits whatever colour the nav bar is wearing. */
+.nav-logo {
+  display: block;
+  aspect-ratio: 236 / 26;
+  -webkit-mask: url('/img/logo-amazing-donuts.svg') no-repeat center / contain;
+  mask: url('/img/logo-amazing-donuts.svg') no-repeat center / contain;
+  transition: background 0.45s ease;
+}
+
+/* Hero CTAs run the full width of the phone and pair up from 560px. */
+.hero-ctas > a {
+  flex: 1 1 100%;
+  min-height: 52px;
+  padding: 0 24px;
+}
+
+@media (min-width: 560px) {
+  .hero-ctas > a {
+    flex: 0 1 auto;
+  }
+}
+
+
+/* Two-up on phones; on wider screens the products fill the row instead of
+   stretching to half the page each. */
+@media (min-width: 700px) {
+  .product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+    gap: clamp(16px, 1.6vw, 24px) !important;
+    padding: 8px clamp(12px, 1.4vw, 20px) clamp(16px, 1.8vw, 24px) !important;
+  }
+}
+
+/* Desktop section headings run down the middle. */
+@media (min-width: 900px) {
+  .lanes-title,
+  .favorites-title {
+    text-align: center;
+  }
+  .favorites-title {
+    max-width: none !important;
+    white-space: nowrap;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  /* Four donut variants to a row. */
+  .product-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Both feature cards share the section scale, so "Got a lot of people?" and
+   "You dream it, we make it." read at the same size. */
+.feature-title {
+  font-size: var(--type-section);
+  text-wrap: balance;
+}
+
+/* Same size as the section headings, e.g. "Pick your kind of amazing." */
+.lab-title {
+  font-size: var(--type-section);
+  max-width: none;
+  text-wrap: balance;
+}
+
+.lab-card__copy {
+  max-width: 34ch;
+}
+
+/* Soft lift, tinted with the brand navy rather than neutral black so it reads
+   as shadow on cream instead of grey. */
+.lab-card {
+  box-shadow: 0 18px 44px -16px rgba(14, 62, 105, 0.28), 0 4px 12px rgba(14, 62, 105, 0.08);
+}
+
+/* Oversized on purpose — the card's overflow clips its lower edge. */
+.lab-card__photo {
+  width: min(112%, 520px);
+  height: auto;
+  margin: auto auto calc(-1 * clamp(30px, 7vw, 70px));
+  align-self: center;
+  pointer-events: none;
+}
+
+/* Bulk card. The card never clips, so the petite badge can overhang its
+   lower edge. */
+.bulk-card {
+  overflow: visible;
+  min-height: clamp(520px, 132vw, 680px);
+}
+
+/* The cut-out box is the card's subject at every width, so it needs no
+   rounding or bed — it sits straight on the card's yellow. */
+.bulk-card__photo {
+  width: min(108%, 560px);
+  height: auto;
+  align-self: center;
+  margin: clamp(10px, 2.4vw, 20px) 0 clamp(56px, 9vw, 76px);
+  pointer-events: none;
+}
+
+/* Straddles the card's lower edge (the card deliberately does not clip) and
+   overlaps the right end of the CTA. pointer-events:none keeps the button
+   fully clickable underneath, and the button's label is centred so the badge
+   never covers it. */
+/* Halfway down the card's right edge, straddling it — clear of both the
+   heading above and the CTA below, so neither needs to make room for it. */
+.bulk-badge {
+  position: absolute;
+  z-index: 40;
+  top: 50%;
+  right: clamp(-46px, -7vw, -28px);
+  width: clamp(168px, 38vw, 260px);
+  height: auto;
+  transform: translateY(-50%) rotate(-11deg);
+  filter: drop-shadow(0 10px 26px rgba(14, 62, 105, 0.26));
+  pointer-events: none;
+}
+
+@media (min-width: 900px) {
+  .bulk-card {
+    min-height: clamp(400px, 34vw, 470px);
+  }
+}
+
+/* The label never wraps; the button widens instead. */
+.lab-cta {
+  white-space: nowrap;
+  width: auto;
+  max-width: 100%;
+}
+
+/* Desktop hero: headline, lede and buttons run down the middle, and the donut
+   gives back some of the width it takes on phones. */
+@media (min-width: 900px) {
+  .hero-title {
+    justify-content: center;
+    text-align: center;
+  }
+  .hero-lede {
+    /* !important: the element carries an inline margin shorthand. */
+    margin-left: auto !important;
+    margin-right: auto !important;
+    text-align: center;
+  }
+  .hero-ctas {
+    justify-content: center;
+  }
+  .hero-photo {
+    width: min(72%, 760px);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Badge sits higher and further in from the right edge. */
+  .hero-badge {
+    top: clamp(40px, 8vw, 96px) !important;
+    right: clamp(90px, 14vw, 230px) !important;
+  }
+
+  /* "Donuts in the wild." holds one line. */
+  .wild-title {
+    max-width: none;
+    white-space: nowrap;
+  }
+
+  /* The donut lab CTA aims for half the card, but never so narrow that the
+     label breaks over two lines. */
+  .lab-cta {
+    width: 50%;
+    min-width: max-content;
+  }
+}
+
+/* ==========================================================================
+   Certification marquee.
+
+   The loop mixes two kinds of item — the lucide-drawn allergen pills and the
+   supplied kosher SVGs — which have different intrinsic proportions. Centring
+   each item in its own box (rather than letting it sit on the line box's
+   baseline) is what keeps the two kinds on a shared centre line.
+   ========================================================================== */
+.marquee .logoloop__item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.marquee .logoloop__list {
+  align-items: center;
+}
+
+/* The SVG badges carry their own pill artwork, so centre the drawing inside
+   the box the loop gives it. */
+.marquee .logoloop__item img {
+  height: var(--logoloop-logoHeight);
+  width: auto;
+  object-fit: contain;
+  object-position: center;
+  margin: 0 auto;
+}
+
+.marquee .logoloop__node {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
