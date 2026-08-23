@@ -1,13 +1,25 @@
-import { useEffect, useRef } from 'react';
-import { Facebook, Instagram } from 'lucide-react';
-import TiltedTiles from './tilted-tiles';
+import { Suspense, lazy, useEffect, useRef } from 'react';
+import { Instagram } from 'lucide-react';
+import { BrandButton } from './brand';
+import FacebookSolid from './FacebookSolid';
+/* Deferred on purpose: this carousel pulls in @react-three/fiber and the whole
+   of `three`, which is ~840kB of the bundle. Loading it on demand keeps that
+   off the initial download — the section is well below the fold. */
+const LenticularCarousel = lazy(() => import('./lenticular-carousel'));
 import { useNavTheme } from '../lib/nav-theme';
 
-const PHOTOS = ['/img/social-1.jpg', '/img/social-2.jpg', '/img/social-3.jpg', '/img/social-4.jpg', '/img/social-5.jpg'];
+/* LenticularCarousel takes {src, title, meta, alt}. */
+const PHOTOS = [
+  { src: '/img/social-1.jpg', title: 'Office run', meta: '@amazingdonuts', alt: 'Customer photo of a box of donuts' },
+  { src: '/img/social-2.jpg', title: 'Sprinkle haul', meta: '@amazingdonuts', alt: 'Customer photo of sprinkle donuts' },
+  { src: '/img/social-3.jpg', title: 'Review day', meta: '@amazingdonuts', alt: 'Customer reviewing a donut' },
+  { src: '/img/social-4.jpg', title: 'Best in the 6', meta: '@amazingdonuts', alt: 'Customer holding a donut' },
+  { src: '/img/social-5.jpg', title: 'Party pack', meta: '@amazingdonuts', alt: 'Customer photo of a party pack' }
+];
 
 const SOCIALS = [
-  { label: 'Instagram', Icon: Instagram, href: '#wild', bg: 'var(--pink)', fg: 'var(--blue)' },
-  { label: 'Facebook', Icon: Facebook, href: '#wild', bg: 'var(--blue)', fg: 'var(--pink)' }
+  { label: 'Instagram', Icon: Instagram, href: '#wild', bg: 'var(--pink)', fg: 'var(--navy)' },
+  { label: 'Facebook', Icon: FacebookSolid, href: '#wild', bg: 'var(--blue)', fg: 'var(--cream)' }
 ];
 
 export default function Social() {
@@ -38,71 +50,61 @@ export default function Social() {
   }, [claim, release]);
 
   return (
-    <section id="wild" ref={sectionRef} style={{ maxWidth: 1240, margin: '0 auto', padding: 'clamp(16px,2vw,26px) clamp(18px,4vw,40px) clamp(24px,3vw,48px)' }}>
+    <section id="wild" ref={sectionRef} className="section-band" style={{ maxWidth: 1240, margin: '0 auto', padding: 'clamp(16px,2vw,26px) clamp(18px,4vw,40px) clamp(24px,3vw,48px)' }}>
       <div style={{ borderRadius: 44, background: 'var(--orange)', padding: 'clamp(26px,3vw,46px)' }}>
         <h2 className="wild-title" style={{ maxWidth: '15ch', fontSize: 'var(--type-section)', lineHeight: 0.92, color: 'var(--navy)' }}>
           Donuts in the wild.
         </h2>
-        <p style={{ margin: '16px 0 clamp(22px,2.6vw,32px)', maxWidth: '56ch', fontSize: 'var(--type-body)', lineHeight: 1.4, color: 'var(--navy)' }}>
+        <p style={{ margin: '16px 0 clamp(18px,2.2vw,26px)', maxWidth: '56ch', fontSize: 'var(--type-body)', lineHeight: 1.4, color: 'var(--navy)' }}>
           The donuts are out there. See what our customers are celebrating, sharing, and making amazing.
         </p>
 
-        <div style={{ height: 'clamp(300px,34vw,420px)', borderRadius: 20, overflow: 'hidden' }}>
-          <TiltedTiles
-            images={PHOTOS}
-            columns={4}
-            tilesPerColumn={5}
-            tileAspect={0.78}
-            rowGap={6}
-            columnGap={6}
-            borderRadius={12}
-            rotateX={12}
-            rotateY={-14}
-            rotateZ={6}
-            planeWidth={150}
-            planeHeight={150}
-            duration={26}
-            alternate
-            fadeTop={14}
-            fadeBottom={14}
-            parallax
-          />
+        {/* Straight under the copy, ahead of the gallery. */}
+        <div className="wild-socials">
+          {SOCIALS.map(({ label, Icon, href, bg, fg }) => (
+            <BrandButton key={label} href={href} block className="wild-social" style={{ background: bg, color: fg }}>
+              <span className="wild-social__label">
+                <Icon size={22} strokeWidth={2.4} />
+                {label}
+              </span>
+            </BrandButton>
+          ))}
         </div>
 
-        <p
-          style={{
-            margin: 'clamp(20px,2.4vw,30px) 0 clamp(12px,1.6vw,18px)',
-            textAlign: 'center',
-            fontFamily: 'var(--font-body)',
-            fontSize: 'var(--type-body)',
-            lineHeight: 1.4,
-            color: 'var(--navy)'
-          }}
-        >
-          Follow us on our socials
-        </p>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
-          {SOCIALS.map(({ label, Icon, href, bg, fg }) => (
-            <a
-              key={label}
-              href={href}
-              aria-label={label}
-              style={{
-                minHeight: 64,
-                borderRadius: 24,
-                background: bg,
-                color: fg,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'transform .18s ease'
-              }}
-              className="lift-card"
-            >
-              <Icon size={30} strokeWidth={2.4} />
-            </a>
-          ))}
+        <div className="wild-gallery">
+          <Suspense fallback={<div className="wild-gallery__loading" />}>
+          <LenticularCarousel
+            items={PHOTOS}
+            /* Settings as specified. Cards are 1080x1920 source, so 9/16. */
+            cardWidth={230}
+            aspectRatio="9 / 16"
+            gap={0}
+            borderRadius={14}
+            strips={23}
+            sweep={0.6}
+            refraction={0.32}
+            ridge={0.5}
+            foil={0.5}
+            foilScale={8}
+            scrim={0.85}
+            tilt={14}
+            travel={0.64}
+            lift={40}
+            perspective={1200}
+            inactiveScale={0.9}
+            inactiveDim={0.55}
+            speed={1}
+            trigger="hover"
+            labelColor="#ffffff"
+            showLabels
+            showControls
+            showDots
+            loop={false}
+            autoplay={false}
+            enableDrag
+            paused={false}
+          />
+          </Suspense>
         </div>
       </div>
     </section>

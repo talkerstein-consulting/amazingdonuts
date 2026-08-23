@@ -9,58 +9,85 @@
 }
 
 :root {
-  /* Fonts */
-  --font-display: 'NCL Qikober', 'Fredoka', sans-serif;
-  --font-body: 'Red Hat Text', system-ui, sans-serif;
-  --font-cta: 'Red Hat Display', system-ui, sans-serif;
-  --font-label: 'DM Sans', system-ui, sans-serif;
+  /* --- Fonts (brand system v5) -------------------------------------------
+     NCL Qikober for display, Karla for everything else. The doc is explicit:
+     "there is no third face". */
+  --font-display: 'NCL Qikober', 'Karla', sans-serif;
+  --font-body: 'Karla', system-ui, sans-serif;
+  --font-cta: 'Karla', system-ui, sans-serif;
+  --font-label: 'Karla', system-ui, sans-serif;
 
-  /* Base size */
+  /* --- Type scale: base 18px, ratio 1.25 --------------------------------
+     Named steps come from the v5 table rather than raw powers, because the
+     doc rounds them and pins the small end (15/13) off-ratio. */
   --fs-base: 18px;
 
-  /* Perfect fifth (ratio 1.5) type scale, derived from the 18px base */
-  --fs-2: 8px;    /* base / 1.5^2 */
-  --fs-1: 12px;   /* base / 1.5   */
-  --fs0: 18px;    /* base         */
-  --fs1: 27px;    /* base * 1.5   */
-  --fs2: 40px;    /* base * 1.5^2 */
-  --fs3: 61px;    /* base * 1.5^3 */
-  --fs4: 91px;    /* base * 1.5^4 */
-  --fs5: 137px;   /* base * 1.5^5 */
-  --fs6: 205px;   /* base * 1.5^6 */
-  --fs7: 308px;   /* base * 1.5^7 */
+  --fs-label: 13px;    /* label / eyebrow  — Karla 700, tracked      */
+  --fs-small: 15px;    /* small            — Karla 400              */
+  --fs-body: 18px;     /* body             — Karla 400, 1.6         */
+  --fs-sub: 22.5px;    /* sub              — Karla 700, 1.3         */
+  --fs-swatch: 28px;   /* swatch title     — Qikober, 1.1–1.15      */
+  --fs-card: 35px;     /* card title       — Qikober, 1.1           */
+  --fs-h2alt: 44px;    /* sub-hero         — Qikober, 1.05          */
+  --fs-h2: 55px;       /* section heading  — Qikober, 1.1           */
+  --fs-h1: 69px;       /* section hero     — Qikober, 1.0           */
+  --fs-display: 107px; /* page hero        — Qikober, .95           */
 
-  /* Role sizes, fluid between two scale steps — enlarged a full step over the previous pass */
-  --type-hero: clamp(58px, 19vw, 72px);
-  --type-section: clamp(var(--fs3), 8vw, var(--fs5));
-  --type-card-title: clamp(68px, 17vw, var(--fs5));
-  /* One scale step below --type-section, for the feature cards. */
-  --type-card-heading: clamp(var(--fs2), 6vw, var(--fs4));
-  --type-card-heading-sm: clamp(var(--fs1), 4.4vw, var(--fs3));
-  --type-cert: clamp(var(--fs1), 3.4vw, var(--fs3));
-  --type-body: var(--fs0);
-  --type-cta: var(--fs0);
-  --type-label: var(--fs-1);
+  /* Role sizes. Fluid between two scale steps, capped at the step the v5
+     table names, so nothing exceeds the system. */
+  /* Sized to fill the line rather than to a scale step: at 19vw the longer of
+     its two lines lands at 94–97% of the text column across phone widths — the
+     widest it can go and still break into exactly two lines, with enough slack
+     that font-rendering variance cannot tip it into four. Capped at 134px. */
+  --type-hero: clamp(44px, 19vw, 134px);
+  --type-section: clamp(var(--fs-h2alt), 7vw, var(--fs-h2));
+  /* Two steps up the v5 scale from swatch/card: the lane titles are the only
+     words on those cards, so they carry section weight. The vw term scales with
+     them, or the fluid middle would lag the two fixed ends. */
+  --type-card-title: clamp(var(--fs-h2alt), 9.5vw, var(--fs-h2));
+  --type-card-heading: clamp(var(--fs-h2alt), 5vw, var(--fs-h2));
+  --type-card-heading-sm: clamp(var(--fs-swatch), 4vw, var(--fs-h2alt));
+  --type-cert: clamp(var(--fs-sub), 3vw, var(--fs-swatch));
+  --type-body: var(--fs-body);
+  --type-cta: var(--fs-body);
+  --type-label: var(--fs-label);
 
-  /* Section rhythm — tightened */
+  /* Line heights from the v5 table */
+  --lh-display: 0.95;
+  --lh-h1: 1;
+  --lh-h2: 1.1;
+  --lh-h2alt: 1.05;
+  --lh-card: 1.1;
+  --lh-sub: 1.3;
+  --lh-body: 1.6;
+
+  /* Section rhythm */
   --gap-section-y: clamp(16px, 2vw, 32px);
   --gap-section-y-lg: clamp(20px, 2.6vw, 40px);
 
-  /* Colors */
-  --navy: #0e3e69;
-  --cream: #fbf7ef;
-  --sand: #f7eee0;
-  --pink: #fbbfec;
-  --blue: #4790fe;
-  --orange: #ff6832;
+  /* --- Radii (v5) ------------------------------------------------------- */
+  --radius-panel: 28px;  /* cards and panels        */
+  --radius-card-l: 32px; /* the L product card      */
+  --radius-chip: 24px;   /* chips and step rows     */
+  --radius-pill: 999px;  /* pills, buttons, badges  */
+
+  /* --- Colour: Palette 03 · Harbour ------------------------------------- */
+  --navy: #0e3e69;    /* Harbour — the ink            */
+  --cream: #fbf7ef;   /* Canvas — page background     */
+  --sand: #f7eee0;    /* Shortbread — cards, beds     */
+  --pink: #fbbfec;    /* Bubblegum                    */
+  --blue: #4790fe;    /* Signal                       */
+  --orange: #ff6832;  /* Dare Devil                   */
+
+  /* Text tokens — nothing lighter than --text-muted is used on words. */
+  --text-body: #274866;
+  --text-muted: #35597c;
+  --text-price: #b33a11;
+  --text-on-navy: #b9cbdc;
 }
 
-/* Above phone widths the headline goes back to scaling with the page. */
-@media (min-width: 566px) {
-  :root {
-    --type-hero: clamp(52px, 12vw, var(--fs7));
-  }
-}
+/* --type-hero is fluid all the way from the narrowest phone to its 134px cap,
+   so the headline still needs no separate phone rule. */
 
 html {
   scroll-behavior: smooth;
@@ -115,6 +142,20 @@ a {
   text-decoration: none;
 }
 
+/* v5: 3px Signal ring at 2px offset on every interactive element, whatever
+   its fill. :focus-visible so it only shows for keyboard users. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 a:hover {
   color: var(--orange);
 }
@@ -137,7 +178,16 @@ h3 {
   margin: 0;
 }
 
-.btn,
+/* v5 button label: Karla 800, 18px, uppercase, and explicitly NO tracking.
+   Eyebrows and small caps labels are the ones that get tracked out. */
+.btn {
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: var(--fs-body);
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
 nav a,
 .label {
   font-family: var(--font-cta);
@@ -225,14 +275,16 @@ nav a,
 
 /* Hero CTAs run the full width of the phone and pair up from 560px. */
 .hero-ctas > a {
+  /* Full width on phones, side by side from 560px. Height and padding stay
+     with .bbtn — the knob needs its asymmetric padding. */
   flex: 1 1 100%;
-  min-height: 52px;
-  padding: 0 24px;
+  justify-content: space-between;
 }
 
 @media (min-width: 560px) {
   .hero-ctas > a {
     flex: 0 1 auto;
+    justify-content: flex-start;
   }
 }
 
@@ -325,7 +377,13 @@ nav a,
   position: absolute;
   z-index: 40;
   top: 50%;
-  right: clamp(-46px, -7vw, -28px);
+  /* Flush with the card's right edge, not overhanging it.
+     rotate(-11deg) inflates the element's bounding box by ~9.5% of its width
+     (~16px at the phone size) on each side, so any negative offset here pushed
+     that inflated box past the viewport — that was the 24px of horizontal
+     overflow. Anchored at 0 the bleed falls over the card instead, and the
+     section's own padding (18–40px) always exceeds it. */
+  right: 0;
   width: clamp(168px, 38vw, 260px);
   height: auto;
   transform: translateY(-50%) rotate(-11deg);
@@ -339,11 +397,10 @@ nav a,
   }
 }
 
-/* The label never wraps; the button widens instead. */
+/* Spans the card, so it reads as the card's action rather than a chip in it. */
 .lab-cta {
   white-space: nowrap;
-  width: auto;
-  max-width: 100%;
+  align-self: stretch;
 }
 
 /* Desktop hero: headline, lede and buttons run down the middle, and the donut
@@ -362,30 +419,19 @@ nav a,
   .hero-ctas {
     justify-content: center;
   }
-  .hero-photo {
-    width: min(72%, 760px);
-    margin-left: auto;
-    margin-right: auto;
-  }
-
   /* Badge sits higher and further in from the right edge. */
   .hero-badge {
     top: clamp(40px, 8vw, 96px) !important;
     right: clamp(90px, 14vw, 230px) !important;
   }
 
-  /* "Donuts in the wild." holds one line. */
-  .wild-title {
+  /* Both section headings hold one line. */
+  .wild-title,
+  .regulars-title {
     max-width: none;
     white-space: nowrap;
   }
 
-  /* The donut lab CTA aims for half the card, but never so narrow that the
-     label breaks over two lines. */
-  .lab-cta {
-    width: 50%;
-    min-width: max-content;
-  }
 }
 
 /* ==========================================================================
@@ -420,4 +466,286 @@ nav a,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* --- Hero photo -----------------------------------------------------------
+   As it was before the signup arc moved in: full width on phones, its lower
+   half covered by the certification bar and the section below. */
+.hero-photo {
+  overflow: hidden;
+  border-radius: 32px 32px 0 0;
+  margin-bottom: -44%;
+}
+
+/* The curved signup arcs over the donut. It needs to sit above the photo in
+   both stacking and flow, and must not take part in the donut's transform. */
+/* The signup arcs over the footer donut. It sits above the donut in flow and
+   in stacking, and is deliberately outside the donut's own transform. */
+/* Pulled up toward the section above so the donut below it clears the navy
+   panel and actually reads. */
+.footer-signup {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  padding: clamp(6px, 1.4vw, 18px) clamp(16px, 4vw, 40px) 0;
+  margin-bottom: clamp(10px, 1.6vw, 20px);
+}
+
+/* Tucked under the arc, and the navy panel below only overlaps its lower
+   third — the previous margin swallowed most of the donut. */
+.footer-donut {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  justify-content: center;
+  margin-top: clamp(-84px, -9vw, -40px);
+  margin-bottom: clamp(-46px, -5vw, -20px);
+  pointer-events: none;
+}
+
+/* Desktop: narrower than the phone treatment, and pushed down so the curved
+   signup above it has room to breathe. */
+@media (min-width: 900px) {
+  .hero-photo {
+    width: min(72%, 760px);
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* --- "Donuts in the wild" ------------------------------------------------
+   The social buttons now carry their name as well as the mark, and sit
+   directly under the body copy rather than after the gallery. */
+/* One per row, so each reads as its own action. */
+.wild-socials {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: clamp(20px, 2.6vw, 32px);
+}
+
+@media (min-width: 900px) {
+  .wild-socials {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.wild-social__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The carousel's root is `flex-1 min-h-0`, so it fills the height it is given
+   rather than deriving one — it needs a parent height, but a right-sized one:
+   the first pass at 520px left a tall band of empty panel below the cards. */
+/* Under the "Loved by our regulars" CTA, in the rail. */
+.regulars-badge {
+  display: block;
+  /* SVG, so it scales past its 106px native size cleanly. */
+  width: clamp(132px, 15vw, 190px);
+  height: auto;
+  margin: clamp(20px, 2.4vw, 30px) 0 0;
+  pointer-events: none;
+}
+
+.wild-gallery {
+  position: relative;
+  height: clamp(380px, 34vw, 460px);
+  display: flex;
+  /* Claws back part of the panel's padding so the cards get more width than
+     the body copy beside them. */
+  margin-inline: calc(-1 * clamp(12px, 1.8vw, 28px));
+  /* Rounds the whole card strip, which runs edge to edge at gap 0. */
+  border-radius: clamp(18px, 2vw, 28px);
+  overflow: hidden;
+}
+.wild-gallery > * { flex: 1; min-height: 0; }
+
+/* Holds the space while the carousel chunk arrives. */
+.wild-gallery__loading {
+  border-radius: 18px;
+  background: rgba(14, 62, 105, 0.06);
+}
+
+/* --- "Loved by our regulars" --------------------------------------------
+   Sticky rail beside two columns of quote cards. */
+.regulars-grid {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 clamp(18px, 4vw, 40px);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(24px, 3vw, 48px);
+}
+
+@media (min-width: 900px) {
+  .regulars-grid {
+    grid-template-columns: 4fr 8fr;
+  }
+  .regulars-rail {
+    position: sticky;
+    top: clamp(90px, 9vw, 116px);
+    align-self: start;
+  }
+}
+
+/* One line at every width: it scales with the viewport but is capped so it
+   never needs to wrap, and nowrap makes that guarantee explicit. */
+/* Shares the grid's container so heading and columns stay left-aligned. */
+.regulars-head {
+  max-width: 1240px;
+  margin: 0 auto clamp(18px, 2.4vw, 30px);
+  padding: 0 clamp(18px, 4vw, 40px);
+}
+
+/* Same treatment as "Donuts in the wild." — section scale, 0.92 leading, and
+   a 15ch measure on phones that opens up from 900px. */
+.regulars-title {
+  margin: 0;
+  max-width: 15ch;
+  font-size: var(--type-section);
+  line-height: 0.92;
+  color: var(--navy);
+}
+
+.regulars-lede {
+  margin: clamp(14px, 1.6vw, 20px) 0 0;
+  max-width: 34ch;
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  line-height: 1.45;
+  color: var(--text-body);
+}
+
+.regulars-cta {
+  margin-top: clamp(20px, 2.4vw, 30px);
+  align-self: flex-start;
+}
+
+.regulars-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(14px, 1.6vw, 22px);
+  align-items: start;
+}
+
+@media (min-width: 640px) {
+  .regulars-cols {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.regulars-card {
+  border-radius: var(--radius-chip);
+  padding: clamp(20px, 2.2vw, 28px);
+  background: var(--sand);
+  box-shadow: inset 0 0 0 1px rgba(14, 62, 105, 0.1);
+}
+
+/* Section headings hold one line on phones. At 44px none of them is too wide
+   for the column — what wrapped them was the ch cap each one carries for wider
+   screens, plus the balancer on the lanes title. Both are lifted here; the
+   !important is for the caps that live in inline styles. */
+@media (max-width: 559px) {
+  .lanes-title,
+  .favorites-title,
+  .wild-title,
+  .regulars-title {
+    max-width: none !important;
+    /* Also inline on some of these, hence the second !important. */
+    text-wrap: nowrap !important;
+  }
+}
+
+/* The signup's own heading and copy, centred over the arc that follows. */
+.footer-signup-intro {
+  position: relative;
+  z-index: 3;
+  max-width: 46ch;
+  margin: 0 auto;
+  padding: clamp(28px, 4vw, 56px) clamp(18px, 4vw, 40px) 0;
+  text-align: center;
+}
+
+.footer-signup-title {
+  margin: 0;
+  font-size: var(--type-section);
+  line-height: var(--lh-h2);
+  color: var(--navy);
+}
+
+.footer-signup-lede {
+  margin: clamp(10px, 1.2vw, 16px) 0 0;
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  line-height: var(--lh-body);
+  color: rgba(14, 62, 105, 0.72);
+}
+
+/* Certification pills on the navy panel. */
+.footer-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: clamp(20px, 2.4vw, 28px);
+}
+
+/* --- Mobile rhythm -------------------------------------------------------
+   Phone spacing had drifted: 18/40/40/52px between sections and 10–18px under
+   the headings. One value for each here. The bands carry half the section gap
+   top and bottom, so any two that meet add up to the whole. !important is for
+   the paddings and margins that live in inline styles. */
+@media (max-width: 559px) {
+  :root {
+    --gap-heading: 18px;
+    --gap-band: 20px;
+  }
+
+  .section-band {
+    padding-top: var(--gap-band) !important;
+    padding-bottom: var(--gap-band) !important;
+  }
+
+  /* The lanes stack has no padding of its own — the sticky card fills it — so
+     it needs its half of the gap adding before the catalogue. */
+  #lanes {
+    padding-bottom: var(--gap-band);
+  }
+
+  /* Every section heading sits the same distance above what it introduces. */
+  .lanes-title,
+  .favorites-title,
+  .wild-title,
+  .regulars-title,
+  .lab-title,
+  .bulk-title,
+  .footer-signup-title,
+  .footer-keep {
+    margin-bottom: var(--gap-heading) !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* These sit in flex/grid parents, where the gap would stack on top of the
+     margin and double it. */
+  .lab-title,
+  .bulk-title,
+  .footer-signup-title {
+    margin-bottom: 0 !important;
+  }
+
+  .lab-card,
+  .bulk-card {
+    gap: var(--gap-heading) !important;
+  }
+
+  .footer-signup-intro > .footer-signup-lede {
+    margin-top: var(--gap-heading);
+  }
+
+  /* Carries its own top margin, which would land on top of the card's gap. */
+  .bulk-card > p {
+    margin-top: 0 !important;
+  }
 }

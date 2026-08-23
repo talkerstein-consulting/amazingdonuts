@@ -442,3 +442,280 @@
   font-size: 13px;
   color: rgba(14, 62, 105, 0.62);
 }
+
+/* ==========================================================================
+   Sign in — the auth-2 frame as a modal.
+   ========================================================================== */
+.auth-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  background: rgba(14, 62, 105, 0.5);
+}
+
+.auth {
+  position: fixed;
+  z-index: 220;
+  inset: 0;
+  margin: auto;
+  width: min(980px, calc(100vw - 32px));
+  max-height: min(680px, calc(100vh - 32px));
+  display: grid;
+  grid-template-columns: 1fr;
+  border-radius: 32px;
+  background: var(--cream);
+  overflow: hidden;
+  box-shadow: 0 40px 90px -30px rgba(14, 62, 105, 0.5);
+}
+
+@media (min-width: 900px) {
+  .auth { grid-template-columns: 1fr 1fr; }
+}
+
+.auth__close {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  right: 12px;
+  color: var(--navy);
+  background: var(--cream);
+}
+.auth__close:hover { background: var(--sand); }
+
+/* --- picture panel (desktop only, per the frame) ------------------------ */
+.auth__art {
+  position: relative;
+  display: none;
+  padding: clamp(28px, 3vw, 40px);
+  overflow: hidden;
+  background: var(--sand);
+}
+
+@media (min-width: 900px) {
+  .auth__art { display: block; }
+}
+
+.auth__artImg {
+  position: absolute;
+  inset: 0;
+  background-image: url('/img/auth-donuts.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+/* Logo and headline stack at the top, over the photo's empty cream — the
+   donut stack occupies the lower half and would otherwise sit under the type.
+   The photo is on cream, so the type still gets a soft floor to read against. */
+.auth__artInner {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(16px, 2vw, 26px);
+}
+
+.auth__artLogo {
+  height: 22px;
+  width: auto;
+  filter: brightness(0) saturate(100%) invert(17%) sepia(38%) saturate(1800%) hue-rotate(178deg) brightness(94%) contrast(95%);
+}
+
+.auth__artHeading {
+  margin: 0;
+  max-width: 15ch;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(var(--fs-swatch), 2.6vw, var(--fs-h2alt));
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--navy);
+  text-shadow: 0 2px 18px rgba(251, 247, 239, 0.9);
+}
+
+/* --- form column -------------------------------------------------------- */
+.auth__form {
+  padding: clamp(28px, 4vw, 48px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.auth__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(var(--fs-swatch), 3vw, var(--fs-h2alt));
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.auth__sub {
+  margin: 10px 0 24px;
+  max-width: 34ch;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  color: rgba(14, 62, 105, 0.7);
+}
+
+.auth__label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--fs-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.auth__input {
+  width: 100%;
+  min-height: 54px;
+  margin-bottom: 16px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 99px;
+  outline: none;
+  background: var(--sand);
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.14);
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--navy);
+  transition: box-shadow 0.16s ease;
+}
+.auth__input::placeholder { color: rgba(14, 62, 105, 0.42); }
+.auth__input:focus { box-shadow: inset 0 0 0 2px var(--navy); }
+
+.auth__pw { position: relative; }
+.auth__pw .auth__input { padding-right: 54px; }
+
+.auth__reveal {
+  position: absolute;
+  top: 27px;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 99px;
+  background: transparent;
+  color: rgba(14, 62, 105, 0.6);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.auth__reveal:hover { background: rgba(14, 62, 105, 0.08); color: var(--navy); }
+
+.auth__forgot {
+  display: block;
+  margin: -6px 0 20px auto;
+  padding: 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(14, 62, 105, 0.66);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth__forgot:hover { color: var(--navy); }
+
+.auth__submit {
+  width: 100%;
+  min-height: 58px;
+  border: none;
+  border-radius: 99px;
+  background: var(--orange);
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-cta);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: filter 0.18s ease, transform 0.18s ease;
+}
+.auth__submit:hover { filter: brightness(1.06); transform: translateY(-2px); }
+
+.auth__swap {
+  margin: 18px 0 0;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: rgba(14, 62, 105, 0.7);
+}
+.auth__swap button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  color: var(--navy);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* --- provider sign-in ---------------------------------------------------- */
+.auth__providers {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.auth__provider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 54px;
+  border: none;
+  border-radius: 99px;
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  transition: filter 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.auth__provider:hover { transform: translateY(-2px); }
+
+/* Google's guidelines call for its mark on a light, neutral face. */
+.auth__provider--google {
+  background: #ffffff;
+  color: var(--navy);
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.16);
+}
+.auth__provider--google:hover { box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.36); }
+
+/* Apple's call for black or white; the brand navy stands in for black here. */
+.auth__provider--apple {
+  background: var(--navy);
+  color: var(--cream);
+}
+.auth__provider--apple:hover { filter: brightness(1.12); }
+
+.auth__divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 18px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(14, 62, 105, 0.55);
+}
+.auth__divider::before,
+.auth__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(14, 62, 105, 0.16);
+}

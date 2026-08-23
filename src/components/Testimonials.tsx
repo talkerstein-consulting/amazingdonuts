@@ -1,124 +1,109 @@
-import { useEffect, useRef } from 'react';
-import { useIsDesktop } from '../hooks/useIsDesktop';
-import { motion } from 'motion/react';
-import { ArrowRight } from 'lucide-react';
+import { motion, type Variants } from 'motion/react';
+import { BrandButton, C, F } from './brand';
 
-const ALL_QUOTES = [
-  { quote: 'The custom donut wall stole the whole party. Everyone asked where we got it.', name: 'Rivka G.', title: 'Bat mitzvah order' },
-  { quote: 'Fresh every single morning — the sprinkle donuts disappear before I get to the office.', name: 'Marcus L.', title: 'Regular, Classic lane' },
-  { quote: 'Bulk order for 60 people, zero stress, and the box was gone in ten minutes.', name: 'Sophia P.', title: 'Office manager' },
-  { quote: 'They matched our logo perfectly on the custom donuts. Tasted as good as they looked.', name: 'David C.', title: 'Donut Lab customer' },
-  { quote: 'Kosher, fresh, and actually exciting flavors — the marble muffins are unreal.', name: 'Emma R.', title: 'Weekly regular' },
-  { quote: "Ordered the challah for Friday and it was gone before Shabbat started.", name: 'Tyler J.', title: 'Bread lane' }
+/**
+ * "Loved by our regulars", on the social-proof-14 frame: a sticky rail of
+ * heading and copy beside two columns of quote cards.
+ *
+ * Two things the block ships that are deliberately not here — avatars and a
+ * star rating. We have names but no headshots, and no review data at all, so
+ * stock faces and an invented "4.9 across 2,400 reviews" would both be
+ * fabrications. The quotes stand on their own.
+ */
+const QUOTES = [
+  { quote: 'The custom donut wall stole the whole party. Everyone asked where we got it.', name: 'Rivka G.', role: 'Bat mitzvah order' },
+  { quote: 'Fresh every single morning — the sprinkle donuts disappear before I get to the office.', name: 'Marcus L.', role: 'Regular, Classic lane' },
+  { quote: 'Bulk order for 60 people, zero stress, and the box was gone in ten minutes.', name: 'Sophia P.', role: 'Office manager' },
+  { quote: 'They matched our logo perfectly on the custom donuts. Tasted as good as they looked.', name: 'David C.', role: 'Donut Lab customer' },
+  { quote: 'Kosher, fresh, and actually exciting flavors — the marble muffins are unreal.', name: 'Emma R.', role: 'Weekly regular' },
+  { quote: 'Ordered the challah for Friday and it was gone before Shabbat started.', name: 'Tyler J.', role: 'Bread lane' }
 ];
 
-const COLUMNS = [ALL_QUOTES.slice(0, 2), ALL_QUOTES.slice(2, 4), ALL_QUOTES.slice(4, 6)];
+const COLUMNS = [QUOTES.filter((_, i) => i % 2 === 0), QUOTES.filter((_, i) => i % 2 === 1)];
 
-function Column({ items, speed }: { items: typeof ALL_QUOTES; speed: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    let offset = 0;
-    let frame: number;
-    const tick = () => {
-      offset += speed;
-      const half = node.scrollHeight / 2;
-      if (offset >= half) offset = 0;
-      node.style.transform = `translateY(-${offset}px)`;
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [speed]);
+const rail: Variants = {
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }
+};
+const column: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.09 } }
+};
+const card: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } }
+};
 
+function QuoteCard({ q, featured }: { q: (typeof QUOTES)[number]; featured: boolean }) {
   return (
-    <div style={{ position: 'relative', height: 460, overflow: 'hidden', borderRadius: 20 }}>
-      <div ref={ref}>
-        {[...items, ...items].map((t, i) => (
-          <div
-            key={i}
-            style={{
-              marginBottom: 14,
-              borderRadius: 20,
-              background: 'var(--sand)',
-              border: '1px solid rgba(14,62,105,.1)',
-              padding: 22
-            }}
-          >
-            <p style={{ margin: '0 0 14px', fontSize: 15, lineHeight: 1.5, color: 'var(--navy)' }}>&ldquo;{t.quote}&rdquo;</p>
-            <div>
-              <div style={{ fontFamily: 'var(--font-cta)', fontWeight: 700, fontSize: 14, color: 'var(--navy)' }}>{t.name}</div>
-              <div style={{ fontSize: 13, color: 'rgba(14,62,105,.55)' }}>{t.title}</div>
-            </div>
-          </div>
-        ))}
+    <motion.article variants={card} className="regulars-card">
+      <p
+        style={{
+          margin: 0,
+          fontFamily: F.text,
+          fontSize: featured ? 18 : 16,
+          fontWeight: featured ? 500 : 400,
+          lineHeight: 1.5,
+          color: featured ? C.navy : 'rgba(14,62,105,.78)'
+        }}
+      >
+        &ldquo;{q.quote}&rdquo;
+      </p>
+      <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(14,62,105,.14)' }}>
+        <p style={{ margin: 0, fontFamily: 'var(--font-cta)', fontWeight: 700, fontSize: 14, color: C.navy }}>{q.name}</p>
+        <p style={{ margin: '2px 0 0', fontFamily: F.text, fontSize: 13, color: 'rgba(14,62,105,.6)' }}>{q.role}</p>
       </div>
-      <div style={{ position: 'absolute', inset: '0 0 auto 0', height: 60, background: 'linear-gradient(to bottom, var(--cream), transparent)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', inset: 'auto 0 0 0', height: 60, background: 'linear-gradient(to top, var(--cream), transparent)', pointerEvents: 'none' }} />
-    </div>
+    </motion.article>
   );
 }
 
 export default function Testimonials() {
-  const isDesktop = useIsDesktop(760);
-  // One scrolling column on phones — three stacked columns repeat every quote.
-  const columns = isDesktop ? COLUMNS : [ALL_QUOTES];
-
   return (
-    <section style={{ position: 'relative', background: 'var(--cream)', padding: 'clamp(28px,3.4vw,52px) 0 0' }}>
-      <div style={{ maxWidth: 1240, margin: '0 auto', padding: '0 clamp(18px,4vw,40px)' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 28 }}>
-          <motion.h2
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            style={{ maxWidth: '12ch', fontSize: 'var(--type-section)', lineHeight: 0.92, color: 'var(--navy)' }}
-          >
-            Loved by our regulars
-          </motion.h2>
-          <a
-            href="#wild"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              borderRadius: 99,
-              background: 'var(--navy)',
-              color: 'var(--cream)',
-              fontFamily: 'var(--font-cta)',
-              fontWeight: 700,
-              fontSize: 15,
-              letterSpacing: '.04em',
-              textTransform: 'uppercase',
-              padding: '14px 24px'
-            }}
-          >
-            Wall of love
-            <ArrowRight size={16} />
-          </a>
-        </div>
+    <section className="section-band regulars-band" style={{ background: 'var(--cream)', padding: 'clamp(28px,3.4vw,52px) 0 clamp(20px,2.6vw,40px)' }}>
+      {/* Full width above the columns, so it carries the same weight as
+          "Donuts in the wild." — inside the 4/12 rail it could not. The
+          wrapper carries the same container width as the grid below, so the
+          two stay left-aligned. */}
+      <div className="regulars-head">
+        <h2 className="regulars-title">Loved by our regulars</h2>
+      </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-          {columns.map((col, i) => (
-            <Column key={i} items={col} speed={0.35 + i * 0.12} />
+      <div className="regulars-grid">
+        <motion.div
+          variants={rail}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-80px' }}
+          className="regulars-rail"
+        >
+          <p className="regulars-lede">
+            No survey, no incentive — just what people tell us at the counter and send us after a party.
+          </p>
+          <BrandButton href="#wild" variant="outline" className="regulars-cta">
+            See more on our socials
+          </BrandButton>
+
+          {/* Under the rail's CTA. */}
+          <img src="/img/badge-socials.svg" alt="Proudly Canadian" className="regulars-badge" />
+        </motion.div>
+
+        <div className="regulars-cols">
+          {COLUMNS.map((col, ci) => (
+            <motion.div
+              key={ci}
+              variants={column}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-60px' }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(14px,1.6vw,22px)' }}
+            >
+              {col.map((q, i) => (
+                <QuoteCard key={q.name} q={q} featured={ci === 0 && i === 0} />
+              ))}
+            </motion.div>
           ))}
         </div>
       </div>
-
-      {/* The wall fades out into the page across the full section width. */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: 'clamp(90px,12vw,170px)',
-          background: 'linear-gradient(to top, var(--cream), transparent)',
-          pointerEvents: 'none'
-        }}
-      />
     </section>
   );
 }

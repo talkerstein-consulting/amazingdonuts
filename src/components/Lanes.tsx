@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ScrollStack from './scroll-stack';
-import Button from './Button';
+import { BrandButton } from './brand';
 import { useDonutLab } from '../lib/donut-lab';
 import { useNavTheme } from '../lib/nav-theme';
 import { SQUIRCLE } from './brand';
@@ -96,8 +96,10 @@ function LaneCard({ lane }: { lane: (typeof LANES)[number] }) {
         {lane.copy}
       </p>
 
-      <Button
+      <BrandButton
         href={lane.href}
+        variant="outline"
+        block
         onClick={
           lane.href === '#donut-lab'
             ? (e) => {
@@ -106,11 +108,12 @@ function LaneCard({ lane }: { lane: (typeof LANES)[number] }) {
               }
             : undefined
         }
-        style={{ border: `1.5px solid ${lane.border}`, color: lane.border, padding: '0 32px', minHeight: 60, width: '100%' }}
-        hoverStyle={lane.hover}
+        /* The knob stays Harbour per the spec; only the ring and label take the
+           lane's contrast colour, since navy on Signal blue would not clear AA. */
+        style={{ boxShadow: `inset 0 0 0 2px ${lane.border}`, color: lane.border }}
       >
         {lane.cta}
-      </Button>
+      </BrandButton>
     </article>
   );
 }
@@ -166,7 +169,7 @@ export default function Lanes() {
         Pick your kind of amazing.
       </h2>
 
-      <ScrollStack onIndexChange={onIndexChange} variant="stack" cardWidth={860} cardHeight={0.72} borderRadius={44} scrollLength={0.7} peek={64} scaleStep={0.04} blur={0} dim={0.12} showProgress={false} showCounter={false}>
+      <ScrollStack onIndexChange={onIndexChange} variant="stack" cardWidth={860} cardHeight={0.78} borderRadius={44} scrollLength={0.7} peek={64} scaleStep={0.04} blur={0} dim={0.12} showProgress={false} showCounter={false}>
         {LANES.map((lane) => (
           <LaneCard key={lane.title} lane={lane} />
         ))}

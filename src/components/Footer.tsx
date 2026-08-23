@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { motion, useReducedMotion, type Variants } from 'motion/react';
-import { ArrowRight, Facebook, Instagram } from 'lucide-react';
+import { Facebook, Instagram } from 'lucide-react';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useScrollSpin } from '../hooks/useScrollSpin';
+import { Badge } from './brand';
+import type { BadgeKey } from './brand';
+import KosherBadge from './KosherBadge';
+import type { KosherKey } from './KosherBadge';
 import { useDonutLab } from '../lib/donut-lab';
+import CurvedInput from './CurvedInput';
 
 const MENU_LINKS = [
   { label: 'Donuts', href: '#favorites' },
@@ -110,29 +115,59 @@ function LinkTabs() {
   );
 }
 
-export default function Footer() {
-  // Matches the hero donut: turns with the scroll rather than on a timer.
-  const spin = useScrollSpin<HTMLImageElement>(150);
+const ALLERGEN: BadgeKey[] = ['nut', 'dairy', 'sesame'];
+const KOSHER: KosherKey[] = ['cor', 'pareve', 'yoshon'];
+
+/* Matches the certification bar's pill exactly. */
+const FOOTER_PILL = {
+  color: 'var(--cream)',
+  boxShadow: 'inset 0 0 0 2px rgba(251,247,239,.55)',
+  whiteSpace: 'nowrap'
+} as const;
+
+export default function Footer({ ready }: { ready: boolean }) {
+  // Matches the hero donut: turns with the scroll, and only after the
+  // preloader has handed the wordmark to the navbar.
+  const spin = useScrollSpin<HTMLImageElement>(150, ready);
   const reduce = useReducedMotion();
   const isDesktop = useIsDesktop();
 
   return (
     <footer style={{ position: 'relative', background: 'var(--cream)' }}>
-      {/* Only the top 40% of the donut clears the footer edge; the footer's own
-          content sits above it. */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'relative',
-          zIndex: 0,
-          display: 'flex',
-          justifyContent: 'center',
-          marginTop: 'clamp(-120px,-13vw,-56px)',
-          marginBottom: 0,
-          pointerEvents: 'none'
-        }}
-      >
-        <div style={{ width: 'clamp(240px,38vw,360px)', aspectRatio: '5 / 2', overflow: 'hidden' }}>
+      {/* Says what the field is for before asking for the address. */}
+      <div className="footer-signup-intro">
+        <h2 className="footer-signup-title">First dibs on the good stuff</h2>
+        <p className="footer-signup-lede">
+          New flavors, seasonal boxes and the odd Friday-only bake — in your inbox before they hit the case.
+        </p>
+      </div>
+
+      {/* The signup arcs over the donut below it, following its dome. */}
+      <div className="footer-signup">
+        <CurvedInput
+          placeholder="Your email for first dibs"
+          buttonText="Notify me"
+          bend={58}
+          height={62}
+          cornerRadius={20}
+          borderWidth={2}
+          fontSize={15}
+          backgroundColor="#fbf7ef"
+          textColor="#0e3e69"
+          placeholderColor="rgba(14,62,105,.5)"
+          borderColor="#0e3e69"
+          buttonColor="#ff6832"
+          buttonTextColor="#ffffff"
+          shadowColor="#0e3e69"
+          shadowSize="sm"
+          onSubmit={() => {}}
+        />
+      </div>
+
+      {/* A taller slice than before (5:2 showed only the top 40% and the navy
+          panel then covered most of that) so the donut actually reads. */}
+      <div aria-hidden="true" className="footer-donut">
+        <div style={{ width: 'clamp(260px,40vw,380px)', aspectRatio: '5 / 3.4', overflow: 'hidden' }}>
           <img
             ref={spin}
             src="/img/gemini-generated-image-iehotziehotzieho-copy.png"
@@ -165,83 +200,24 @@ export default function Footer() {
           className="footer-grid"
         >
           <div>
-            <h2
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                gap: 12,
-                fontSize: 'var(--type-section)',
-                lineHeight: 0.9,
-                color: 'var(--cream)'
-              }}
-            >
-              <span>Keep it</span>
-              <span style={{ flexBasis: '100%' }}>Amazing</span>
+            <h2 className="footer-keep" style={{ margin: 0, fontSize: 'var(--type-section)', lineHeight: 0.9, color: 'var(--cream)' }}>
+              Keep it amazing
             </h2>
             <p style={{ marginTop: 18, maxWidth: '38ch', fontSize: 'var(--type-body)', lineHeight: 1.4, color: 'rgba(251,247,239,.72)' }}>
               Fresh donuts, cupcakes and custom orders — get the drop on new flavors before anyone else.
             </p>
-            <form
-              onSubmit={(e) => e.preventDefault()}
-              style={{
-                marginTop: 24,
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 8,
-                maxWidth: 420,
-                padding: 6,
-                // Pill when the row fits; rounded box once input and button stack.
-                borderRadius: isDesktop ? 99 : 24,
-                background: 'rgba(251,247,239,.08)',
-                border: '1px solid rgba(251,247,239,.18)'
-              }}
-            >
-              <label htmlFor="footer-email" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden' }}>
-                Email
-              </label>
-              <input
-                id="footer-email"
-                type="email"
-                placeholder="you@email.com"
-                style={{
-                  flex: '1 1 160px',
-                  minWidth: 0,
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  color: 'var(--cream)',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 16,
-                  padding: '10px 14px'
-                }}
-              />
-              <button
-                type="submit"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  borderRadius: 99,
-                  background: 'var(--orange)',
-                  color: '#fff',
-                  fontFamily: 'var(--font-cta)',
-                  fontWeight: 700,
-                  fontSize: 15,
-                  letterSpacing: '.04em',
-                  textTransform: 'uppercase',
-                  padding: '14px 20px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  flex: '1 1 auto',
-                  justifyContent: 'center',
-                  minHeight: 48
-                }}
-              >
-                Sign up
-                <ArrowRight size={16} />
-              </button>
-            </form>
+
+            {/* Same pills as the certification bar. The kosher marks are
+                white-only artwork and need a solid Harbour ground, which this
+                panel gives them. */}
+            <div className="footer-badges">
+              {ALLERGEN.map((key) => (
+                <Badge key={key} badge={key} forceOutline style={FOOTER_PILL} />
+              ))}
+              {KOSHER.map((key) => (
+                <KosherBadge key={key} badge={key} style={FOOTER_PILL} />
+              ))}
+            </div>
           </div>
 
           <div

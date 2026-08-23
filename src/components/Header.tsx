@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
-import { Menu, Plus, Search, ShoppingBag, X } from 'lucide-react';
+import { Menu, Plus, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useNavTheme } from '../lib/nav-theme';
 import { useShop } from '../lib/shop';
@@ -26,7 +26,7 @@ const BESTSELLERS = [
   .map((id) => PRODUCTS.find((p) => p.id === id))
   .filter((p): p is (typeof PRODUCTS)[number] => Boolean(p));
 
-export default function Header() {
+export default function Header({ onSignIn }: { onSignIn: () => void }) {
   const isDesktop = useIsDesktop();
   const { theme } = useNavTheme();
   const { openCart, count } = useShop();
@@ -118,6 +118,40 @@ export default function Header() {
                 )}
               </a>
             ))}
+
+            {/* Sign in lives in the menu, not as its own bar icon. */}
+            <button
+              type="button"
+              onClick={onSignIn}
+              onMouseEnter={() => setHovered('Log in')}
+              style={{
+                position: 'relative',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                fontFamily: 'var(--font-cta)',
+                fontWeight: 700,
+                fontSize: 'var(--type-label)',
+                letterSpacing: '.09em',
+                textTransform: 'uppercase',
+                color: hovered === 'Log in' ? 'var(--pink)' : theme.fg,
+                paddingBottom: 4,
+                transition: 'color .2s ease'
+              }}
+            >
+              <User size={15} strokeWidth={2.4} />
+              Log in
+              {hovered === 'Log in' && (
+                <motion.span
+                  layoutId="nav-underline"
+                  style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: theme.fg }}
+                  transition={{ duration: 0.25, ease: EASE }}
+                />
+              )}
+            </button>
           </nav>
         )}
 
@@ -241,6 +275,34 @@ export default function Header() {
                     {link.label}
                   </motion.a>
                 ))}
+
+                <motion.button
+                  variants={drawerItem}
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    onSignIn();
+                  }}
+                  style={{
+                    minHeight: 56,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid rgba(251,247,239,.12)',
+                    fontFamily: 'var(--font-cta)',
+                    fontWeight: 700,
+                    fontSize: 22,
+                    letterSpacing: '.04em',
+                    textTransform: 'uppercase',
+                    color: 'var(--cream)'
+                  }}
+                >
+                  <User size={20} strokeWidth={2.4} />
+                  Log in
+                </motion.button>
               </motion.nav>
 
               <div style={{ marginTop: 28 }}>

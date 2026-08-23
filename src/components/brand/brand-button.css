@@ -1,0 +1,154 @@
+/* Brand system v5 button: label left, a navy donut knob on the right, and a
+   sprinkle burst out of the knob on click.
+
+   Two deliberate asymmetries, both from the spec:
+   - The chevron shuffle animates in and resets instantly. That is why the
+     transition lives on `.bbtn:hover .bbtn__track` rather than on the track
+     itself — leaving the button has no transition to run, so it snaps.
+   - Inline buttons grow by padding; full-width ones cannot (there is no room),
+     so they scale on the x axis instead. */
+
+.bbtn {
+  --bbtn-pad-l: 30px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  height: 58px;
+  padding: 0 8px 0 var(--bbtn-pad-l);
+  border: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: var(--font-cta);
+  /* 18px, not 16 — the Dare Devil and Signal fills only clear AA as large text. */
+  font-size: var(--type-cta);
+  line-height: 1;
+  font-weight: 800;
+  /* v5 removes the tracking that earlier passes put on button labels. */
+  letter-spacing: 0;
+  text-transform: uppercase;
+  transform-origin: center;
+  transition: padding-left 140ms ease, transform 140ms ease, filter 140ms ease;
+}
+
+.bbtn:hover:not(:disabled) {
+  --bbtn-pad-l: 44px;
+}
+
+/* A full-width button has no slack to grow into, so it takes the scale instead.
+   1.025 on the x axis only — enough to register, not enough to distort the
+   label or the round knob noticeably. */
+.bbtn--block {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.bbtn--block:hover:not(:disabled) {
+  --bbtn-pad-l: 30px;
+  transform: scaleX(1.025);
+}
+
+.bbtn:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.4);
+  opacity: 0.55;
+}
+
+/* --- the knob ---------------------------------------------------------- */
+
+.bbtn__knob {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: var(--cream);
+  overflow: hidden;
+}
+
+/* Two chevrons side by side in one 84px row. At rest the second is the one on
+   show; hover slides the row right by a cell, so that chevron leaves to the
+   right while the first arrives from the left — the v5 shuffle, which runs
+   horizontally in the direction the chevron points. */
+.bbtn__track {
+  display: flex;
+  flex-direction: row;
+  transform: translateX(-42px);
+}
+
+.bbtn:hover:not(:disabled) .bbtn__track {
+  transform: translateX(0);
+  transition: transform 300ms cubic-bezier(0.34, 1.3, 0.44, 1);
+}
+
+.bbtn__cell {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+}
+
+/* Fired by adding the class on click; 420ms matches the burst's first half so
+   the knob has settled before the sprinkles land. */
+.bbtn__knob--pop {
+  animation: bbtn-pop 420ms cubic-bezier(0.34, 1.3, 0.44, 1);
+}
+
+@keyframes bbtn-pop {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(0.82); }
+  65%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+/* --- the sprinkle burst ------------------------------------------------ */
+
+/* Sits over the knob, centred on it, and is torn down after the longest
+   particle finishes. overflow must NOT be clipped here — the whole point is
+   that the sprinkles leave the button. */
+.bbtn__burst {
+  position: absolute;
+  top: 50%;
+  right: calc(8px + 21px);
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.bbtn__sprinkle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 3px;
+  border-radius: 2px;
+  transform-origin: center;
+  animation: bbtn-fly var(--dur) cubic-bezier(0.15, 0.85, 0.3, 1) forwards;
+}
+
+@keyframes bbtn-fly {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--rot)) scale(0.6);
+  }
+  70% { opacity: 1; }
+  to {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(calc(var(--rot) + 140deg)) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bbtn,
+  .bbtn:hover:not(:disabled) .bbtn__track,
+  .bbtn__knob--pop {
+    transition: none;
+    animation: none;
+  }
+  .bbtn--block:hover:not(:disabled) {
+    transform: none;
+  }
+}

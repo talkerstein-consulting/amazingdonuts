@@ -17,10 +17,22 @@ export const C = {
   price: '#B33A11'   // price text
 } as const;
 
-/** All text is Red Hat for now — Display for majors, Text for minors. */
+/**
+ * Brand system v5: NCL Qikober for display, Karla for everything else — the
+ * doc is explicit that there is no third face.
+ *
+ * `qikober` is the display face and has ONE weight (400). Never set a
+ * font-weight above 400 on it: the browser synthesises a fake bold and the
+ * letterforms smear. Anything that needs to be bold — card titles, working
+ * headings, button labels — is Karla 700/800, which is what `display` is for.
+ */
 export const F = {
-  display: "'Red Hat Display', system-ui, sans-serif",
-  text: "'Red Hat Text', system-ui, sans-serif"
+  /** The display face. Weight 400 only. */
+  qikober: "'NCL Qikober', 'Karla', sans-serif",
+  /** Karla, for bold UI type. Named `display` for the callers that predate v5. */
+  display: "'Karla', system-ui, sans-serif",
+  /** Karla, for body and small copy. */
+  text: "'Karla', system-ui, sans-serif"
 } as const;
 
 /**
@@ -31,3 +43,11 @@ export const SQUIRCLE = 'url(#squircle-clip)';
 
 /** Card corner radius — the squircle's flat-sided cousin, used on rectangles. */
 export const RADIUS = 28;
+
+/** The v5 radius set. */
+export const R = {
+  panel: 28,
+  cardL: 32,
+  chip: 24,
+  pill: 999
+} as const;

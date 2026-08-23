@@ -147,16 +147,16 @@
   color: var(--navy);
 }
 
-/* Step heading — one scale step up from body (--fs1 → --fs2). */
+/* Step heading — one scale step up from body (--fs-swatch → --fs2). */
 .donut-lab .bld__stepH {
-  font-size: clamp(var(--fs1), 4.2vw, var(--fs2));
+  font-size: clamp(var(--fs-swatch), 4.2vw, var(--fs-h2alt));
   line-height: 0.95;
   letter-spacing: -0.005em;
   gap: 14px;
   margin-bottom: 10px;
 }
 .donut-lab .bld__summary {
-  font-size: clamp(var(--fs1), 3.6vw, var(--fs2));
+  font-size: clamp(var(--fs-swatch), 3.6vw, var(--fs-h2alt));
   line-height: 0.95;
 }
 
@@ -168,7 +168,7 @@
   border-radius: 99px;
   font-family: var(--font-cta);
   font-weight: 700;
-  font-size: var(--fs-1);
+  font-size: var(--fs-label);
   color: var(--navy);
 }
 
@@ -182,7 +182,7 @@
 }
 .donut-lab .bld__read {
   font-family: var(--font-body);
-  font-size: var(--fs0);
+  font-size: var(--fs-body);
   line-height: 1.45;
   color: rgba(14, 62, 105, 0.72);
 }
@@ -196,19 +196,19 @@
 .donut-lab .bld__why {
   font-family: var(--font-cta);
   font-weight: 700;
-  font-size: var(--fs-1);
+  font-size: var(--fs-label);
   letter-spacing: 0.06em;
 }
 .donut-lab .bld__baseNote {
   font-family: var(--font-body);
-  font-size: var(--fs-1);
+  font-size: var(--fs-label);
   line-height: 1.35;
   color: rgba(14, 62, 105, 0.6);
 }
 .donut-lab .bld__doneChipVal {
   font-family: var(--font-cta);
   font-weight: 700;
-  font-size: var(--fs-1);
+  font-size: var(--fs-label);
 }
 
 /* ==========================================================================

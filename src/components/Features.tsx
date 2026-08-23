@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import Button from './Button';
+import { BrandButton } from './brand';
 import { useNavTheme } from '../lib/nav-theme';
 import { useDonutLab } from '../lib/donut-lab';
 
@@ -35,6 +35,7 @@ export default function Features() {
   return (
     <section
       ref={sectionRef}
+      className="section-band features-band"
       style={{
         maxWidth: 1240,
         margin: '0 auto',
@@ -68,25 +69,19 @@ export default function Features() {
           Custom donuts and cookies made for birthdays, brands, parties, and very important inside jokes.
         </p>
 
-        <Button
+        {/* Custom orders is this section's hero moment — Dare Devil, full width. */}
+        <BrandButton
           href="#donut-lab"
           className="lab-cta"
+          block
           onClick={(e) => {
             e.preventDefault();
             openLab();
           }}
-          style={{
-            marginTop: 'clamp(6px,1vw,12px)',
-            minHeight: 60,
-            padding: '0 28px',
-            whiteSpace: 'nowrap',
-            background: 'var(--cream)',
-            color: 'var(--navy)'
-          }}
-          hoverStyle={{ transform: 'translateY(-2px)', background: '#fff' }}
+          style={{ marginTop: 'clamp(6px,1vw,12px)' }}
         >
           Try the donut lab
-        </Button>
+        </BrandButton>
 
         {/* Enlarged, centred, and clipped by the card's bottom edge. */}
         <img
@@ -108,7 +103,7 @@ export default function Features() {
           background: '#f7c55e'
         }}
       >
-        <h2 className="feature-title" style={{ maxWidth: '12ch', lineHeight: 0.9, color: 'var(--navy)' }}>
+        <h2 className="feature-title bulk-title" style={{ lineHeight: 0.9, color: 'var(--navy)' }}>
           Got a lot of people?
         </h2>
         <p style={{ margin: '18px 0 0', maxWidth: '32ch', fontSize: 'var(--type-body)', lineHeight: 1.4, color: 'var(--navy)' }}>
@@ -118,13 +113,10 @@ export default function Features() {
         {/* The cut-out box is the card's subject at every width. */}
         <img src="/img/bulk-donut-box.png" alt="Open box of assorted donuts" className="bulk-card__photo" />
 
-        <Button
-          href="#bulk"
-          style={{ marginTop: 'auto', alignSelf: 'stretch', background: 'var(--cream)', color: 'var(--navy)', padding: '19px 24px' }}
-          hoverStyle={{ transform: 'translateY(-2px)', background: '#fff' }}
-        >
+        {/* Second card on the same screen, so it takes the ink outline. */}
+        <BrandButton href="#bulk" variant="outline" block style={{ marginTop: 'auto' }}>
           Order bulk
-        </Button>
+        </BrandButton>
 
         {/* Straddles the card's top edge — the card deliberately does not clip. */}
         <img src="/img/badge-petite-donuts.svg" alt="Petite donuts, party pack available" className="bulk-badge" />

@@ -59,7 +59,7 @@ export default function CartDrawer() {
                   <span className="cart__emptyIcon">
                     <ShoppingBag size={28} strokeWidth={2} />
                   </span>
-                  <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'var(--fs1)', textTransform: 'uppercase', color: C.navy }}>
+                  <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'var(--fs-swatch)', textTransform: 'uppercase', color: C.navy }}>
                     Nothing in the box yet
                   </p>
                   <p style={{ margin: 0, fontFamily: F.text, fontSize: 15, color: 'rgba(14,62,105,.7)' }}>

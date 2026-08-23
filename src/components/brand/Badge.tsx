@@ -48,10 +48,13 @@ export default function Badge({ badge, forceOutline = false, style }: Props) {
         gap: 8,
         height: 34,
         padding: '0 14px',
-        borderRadius: 999,
+        borderRadius: 'var(--radius-pill)',
+        // v5 badge type: Karla 700 at 13px. Special Order steps up to 14px —
+        // its Signal fill sits in the 3:1–4:1 band, which needs the
+        // large-text contrast threshold to pass.
         fontFamily: F.display,
-        fontWeight: 800,
-        fontSize: spec.large ? 14 : 12,
+        fontWeight: 700,
+        fontSize: spec.large ? 14 : 'var(--fs-label)',
         letterSpacing: '.08em',
         textTransform: 'uppercase',
         ...(outline

@@ -11,6 +11,7 @@ import Preloader from './preloader/Preloader';
 import ShopAll from './shop/ShopAll';
 import ProductPanel from './shop/ProductPanel';
 import CartDrawer from './shop/CartDrawer';
+import AuthModal from './shop/AuthModal';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import Marquee from './components/Marquee';
@@ -21,27 +22,29 @@ import Social from './components/Social';
 import Testimonials from './components/Testimonials';
 import Footer from './components/Footer';
 
-function Site() {
+function Site({ ready }: { ready: boolean }) {
   const { isOpen: labOpen, close: closeLab } = useDonutLab();
   const { shopOpen, product } = useShop();
+  const [authOpen, setAuthOpen] = useState(false);
 
   return (
     <>
       <div style={{ maxWidth: '100%', margin: '0 auto', background: 'var(--cream)', color: 'var(--navy)' }}>
-        <Header />
-        <Hero />
+        <Header onSignIn={() => setAuthOpen(true)} />
+        <Hero ready={ready} />
         <Marquee />
         <Lanes />
         <Catalog />
         <Features />
         <Social />
         <Testimonials />
-        <Footer />
+        <Footer ready={ready} />
       </div>
       {shopOpen && <ShopAll />}
       {/* The product cabinet slides over the catalogue it came from. */}
       <AnimatePresence>{product && <ProductPanel key={product.id} product={product} />}</AnimatePresence>
       <CartDrawer />
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
       {labOpen && <DonutLab onClose={closeLab} />}
     </>
@@ -59,7 +62,8 @@ export default function App() {
       <ShopProvider>
         <DonutLabProvider>
           <SquircleDefs />
-          <Site />
+          {/* `ready` flips when the preloader has handed the wordmark to the bar. */}
+          <Site ready={!loading} />
           {loading && <Preloader onDone={() => setLoading(false)} />}
         </DonutLabProvider>
       </ShopProvider>

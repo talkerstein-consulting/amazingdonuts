@@ -97,7 +97,7 @@ export default function ProductPanel({ product }: { product: Product }) {
                 margin: '8px 0 0',
                 fontFamily: 'var(--font-display)',
                 fontWeight: 400,
-                fontSize: 'clamp(var(--fs1), 3.4vw, var(--fs2))',
+                fontSize: 'clamp(var(--fs-swatch), 3.4vw, var(--fs-h2alt))',
                 lineHeight: 0.95,
                 textTransform: 'uppercase',
                 color: C.navy

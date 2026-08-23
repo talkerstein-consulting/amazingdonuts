@@ -1,12 +1,18 @@
 import { motion } from 'motion/react';
-import Button from './Button';
+import { BrandButton } from './brand';
 import { useScrollSpin } from '../hooks/useScrollSpin';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
-export default function Hero() {
-  // The donut turns as the page scrolls past it.
-  const spin = useScrollSpin<HTMLImageElement>(150);
+/* The photo slides in from -38% of its own width. A disc rolling that far turns
+   travel / radius radians — 0.38w over w/2 is ~0.76rad, ~44deg — so it starts
+   back at -44deg and unwinds to level as it lands. */
+const ROLL_IN = { degrees: -44, duration: 950 };
+
+export default function Hero({ ready }: { ready: boolean }) {
+  // Turns with the scroll, but only once the preloader has handed the wordmark
+  // to the navbar — nothing should be moving behind the loading screen.
+  const spin = useScrollSpin<HTMLImageElement>(150, ready, ROLL_IN);
 
   return (
     <section id="top" style={{ maxWidth: 1240, margin: '0 auto', padding: 'clamp(20px,4vw,54px) clamp(16px,4vw,40px) 0' }}>
@@ -17,7 +23,8 @@ export default function Hero() {
         transition={{ duration: 0.6, ease: EASE }}
         style={{
           fontSize: 'var(--type-hero)',
-          lineHeight: 0.88,
+          // Tighter than the v5 display step so the two lines close up.
+          lineHeight: 0.82,
           letterSpacing: '-.015em',
           display: 'flex',
           flexWrap: 'wrap',
@@ -56,30 +63,26 @@ export default function Hero() {
         className="hero-ctas"
         style={{ marginTop: 'clamp(18px,2.4vw,28px)', display: 'flex', flexWrap: 'wrap', gap: 12 }}
       >
-        <Button href="#favorites" style={{ background: 'var(--orange)', color: '#fff' }} hoverStyle={{ transform: 'translateY(-2px)', filter: 'brightness(1.06)' }}>
-          Get the good stuff
-        </Button>
-        <Button
-          href="#lab"
-          style={{ border: '2.2px solid var(--navy)', color: 'var(--navy)' }}
-          hoverStyle={{ background: 'var(--navy)', color: 'var(--cream)' }}
-        >
+        {/* The page's single Dare Devil moment, paired with the ink outline. */}
+        <BrandButton href="#favorites">Get the good stuff</BrandButton>
+        <BrandButton href="#lab" variant="outline">
           Make your own
-        </Button>
+        </BrandButton>
       </motion.div>
 
       {/* Plain wrapper, deliberately untransformed: motion leaves a transform on
           the animated element, which would trap the badge in its own stacking
           context and let the sticky header paint over it. */}
       <div style={{ position: 'relative', marginTop: 'clamp(2px,0.6vw,10px)' }}>
+        {/* The photo runs long on purpose: the certification bar crosses it at
+            roughly its midpoint and the next section covers the rest. It rolls
+            in from the left on load, landing where it sits at rest. */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.94 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7, delay: 0.25, ease: EASE }}
+          initial={{ opacity: 0, x: '-38%' }}
+          animate={ready ? { opacity: 1, x: '0%' } : { opacity: 0, x: '-38%' }}
+          transition={{ duration: 0.95, ease: EASE }}
         >
-          {/* The photo runs long on purpose: the certification bar crosses it at
-              roughly its midpoint and the next section covers the rest. */}
-          <div className="hero-photo" style={{ overflow: 'hidden', borderRadius: '32px 32px 0 0', marginBottom: '-44%' }}>
+          <div className="hero-photo">
             <img
               ref={spin}
               src="/img/gemini-generated-image-iehotziehotzieho-copy.png"
@@ -107,7 +110,6 @@ export default function Hero() {
           }}
         />
       </div>
-
     </section>
   );
 }
