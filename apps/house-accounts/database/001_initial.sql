@@ -119,6 +119,40 @@ CREATE TABLE IF NOT EXISTS account_users (
   PRIMARY KEY (account_id,user_id)
 );
 
+CREATE TABLE IF NOT EXISTS customer_profiles (
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  square_customer_id TEXT NOT NULL,
+  default_phone TEXT,
+  default_address JSONB NOT NULL DEFAULT '{}',
+  marketing_consent BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id,user_id),
+  UNIQUE (tenant_id,square_customer_id)
+);
+
+CREATE TABLE IF NOT EXISTS storefront_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  user_id UUID NOT NULL REFERENCES users(id),
+  account_id UUID REFERENCES accounts(id),
+  square_order_id TEXT NOT NULL,
+  square_payment_id TEXT,
+  payment_method TEXT NOT NULL CHECK (payment_method IN ('card','house_account')),
+  status TEXT NOT NULL DEFAULT 'completed',
+  subtotal BIGINT NOT NULL,
+  tax BIGINT NOT NULL DEFAULT 0,
+  total BIGINT NOT NULL,
+  currency CHAR(3) NOT NULL DEFAULT 'CAD',
+  fulfillment JSONB NOT NULL DEFAULT '{}',
+  line_items JSONB NOT NULL DEFAULT '[]',
+  ordered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  raw_square JSONB NOT NULL DEFAULT '{}',
+  UNIQUE (tenant_id,square_order_id)
+);
+CREATE INDEX IF NOT EXISTS storefront_orders_user_date_idx ON storefront_orders(tenant_id,user_id,ordered_at DESC);
+
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id),

@@ -134,9 +134,9 @@ export default function CartDrawer() {
                   <span>{money(subtotal)}</span>
                 </div>
                 <p className="cart__note">Tax and pickup details are settled at checkout.</p>
-                <button type="button" className="cart__checkout brand-press">
+                <a href="/checkout/" className="cart__checkout brand-press" onClick={closeCart}>
                   Checkout — {money(subtotal)}
-                </button>
+                </a>
               </footer>
             )}
           </motion.aside>

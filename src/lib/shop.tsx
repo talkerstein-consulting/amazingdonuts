@@ -29,6 +29,7 @@ type Store = {
   add: (product: Product, qty?: number) => void;
   setQty: (id: string, qty: number) => void;
   remove: (id: string) => void;
+  clear: () => void;
 };
 
 const ShopContext = createContext<Store | null>(null);
@@ -46,7 +47,19 @@ const readHash = () => {
 export function ShopProvider({ children }: { children: ReactNode }) {
   const [route, setRoute] = useState(readHash);
   const [cartOpen, setCartOpen] = useState(false);
-  const [lines, setLines] = useState<CartLine[]>([]);
+  const [lines, setLines] = useState<CartLine[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('amazing-cart') || '[]') as { id: string; qty: number }[];
+      return saved.flatMap(({ id, qty }) => {
+        const product = PRODUCTS.find((item) => item.id === id);
+        return product && Number.isInteger(qty) && qty > 0 ? [{ product, qty }] : [];
+      });
+    } catch { return []; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('amazing-cart', JSON.stringify(lines.map(({ product, qty }) => ({ id: product.id, qty }))));
+  }, [lines]);
 
   useEffect(() => {
     const sync = () => setRoute(readHash());
@@ -106,7 +119,8 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       closeCart: () => setCartOpen(false),
       add,
       setQty,
-      remove
+      remove,
+      clear: () => setLines([])
     };
   }, [product, cartOpen, lines, go, clearHash, add, setQty, remove]);
 

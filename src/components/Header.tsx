@@ -55,6 +55,7 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
   /* Controlled, because the whole point is to carry the text somewhere. It was
      uncontrolled, and the submit handler had nothing to read. */
   const [query, setQuery] = useState('');
+  const [signedIn, setSignedIn] = useState(false);
   const searchFormRef = useRef<HTMLFormElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
@@ -127,6 +128,13 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
   useEffect(() => {
     if (isDesktop) setOpen(false);
   }, [isDesktop]);
+
+  useEffect(() => {
+    fetch('/api/house/storefront/session').then(r => r.json()).then(body => setSignedIn(Boolean(body.user))).catch(() => {});
+    const changed = () => setSignedIn(true);
+    window.addEventListener('amazing:auth-changed', changed);
+    return () => window.removeEventListener('amazing:auth-changed', changed);
+  }, []);
 
   const drawerStagger: Variants = {
     hidden: {},
@@ -307,9 +315,9 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
           {isDesktop && (
             <button
               type="button"
-              onClick={onSignIn}
-              aria-label="Log in"
-              title="Log in"
+              onClick={() => signedIn ? window.location.assign('/account/') : onSignIn()}
+              aria-label={signedIn ? 'My account' : 'Log in'}
+              title={signedIn ? 'My account' : 'Log in'}
               className="icon-btn"
               style={{ color: theme.fg }}
             >

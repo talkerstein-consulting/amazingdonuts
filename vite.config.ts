@@ -50,7 +50,9 @@ export default defineConfig({
         shop: path.resolve(__dirname, 'shop/index.html'),
         contact: path.resolve(__dirname, 'contact/index.html'),
         careers: path.resolve(__dirname, 'careers/index.html'),
-        bulkOrders: path.resolve(__dirname, 'bulk-orders/index.html')
+        bulkOrders: path.resolve(__dirname, 'bulk-orders/index.html'),
+        checkout: path.resolve(__dirname, 'checkout/index.html'),
+        account: path.resolve(__dirname, 'account/index.html')
       }
     }
   },
