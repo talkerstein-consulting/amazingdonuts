@@ -274,6 +274,7 @@ function IntakeForm() {
 
   const send = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const form = e.currentTarget;
     setSubmitState('sending');
     setSubmitMessage('');
     try {
@@ -290,7 +291,7 @@ function IntakeForm() {
       if (!response.ok) throw new Error(body?.error?.message || 'We could not send your request.');
       setSubmitState('sent');
       setSubmitMessage('Request received. Our team will review it and contact you with the next step.');
-      e.currentTarget.reset();
+      form.reset();
       setOrderType(''); setHeadCount(''); setProducts([]); setFulfilment(''); setDate('');
       setOrganization(''); setName(''); setEmail(''); setPhone(''); setNotes('');
     } catch (error) {
