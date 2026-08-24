@@ -43,6 +43,14 @@ export function deliveryFee(subtotal, fulfillment, policy) {
   return policy.feeAmount;
 }
 
+export function merchandiseSubtotal(order) {
+  if (order.subtotal_money?.amount != null) return Number(order.subtotal_money.amount);
+  return (order.line_items || []).reduce(
+    (total, line) => total + Number(line.total_money?.amount || 0),
+    0,
+  );
+}
+
 export function deliveryServiceCharge(amount) {
   if (!amount) return [];
   return [{

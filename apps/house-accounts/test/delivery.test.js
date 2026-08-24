@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { deliveryConfig, deliveryFee, validateDelivery } from "../apps/api/delivery.js";
+import { deliveryConfig, deliveryFee, merchandiseSubtotal, validateDelivery } from "../apps/api/delivery.js";
 
 const address = { postalCode: "M6A 2T9" };
 const policy = deliveryConfig({});
@@ -20,4 +20,11 @@ test("charges five dollars and makes delivery free at one hundred dollars", () =
 
 test("enforces the delivery merchandise minimum", () => {
   assert.throws(() => deliveryFee(2499, { type: "delivery" }, policy), { code: "DELIVERY_MINIMUM" });
+});
+
+test("sums Square line items when subtotal_money is absent", () => {
+  assert.equal(merchandiseSubtotal({ line_items: [
+    { total_money: { amount: 2000 } },
+    { total_money: { amount: 600 } },
+  ] }), 2600);
 });

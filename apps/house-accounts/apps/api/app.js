@@ -6,7 +6,7 @@ import { createSession, hashPassword, loadSession, logout, requireStaff, require
 import { accountCredit, postSale, reserveCredit } from "./ledger.js";
 import { statementPdf } from "./statements.js";
 import { transaction } from "./db.js";
-import { deliveryFee, deliveryServiceCharge, validateDelivery } from "./delivery.js";
+import { deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery } from "./delivery.js";
 
 const loginSchema = z.object({ email:z.string().email(), password:z.string().min(8), tenant:z.string().min(2) });
 const statementSchema = z.object({ periodStart:z.iso.date(), periodEnd:z.iso.date() });
@@ -211,7 +211,7 @@ async function prepareSquareOrder(square,config,input,user){
   validateDelivery(input.fulfillment,config.delivery);
   const orderDraft=await buildSquareOrder(square,config.squareLocationId,input,user);
   const initial=(await square.request("/v2/orders/calculate",{method:"POST",body:{order:orderDraft}})).order;
-  const fee=deliveryFee(Number(initial.subtotal_money?.amount||0),input.fulfillment,config.delivery);
+  const fee=deliveryFee(merchandiseSubtotal(initial),input.fulfillment,config.delivery);
   if(fee)orderDraft.service_charges=deliveryServiceCharge(fee);
   const calculated=fee?(await square.request("/v2/orders/calculate",{method:"POST",body:{order:orderDraft}})).order:initial;
   return {orderDraft,calculated};
