@@ -153,6 +153,19 @@ CREATE TABLE IF NOT EXISTS storefront_orders (
 );
 CREATE INDEX IF NOT EXISTS storefront_orders_user_date_idx ON storefront_orders(tenant_id,user_id,ordered_at DESC);
 
+CREATE TABLE IF NOT EXISTS custom_order_assets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  user_id UUID NOT NULL REFERENCES users(id),
+  storefront_order_id UUID REFERENCES storefront_orders(id) ON DELETE CASCADE,
+  file_name TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  file_data BYTEA NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS custom_order_assets_order_idx ON custom_order_assets(storefront_order_id);
+ALTER TABLE storefront_orders ADD COLUMN IF NOT EXISTS customizations JSONB NOT NULL DEFAULT '[]';
+
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id),

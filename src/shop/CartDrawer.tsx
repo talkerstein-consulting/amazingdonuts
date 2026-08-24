@@ -4,6 +4,8 @@ import { Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
 import { C, F, SQUIRCLE } from '../components/brand';
 import { useShop, money } from '../lib/shop';
 import { SHOP_HREF } from '../lib/shop-href';
+import { customizationComplete } from '../lib/custom-order';
+import CartCustomization from './CartCustomization';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -13,7 +15,8 @@ const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
  * something never takes you off what you were browsing.
  */
 export default function CartDrawer() {
-  const { cartOpen, closeCart, lines, count, subtotal, setQty, remove } = useShop();
+  const { cartOpen, closeCart, lines, count, subtotal, setQty, customize, remove } = useShop();
+  const customReady=lines.every(line=>customizationComplete(line.product.id,line.qty,line.customization));
 
   useEffect(() => {
     if (!cartOpen) return;
@@ -74,9 +77,9 @@ export default function CartDrawer() {
                 </div>
               ) : (
                 <ul className="cart__lines">
-                  {lines.map(({ product, qty }) => (
+                  {lines.map(({ product, qty, customization }) => (
                     <li key={product.id} className="cart__line">
-                      <span className="cart__thumb" style={{ clipPath: SQUIRCLE }}>
+                      <div className="cart__line-main"><span className="cart__thumb" style={{ clipPath: SQUIRCLE }}>
                         <img src={product.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.14)' }} />
                       </span>
 
@@ -120,7 +123,8 @@ export default function CartDrawer() {
                             <Trash2 size={16} strokeWidth={2.2} />
                           </button>
                         </div>
-                      </div>
+                      </div></div>
+                      <CartCustomization productId={product.id} qty={qty} value={customization} onChange={next=>customize(product.id,next)}/>
                     </li>
                   ))}
                 </ul>
@@ -134,8 +138,8 @@ export default function CartDrawer() {
                   <span>{money(subtotal)}</span>
                 </div>
                 <p className="cart__note">Tax and pickup details are settled at checkout.</p>
-                <a href="/checkout/" className="cart__checkout brand-press" onClick={closeCart}>
-                  Checkout — {money(subtotal)}
+                <a href={customReady?"/checkout/":"#"} aria-disabled={!customReady} className={`cart__checkout brand-press${customReady?'':' is-disabled'}`} onClick={event=>{if(!customReady)event.preventDefault();else closeCart()}}>
+                  {customReady?`Checkout — ${money(subtotal)}`:'Finish custom items'}
                 </a>
               </footer>
             )}

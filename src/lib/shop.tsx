@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PRODUCTS, type Product } from '../data/products';
+import { customizationFor, type Customization } from './custom-order';
 
 /**
  * The storefront's client state: which view is showing, which product is open,
@@ -14,7 +15,7 @@ import { PRODUCTS, type Product } from '../data/products';
  * `/shop/`, a real page, so the route and its `openShop`/`shopOpen` members are
  * gone — anything still calling them was setting a hash that matched nothing.
  */
-export type CartLine = { product: Product; qty: number };
+export type CartLine = { product: Product; qty: number; customization?: Customization };
 
 type Store = {
   product: Product | null;
@@ -28,6 +29,7 @@ type Store = {
   closeCart: () => void;
   add: (product: Product, qty?: number) => void;
   setQty: (id: string, qty: number) => void;
+  customize: (id: string, customization: Customization) => void;
   remove: (id: string) => void;
   clear: () => void;
 };
@@ -49,16 +51,16 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   const [cartOpen, setCartOpen] = useState(false);
   const [lines, setLines] = useState<CartLine[]>(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('amazing-cart') || '[]') as { id: string; qty: number }[];
-      return saved.flatMap(({ id, qty }) => {
+      const saved = JSON.parse(localStorage.getItem('amazing-cart') || '[]') as { id: string; qty: number; customization?: Customization }[];
+      return saved.flatMap(({ id, qty, customization }) => {
         const product = PRODUCTS.find((item) => item.id === id);
-        return product && Number.isInteger(qty) && qty > 0 ? [{ product, qty }] : [];
+        return product && Number.isInteger(qty) && qty > 0 ? [{ product, qty, customization:customization||customizationFor(id) }] : [];
       });
     } catch { return []; }
   });
 
   useEffect(() => {
-    localStorage.setItem('amazing-cart', JSON.stringify(lines.map(({ product, qty }) => ({ id: product.id, qty }))));
+    localStorage.setItem('amazing-cart', JSON.stringify(lines.map(({ product, qty, customization }) => ({ id: product.id, qty, customization }))));
   }, [lines]);
 
   useEffect(() => {
@@ -85,7 +87,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   const add = useCallback((p: Product, qty = 1) => {
     setLines((prev) => {
       const at = prev.findIndex((l) => l.product.id === p.id);
-      if (at === -1) return [...prev, { product: p, qty }];
+      if (at === -1) return [...prev, { product: p, qty, customization:customizationFor(p.id) }];
       const next = [...prev];
       next[at] = { ...next[at], qty: next[at].qty + qty };
       return next;
@@ -100,6 +102,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const remove = useCallback((id: string) => setLines((prev) => prev.filter((l) => l.product.id !== id)), []);
+  const customize = useCallback((id: string, customization: Customization) => setLines(prev=>prev.map(line=>line.product.id===id?{...line,customization}:line)), []);
 
   const value = useMemo<Store>(() => {
     const count = lines.reduce((n, l) => n + l.qty, 0);
@@ -119,10 +122,11 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       closeCart: () => setCartOpen(false),
       add,
       setQty,
+      customize,
       remove,
       clear: () => setLines([])
     };
-  }, [product, cartOpen, lines, go, clearHash, add, setQty, remove]);
+  }, [product, cartOpen, lines, go, clearHash, add, setQty, customize, remove]);
 
   return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>;
 }

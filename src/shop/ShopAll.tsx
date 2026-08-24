@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Plus, Donut, Dessert, Cake, Cookie, Wheat, LayoutGrid, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { CATEGORIES, PRODUCTS, type Category, type Product } from '../data/products';
-import { LAB_HREF, PRINTED_DOZEN_LAB_HREF } from '../lib/lab-href';
+import { LAB_HREF } from '../lib/lab-href';
 import { useGridColumns } from '../hooks/useGridColumns';
 import { readShopParams } from '../lib/shop-href';
 import { C, F, SQUIRCLE, BadgeRow } from '../components/brand';
@@ -175,14 +175,8 @@ const COLLECTION_COPY: Record<'all' | Category, { title: string; seo: string }> 
 
 export default function ShopAll() {
   const { openProduct, add } = useShop();
-  const openCatalogProduct = (product: Product) => {
-    if (product.id === 'twelve-custom-printed-donuts') window.location.assign(PRINTED_DOZEN_LAB_HREF);
-    else openProduct(product.id);
-  };
-  const addCatalogProduct = (product: Product) => {
-    if (product.id === 'twelve-custom-printed-donuts') window.location.assign(PRINTED_DOZEN_LAB_HREF);
-    else add(product);
-  };
+  const openCatalogProduct = (product: Product) => openProduct(product.id);
+  const addCatalogProduct = (product: Product) => add(product);
   /* Opened from a homepage lane or the footer menu, the URL says which counter
      to show. Read in the lazy initialiser, not an effect: an effect would paint
      the unfiltered grid first and then visibly filter it. */

@@ -33,5 +33,9 @@ aside nav > a svg { width: 18px; }
 .status.rejected { background: #fde6e6; color: #9d2424; }
 .reviewed { margin-top: 22px; padding: 16px; border-left: 4px solid #17394a; background: #eef6f8; text-transform: capitalize; }
 .reviewed p { margin-bottom: 0; text-transform: none; }
+.custom-order-row { min-height:72px; }
+.custom-order-row strong { display:grid; gap:5px; }
+.custom-order-row strong small { display:flex; flex-wrap:wrap; gap:8px; }
+.custom-order-row strong small a { color:#b30778; font-size:10px; }
 @media(max-width:1050px){.request-layout{grid-template-columns:1fr}.request-list{max-height:360px;overflow:auto}}
 @media(max-width:760px){aside nav{display:flex;overflow-x:auto;margin-top:12px}aside nav>a{width:auto;flex:0 0 auto}.request-facts,.review-form{grid-template-columns:1fr}.request-facts div:nth-child(odd){border-right:0}.review-notes,.review-error,.review-actions{grid-column:auto}}
