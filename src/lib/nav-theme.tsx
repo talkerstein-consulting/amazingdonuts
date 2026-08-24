@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+  type RefObject
+} from 'react';
 
 export type NavTheme = { bg: string; fg: string };
 
@@ -47,3 +56,46 @@ export function NavThemeProvider({ children }: { children: ReactNode }) {
 }
 
 export const useNavTheme = () => useContext(NavThemeContext);
+
+/**
+ * Hand the bar a colour while a section owns the middle of the screen.
+ *
+ * The test used to be "is this section directly under the header" (`top <= 0`),
+ * which fires the swap the instant a band's first pixel slides beneath the bar
+ * — the colour arrives while the section is still mostly off-screen, and on a
+ * short band it arrives and leaves again in a few dozen pixels of scroll. The
+ * viewport midpoint is the honest signal: the bar wears a section's colour once
+ * that section is the thing you are actually looking at.
+ *
+ * Sections do not overlap vertically, so exactly one can straddle the midline
+ * at a time and the provider's last-claim-wins rule never has to arbitrate.
+ */
+export function useNavClaimAtMidpoint(
+  ref: RefObject<HTMLElement | null>,
+  key: string,
+  theme: NavTheme
+) {
+  const { claim, release } = useNavTheme();
+  const { bg, fg } = theme;
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const sync = () => {
+      const rect = node.getBoundingClientRect();
+      const mid = window.innerHeight / 2;
+      if (rect.top <= mid && rect.bottom > mid) claim(key, { bg, fg });
+      else release(key);
+    };
+
+    sync();
+    window.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('resize', sync);
+    return () => {
+      window.removeEventListener('scroll', sync);
+      window.removeEventListener('resize', sync);
+      release(key);
+    };
+  }, [ref, key, bg, fg, claim, release]);
+}

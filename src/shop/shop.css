@@ -104,7 +104,17 @@
 }
 
 @media (min-width: 900px) {
-  .cabinet { max-width: min(1100px, 92vw); }
+  /* 88vw, not 92: the drawer has to leave a strip of page beside it, or
+     "click outside to close" has almost nothing left to click. */
+  .cabinet { max-width: min(1040px, 88vw); }
+}
+
+/* Sits under the cabinet (z 170) and over the page. */
+.cabinet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 165;
+  background: rgba(14, 62, 105, 0.42);
 }
 
 .cabinet__inner {
@@ -137,29 +147,6 @@
   height: 100%;
   object-fit: contain;
   padding: clamp(36px, 8vw, 90px);
-}
-
-.cabinet__back {
-  position: absolute;
-  z-index: 3;
-  top: 16px;
-  left: 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 0 18px 0 12px;
-  border: none;
-  border-radius: 99px;
-  background: var(--cream);
-  color: var(--navy);
-  cursor: pointer;
-  font-family: var(--font-cta);
-  font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  box-shadow: 0 4px 14px rgba(14, 62, 105, 0.18);
 }
 
 /* Bottom rail on phones, left column from tablet up — as the frame has it. */
@@ -300,6 +287,223 @@
 
 .cabinet__add:hover,
 .cart__checkout:hover { filter: brightness(1.06); transform: translateY(-2px); }
+
+.cabinet__add.is-added { background: var(--navy); }
+
+/* --- Product cabinet: detail furniture ---------------------------------- */
+.cabinet__close {
+  position: absolute;
+  z-index: 4;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 99px;
+  background: var(--cream);
+  color: var(--navy);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(14, 62, 105, 0.18);
+}
+
+.cabinet__mediaTools {
+  position: absolute;
+  z-index: 3;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+@media (min-width: 900px) {
+  /* From tablet up the close button owns the panel's top-right corner, so the
+     tools sit inboard of it. */
+  .cabinet__mediaTools { right: 72px; }
+}
+
+@media (max-width: 899px) {
+  /* Save and share sit in the corner the back button used to hold. They were
+     pinned to `right: 16px` with no 900px override, which put them directly
+     underneath the close button. */
+  .cabinet__mediaTools {
+    left: 16px;
+    right: auto;
+  }
+}
+
+.cabinet__iconBtn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 99px;
+  background: var(--cream);
+  color: var(--navy);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(14, 62, 105, 0.18);
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+
+.cabinet__iconBtn:hover { transform: translateY(-2px); }
+.cabinet__iconBtn.is-on { color: var(--orange); }
+
+.cabinet__crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-text, inherit);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #35597c;
+}
+
+.cabinet__crumbs span[aria-hidden] { opacity: 0.5; }
+
+.cabinet__label {
+  display: block;
+  margin-bottom: 10px;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.cabinet__packs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cabinet__pack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  border: none;
+  border-radius: 16px;
+  background: var(--cream);
+  color: var(--navy);
+  cursor: pointer;
+  text-align: center;
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.14);
+  transition: box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.cabinet__pack strong {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cabinet__pack span { font-size: 13px; color: #35597c; }
+.cabinet__pack:hover { box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.34); }
+.cabinet__pack.is-on { box-shadow: inset 0 0 0 2px var(--navy); background: #fff; }
+.cabinet__pack.is-on span { color: var(--navy); }
+
+.cabinet__fineprint {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #35597c;
+}
+
+.cabinet__promises {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+
+.cabinet__promises li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--navy);
+}
+
+.cabinet__promises li > svg { flex: none; margin-top: 2px; }
+.cabinet__promises div { display: flex; flex-direction: column; gap: 2px; }
+
+.cabinet__promises strong {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.03em;
+}
+
+.cabinet__promises span { font-size: 13px; line-height: 1.45; color: rgba(14, 62, 105, 0.72); }
+
+.cabinet__pairs { padding: clamp(6px, 1.4vw, 14px) 2px clamp(10px, 2vw, 18px); }
+
+@media (min-width: 900px) {
+  .cabinet__pairs { grid-column: 1 / -1; }
+}
+
+.cabinet__pairsTitle {
+  margin: 0 0 14px;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.cabinet__pairsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 700px) {
+  .cabinet__pairsGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.cabinet__pairCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: none;
+  border-radius: 20px;
+  background: var(--sand);
+  color: var(--navy);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cabinet__pairCard:hover { transform: translateY(-3px); box-shadow: 0 10px 24px -14px rgba(14, 62, 105, 0.5); }
+
+.cabinet__pairBed {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  background: var(--cream);
+  overflow: hidden;
+}
+
+.cabinet__pairBed img { width: 100%; height: 100%; object-fit: contain; }
+
+.cabinet__pairCard strong {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.cabinet__pairPrice { font-size: 13px; font-weight: 700; color: #b33a11; }
 
 /* --- The box ------------------------------------------------------------ */
 .cart-scrim {
@@ -718,4 +922,357 @@
   flex: 1;
   height: 1px;
   background: rgba(14, 62, 105, 0.16);
+}
+
+/* ==========================================================================
+   The catalogue page — /shop/.
+   These classes had markup in ShopAll.tsx but no rules anywhere, which is why
+   the page rendered as unstyled text. The block below is that missing half.
+   ========================================================================== */
+/* Shortbread, matching the panel the homepage's catalogue sits on — not the
+   page canvas. The product beds are canvas, so the page has to be the darker
+   of the two or every tile dissolves into its own background. */
+.shop-page {
+  /* One gutter for the whole page — chips, count, grid and the banner card all
+     read from it, so the left edge of the page is a single number and the
+     bands cannot drift out of line with each other.
+
+     The floor is 20px rather than the 16 it was: at 375px every band sat on
+     the 4vw minimum, which put the tiles almost against the bezel. */
+  --shop-gutter: clamp(20px, 4vw, 40px);
+
+  background: var(--sand);
+  padding-bottom: clamp(48px, 6vw, 80px);
+}
+
+/* --- banner ------------------------------------------------------------- */
+/* Full-bleed, directly under the global navbar — it is the first thing on the
+   page, so it takes the whole width rather than sitting in the grid's gutter. */
+.shop-banner {
+  width: 100%;
+  margin-bottom: clamp(24px, 3vw, 40px);
+}
+
+/* A band, not a hero. The card covers most of it, so height beyond what shows
+   above the card is height nobody sees. */
+.shop-banner__media {
+  position: relative;
+  width: 100%;
+  height: clamp(170px, 22vw, 320px);
+  background: var(--sand);
+  /* The outgoing photograph leaves through this edge rather than over the
+     chips below it. */
+  overflow: hidden;
+}
+
+.shop-banner__img {
+  display: block;
+  /* Absolute so the arriving and departing photographs can occupy the band at
+     the same time; two in normal flow would stack it to twice the height. */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The band is far wider than 16:9, so `cover` scales these to the full width
+     and the crop is vertical — the horizontal half of this pair does nothing.
+     Centred, because each photograph is already framed on its subject. */
+  object-position: center;
+}
+
+/* Centred on the banner's bottom edge and deliberately narrower than it, so
+   half the card is over the photo and half over the page. That overlap is what
+   ties the two together — fully inside it would read as a caption, fully below
+   as a separate block. */
+.shop-banner__card {
+  position: relative;
+  z-index: 2;
+  /* The straddle. Fixed, not half the card's height — see ShopAll.tsx.
+     Deep enough that the card sits over most of the banner: the image is a
+     backdrop for the title, so showing all of it matters less than the two
+     reading as one block. */
+  margin: calc(-1 * clamp(104px, 12vw, 184px)) auto 0;
+  width: min(680px, calc(100% - (var(--shop-gutter) * 2)));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: clamp(18px, 2.4vw, 28px) clamp(20px, 3vw, 36px);
+  border-radius: 28px;
+  background: var(--cream);
+  text-align: center;
+  box-shadow: 0 24px 60px -28px rgba(14, 62, 105, 0.55);
+}
+
+/* Qikober has one weight; 400 is the only honest setting — anything heavier is
+   faked by the browser and the letterforms smear.
+
+   With the eyebrow gone the title is the first thing in the card and has to do
+   its work alone, so it steps from sub-hero up to the page-hero size. */
+.shop-banner__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(var(--fs-h2alt), 7.5vw, var(--fs-display));
+  line-height: 0.9;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.shop-banner__note {
+  margin: 0;
+  max-width: 42ch;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+@media (max-width: 699px) {
+  /* Left-aligned on a phone. Centred prose over three or four short measures
+     gives every line a different left edge, which is the hardest thing to read
+     on the narrowest screen; the marks below it follow the same edge. */
+  .shop-banner__card {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .shop-banner__marks { justify-content: flex-start; }
+}
+
+/* --- category chips ----------------------------------------------------- */
+/* One row at every width, scrolling sideways when it runs out of room. The
+   rail it replaced cost a whole column on desktop to ask one question. */
+.shop-chips {
+  display: flex;
+  gap: 8px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--shop-gutter);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+/* The row is self-evidently scrollable from its clipped last chip; a bar under
+   it would sit in the middle of the page. */
+.shop-chips::-webkit-scrollbar { display: none; }
+
+.shop-chip {
+  flex: none;
+  scroll-snap-align: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-pill, 99px);
+  background: var(--sand);
+  color: var(--navy);
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 2px transparent;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.shop-chip:hover { box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.22); }
+.shop-chip.is-on:hover { box-shadow: none; }
+
+/* The glyph must not shrink when the row is tight, or the chips lose the thing
+   that makes them scannable before they are read. */
+.shop-chip > svg { flex: none; }
+
+/* Inverted: the chip takes the ink and the type takes the page. The strongest
+   "you are here" available without spending Dare Devil, which stays reserved
+   for the one hero moment per screen. */
+.shop-chip.is-on {
+  background: var(--navy);
+  color: var(--cream);
+  box-shadow: none;
+}
+
+.shop-chip__count {
+  font-size: 12px;
+  letter-spacing: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* On the inverted chip the count has to lift off navy, so it goes cream at
+   reduced opacity rather than staying the muted blue, which would vanish. */
+.shop-chip.is-on .shop-chip__count { color: rgba(251, 247, 239, 0.72); }
+
+/* The legitimacy row. Centred and wrapping, so it reflows to two or three
+   lines on a phone rather than forcing the card wider than the banner. */
+.shop-banner__marks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* BadgeRow renders its own flex wrapper; without this it is one flex item and
+   its three pills cannot wrap into the row around them. */
+.shop-banner__marks > div {
+  display: contents;
+}
+
+/* The tier row is subordinate to the collection row above it: same pill, one
+   size down, so it reads as a refinement rather than a second question. */
+.shop-chips--sub {
+  margin-top: 8px;
+}
+
+.shop-chip--sub {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 11px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.22);
+}
+
+.shop-chip--sub:hover { box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.45); }
+.shop-chip--sub.is-on { background: var(--navy); box-shadow: none; }
+
+.shop-count {
+  max-width: 1400px;
+  margin: 14px auto 0;
+  padding: 0 var(--shop-gutter);
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* --- the custom-order banner -------------------------------------------- */
+/* Spans every column of the grid, whatever the column count currently is. */
+.shop-promo {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  gap: clamp(4px, 2vw, 28px);
+  border-radius: 32px;
+  /* The Lab card's own pink, not Bubblegum — this is that card, moved. */
+  background: #f5c4c8;
+  overflow: hidden;
+}
+
+@media (min-width: 700px) {
+  /* Art left, words right. The art column is the smaller of the two: the
+     banner is a sentence with a picture, not a picture with a caption. */
+  .shop-promo { grid-template-columns: minmax(0, 0.62fr) minmax(0, 1fr); }
+}
+
+.shop-promo__art {
+  display: block;
+  position: relative;
+  min-height: 0;
+}
+
+@media (min-width: 700px) {
+  /* Cropped by the banner's bottom edge the way the homepage card crops it.
+     Side by side there is nothing under the art to collide with. Stacked there
+     is — the heading sits directly beneath, and the overhang landed on top of
+     it — so the crop belongs to the two-column layout only. */
+  .shop-promo__art { margin-bottom: -8%; }
+}
+
+.shop-promo__art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Shorter stacked, or the art pushes the words off a phone screen. */
+  max-height: 190px;
+  object-fit: contain;
+  transform: scale(1.06);
+}
+
+@media (min-width: 700px) {
+  .shop-promo__art img { max-height: 260px; }
+}
+
+.shop-promo__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: clamp(20px, 3vw, 40px);
+  padding-top: 4px;
+}
+
+@media (min-width: 700px) {
+  .shop-promo__body { padding-top: clamp(20px, 3vw, 40px); }
+}
+
+/* Qikober, one weight — 400 is the only setting it has. */
+.shop-promo__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  /* A step up from the card titles around it. The banner spans the whole grid,
+     so a heading sized like a product name left it looking like an oversized
+     empty cell rather than the one interruption in the row. */
+  font-size: clamp(var(--fs-card), 4.6vw, var(--fs-h2));
+  line-height: 0.92;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.shop-promo__copy {
+  margin: 0;
+  max-width: 46ch;
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  line-height: 1.45;
+  color: var(--navy);
+}
+
+/* Dare Devil: custom orders are this page's one hero moment. */
+.shop-promo__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  margin-top: 4px;
+  padding: 0 26px;
+  border-radius: var(--radius-pill);
+  background: var(--orange);
+  color: #fff;
+  text-decoration: none;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-cta);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: filter 0.18s ease, transform 0.18s ease;
+}
+
+.shop-promo__cta:hover { filter: brightness(1.06); transform: translateY(-2px); }
+
+@media (max-width: 699px) {
+  /* Full width stacked: the banner is the page's one hero moment and the
+     button is the whole point of it, so it takes the measure it is given. */
+  .shop-promo__cta {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* --- grid --------------------------------------------------------------- */
+/* `.shop-grid` already carries the column counts, from its overlay days. On
+   the page it also needs the page's gutter and centring. */
+.shop-page .shop-grid {
+  max-width: 1400px;
+  margin: clamp(16px, 2vw, 24px) auto 0;
+  padding: 0 var(--shop-gutter);
 }

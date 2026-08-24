@@ -1,20 +1,39 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
 import { Menu, Plus, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useNavTheme } from '../lib/nav-theme';
 import { useShop } from '../lib/shop';
 import { PRODUCTS } from '../data/products';
+import { LAB_HREF } from '../lib/lab-href';
+import { HOME_HREF, onHomeClick } from '../lib/home-href';
+import { SHOP_HREF, shopHref } from '../lib/shop-href';
+import { BULK_HREF, CONTACT_HREF } from '../lib/routes';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
+/* 'Donuts' and 'Cupcakes' both pointed at #favorites - two labels, one
+   destination, which is a menu that lies about how many places it can take
+   you. They are one 'Products' entry now. */
 const NAV_LINKS = [
-  { href: '#favorites', label: 'Donuts' },
-  { href: '#donut-lab', label: 'Custom' },
-  { href: '#favorites', label: 'Cupcakes' },
-  { href: '#bulk', label: 'Bulk orders' },
-  { href: '#wild', label: 'Our story' }
+  { href: SHOP_HREF, label: 'Products' },
+  { href: LAB_HREF, label: 'Donut lab' },
+  /* Was '#bulk', the homepage's teaser band. Bulk orders is a real page with
+     the intake form on it, so the nav points at the thing rather than at an
+     advert for the thing. */
+  { href: BULK_HREF, label: 'Bulk orders' },
+  { href: CONTACT_HREF, label: 'Contact' }
 ];
+
+/**
+ * Every nav entry is now a page of its own, so the active state is a lookup on
+ * the pathname. It used to be a chain of ternaries that grew by one branch per
+ * page, plus a section-spy for the entries that were still homepage anchors.
+ * Nothing the nav points at lives on the homepage any more.
+ */
+const PATH_LABEL: Record<string, string> = Object.fromEntries(
+  NAV_LINKS.map((l) => [l.href, l.label])
+);
 
 /** The four cheapest-to-reach crowd pleasers, pulled from the live catalogue. */
 const BESTSELLERS = [
@@ -32,7 +51,67 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
   const { openCart, count } = useShop();
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  /* Controlled, because the whole point is to carry the text somewhere. It was
+     uncontrolled, and the submit handler had nothing to read. */
+  const [query, setQuery] = useState('');
+  const searchFormRef = useRef<HTMLFormElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
+
+  /* The active state, straight off the pathname. */
+  const activeLabel = PATH_LABEL[window.location.pathname] ?? null;
+  /* Hover wins while the pointer is down the bar, and the marker falls back to
+     the active section the moment it leaves. One shared `layoutId` means it
+     slides between the two rather than blinking out and in. */
+  const marked = hovered ?? activeLabel;
+
+  const closeSearch = () => setSearchOpen(false);
+
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+
+    /* An empty submit used to navigate to a bare `/shop/`, which threw the
+       typed text away and — on the catalogue itself, where the URL was already
+       `/shop/` — was indistinguishable from a page refresh. That is the "it
+       just refreshes" bug: it never searched anything, because nothing ever
+       read the field.
+       Empty now means stay put and keep the cursor where it is. */
+    if (!q) {
+      searchRef.current?.focus();
+      return;
+    }
+
+    setSearchOpen(false);
+    setOpen(false);
+    // `?q=` is read back by the catalogue, so the results are a shareable URL.
+    window.location.href = shopHref({ q });
+  };
+
+  // Focus follows the expansion, or the field is open and nobody can type in it.
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus();
+  }, [searchOpen]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSearchOpen(false);
+    /* Closing on the field's own blur was the glitch. Blur fires before click,
+       so pressing the icon to submit — or the X to dismiss — collapsed the
+       container out from under the pointer and the click landed on nothing, or
+       worse, on the collapsed button, which reopened it. An outside pointerdown
+       is the same intent without the race. */
+    const onDown = (e: PointerEvent) => {
+      if (!searchFormRef.current?.contains(e.target as Node)) setSearchOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onDown);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onDown);
+    };
+  }, [searchOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -77,20 +156,35 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
           maxWidth: 1240,
           margin: '0 auto',
           padding: '0 clamp(18px,4vw,40px)',
-          height: 'clamp(60px,6.5vw,78px)',
+          height: 'var(--nav-h)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 20
         }}
       >
-        <a href="#top" aria-label="Amazing Donuts" style={{ display: 'flex', alignItems: 'center' }}>
+        <a href={HOME_HREF} onClick={onHomeClick} aria-label="Amazing Donuts, home" style={{ display: 'flex', alignItems: 'center' }}>
           {/* masked, not <img>, so the wordmark takes the bar's current colour */}
           <span role="img" aria-label="Amazing Donuts" className="nav-logo" style={{ height: 'clamp(20px,1.9vw,27px)', background: theme.fg }} />
         </a>
 
         {isDesktop && (
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 'clamp(18px,2.2vw,34px)' }} onMouseLeave={() => setHovered(null)}>
+          <motion.nav
+            /* The field needs the room, and squeezing the links to find it
+               would reflow the whole bar mid-animation. They step aside. */
+            animate={{ opacity: searchOpen ? 0 : 1 }}
+            transition={{ duration: 0.18, ease: EASE }}
+            aria-hidden={searchOpen}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              /* Tighter than before: each label now carries 14px of its own
+                 padding for the chip to fill. */
+              gap: 'clamp(2px,0.6vw,10px)',
+              pointerEvents: searchOpen ? 'none' : 'auto'
+            }}
+            onMouseLeave={() => setHovered(null)}
+          >
             {NAV_LINKS.map((link) => (
               <a
                 key={link.label}
@@ -98,64 +192,131 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                 onMouseEnter={() => setHovered(link.label)}
                 style={{
                   position: 'relative',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  /* The chip needs a box to fill, so the label carries its own
+                     padding rather than sitting on a baseline. */
+                  padding: '9px 14px',
+                  borderRadius: 'var(--radius-pill)',
                   fontFamily: 'var(--font-cta)',
                   fontWeight: 700,
                   fontSize: 'var(--type-label)',
                   letterSpacing: '.09em',
                   textTransform: 'uppercase',
-                  color: hovered === link.label ? 'var(--pink)' : theme.fg,
-                  paddingBottom: 4,
+                  /* Bubblegum is light, so type on the chip goes navy. Off the
+                     chip it stays whatever the bar is currently wearing. */
+                  color: marked === link.label ? 'var(--navy)' : theme.fg,
                   transition: 'color .2s ease'
                 }}
               >
-                {link.label}
-                {hovered === link.label && (
+                {marked === link.label && (
                   <motion.span
-                    layoutId="nav-underline"
-                    style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: theme.fg }}
-                    transition={{ duration: 0.25, ease: EASE }}
+                    layoutId="nav-marker"
+                    aria-hidden="true"
+                    /* One element with one layoutId, so moving between links is
+                       the chip sliding across the bar rather than one fading
+                       out and another in. */
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: 'var(--radius-pill)',
+                      background: 'var(--pink)'
+                    }}
+                    transition={{ duration: 0.3, ease: EASE }}
                   />
                 )}
+                {/* Above the chip, or the fill would cover the word. */}
+                <span style={{ position: 'relative', zIndex: 1 }}>{link.label}</span>
               </a>
             ))}
 
-            {/* Sign in lives in the menu, not as its own bar icon. */}
+          </motion.nav>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 'none' }}>
+          {/* Search and Log in are desktop-only up here. On a phone the bar
+              has room for the logo, the box and the menu button, and that is
+              all - both of these live in the drawer instead.
+
+              Three states, and the browser owns the movement between them.
+              This was a `motion.form` animating `width`, which meant a style
+              write per frame from the main thread - the jank. `width` cannot go
+              on the compositor whoever drives it, but a CSS transition is at
+              least the browser's own timeline rather than a rAF loop competing
+              with everything else on the page. Hover is a `:hover` rule for the
+              same reason: no state, no re-render, nothing to get out of sync. */}
+          {isDesktop && (
+          <form
+            ref={searchFormRef}
+            onSubmit={submitSearch}
+            className={`nav-search${searchOpen ? ' is-open' : ''}`}
+            style={{
+              width: searchOpen ? 300 : 44,
+              boxShadow: searchOpen ? `inset 0 0 0 1px ${theme.fg}` : 'none'
+            }}
+          >
+            <button
+              type={searchOpen ? 'submit' : 'button'}
+              onClick={() => {
+                if (!searchOpen) setSearchOpen(true);
+              }}
+              aria-label={searchOpen ? 'Search' : 'Open search'}
+              aria-expanded={searchOpen}
+              className="icon-btn nav-search__icon"
+              style={{ flex: 'none', width: 44, height: 44, color: theme.fg }}
+            >
+              <Search size={21} strokeWidth={2.3} />
+            </button>
+            <input
+              ref={searchRef}
+              type="search"
+              placeholder="What are you craving?"
+              aria-label="Search the menu"
+              aria-hidden={!searchOpen}
+              tabIndex={searchOpen ? 0 : -1}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                border: 'none',
+                background: 'transparent',
+                outline: 'none',
+                fontFamily: 'var(--font-body)',
+                fontSize: 15,
+                color: theme.fg,
+                opacity: searchOpen ? 1 : 0,
+                transition: 'opacity .2s ease'
+              }}
+            />
+            {searchOpen && (
+              <button
+                type="button"
+                onClick={closeSearch}
+                aria-label="Close search"
+                className="icon-btn"
+                style={{ flex: 'none', width: 38, height: 38, color: theme.fg }}
+              >
+                <X size={18} strokeWidth={2.4} />
+              </button>
+            )}
+          </form>
+          )}
+
+          {/* Log in, as an icon rather than the labelled button it used to be. */}
+          {isDesktop && (
             <button
               type="button"
               onClick={onSignIn}
-              onMouseEnter={() => setHovered('Log in')}
-              style={{
-                position: 'relative',
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 7,
-                fontFamily: 'var(--font-cta)',
-                fontWeight: 700,
-                fontSize: 'var(--type-label)',
-                letterSpacing: '.09em',
-                textTransform: 'uppercase',
-                color: hovered === 'Log in' ? 'var(--pink)' : theme.fg,
-                paddingBottom: 4,
-                transition: 'color .2s ease'
-              }}
+              aria-label="Log in"
+              title="Log in"
+              className="icon-btn"
+              style={{ color: theme.fg }}
             >
-              <User size={15} strokeWidth={2.4} />
-              Log in
-              {hovered === 'Log in' && (
-                <motion.span
-                  layoutId="nav-underline"
-                  style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: theme.fg }}
-                  transition={{ duration: 0.25, ease: EASE }}
-                />
-              )}
+              <User size={22} strokeWidth={2.2} />
             </button>
-          </nav>
-        )}
+          )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <button
             type="button"
             onClick={openCart}
@@ -195,6 +356,7 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
             <motion.aside
               role="dialog"
               aria-modal="true"
+              data-lenis-prevent
               initial={shouldReduceMotion ? { opacity: 0 } : { x: '100%' }}
               animate={shouldReduceMotion ? { opacity: 1 } : { x: 0 }}
               exit={shouldReduceMotion ? { opacity: 0 } : { x: '100%' }}
@@ -211,17 +373,26 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(251,247,239,.18)', paddingBottom: 18 }}>
-                <img src="/img/logo-amazing-donuts.svg" alt="Amazing Donuts" style={{ height: 22, width: 'auto' }} />
+                <a
+                  href={HOME_HREF}
+                  onClick={(e) => {
+                    setOpen(false);
+                    onHomeClick(e);
+                  }}
+                  aria-label="Amazing Donuts, home"
+                  style={{ display: 'flex', alignItems: 'center' }}
+                >
+                  <img src="/img/logo-amazing-donuts.svg" alt="Amazing Donuts" style={{ height: 22, width: 'auto' }} />
+                </a>
                 <button type="button" aria-label="Close menu" onClick={() => setOpen(false)} className="icon-btn" style={{ color: 'var(--cream)' }}>
                   <X size={24} />
                 </button>
               </div>
+              {/* A phone searches from here, so the field is open on arrival
+                  rather than hiding behind a press - there is nothing to save
+                  room for in a full-height sheet. */}
               <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setOpen(false);
-                  document.getElementById('favorites')?.scrollIntoView({ behavior: 'smooth' });
-                }}
+                onSubmit={submitSearch}
                 style={{
                   marginTop: 20,
                   display: 'flex',
@@ -273,6 +444,21 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                     }}
                   >
                     {link.label}
+                    {/* Same active state as the bar, since the drawer is the
+                        bar on a phone. A dot, not an underline: these rows are
+                        already separated by rules. */}
+                    {marked === link.label && (
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          marginLeft: 10,
+                          width: 7,
+                          height: 7,
+                          borderRadius: 99,
+                          background: 'var(--pink)'
+                        }}
+                      />
+                    )}
                   </motion.a>
                 ))}
 
@@ -323,7 +509,7 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                   {BESTSELLERS.map((product) => (
                     <a
                       key={product.id}
-                      href="#favorites"
+                      href={SHOP_HREF}
                       onClick={() => setOpen(false)}
                       style={{ display: 'flex', flexDirection: 'column', gap: 8, color: 'var(--cream)' }}
                     >

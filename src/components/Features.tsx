@@ -1,36 +1,28 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { BrandButton } from './brand';
-import { useNavTheme } from '../lib/nav-theme';
-import { useDonutLab } from '../lib/donut-lab';
+import { useNavClaimAtMidpoint } from '../lib/nav-theme';
+import { LAB_HREF } from '../lib/lab-href';
+import { BULK_HREF } from '../lib/routes';
+import { shopHref } from '../lib/shop-href';
+
+/**
+ * The petite lineup. Trimmed WebP copies of the catalogue cut-outs, in
+ * `public/img/petite/` — each original was a square canvas with the donut
+ * filling only 46–51% of its height, so a row of them was mostly padding.
+ */
+const PETITE = [
+  { src: '/img/petite/candy-donut-round-sprinkles.webp', alt: 'Petite donut with rainbow sprinkles' },
+  { src: '/img/petite/zap-donut-pink-blue-white-sprinkles.webp', alt: 'Petite donut with pink, blue and white sprinkles' },
+  { src: '/img/petite/chocolate-glazed-donut.webp', alt: 'Petite chocolate glazed donut' },
+  { src: '/img/petite/hava-nagilla-donut-blue-white-sprinkles.webp', alt: 'Petite donut with blue and white sprinkles' },
+  { src: '/img/petite/carnival-donut-pink-blue-yellow-sprinkles.webp', alt: 'Petite donut with pink, blue and yellow sprinkles' }
+];
 
 export default function Features() {
-  const { claim, release } = useNavTheme();
-  const { open: openLab } = useDonutLab();
   const sectionRef = useRef<HTMLElement | null>(null);
 
-  // The bar goes Bubblegum while the custom-orders cards are on screen.
-  useEffect(() => {
-    const node = sectionRef.current;
-    if (!node) return;
-
-    const sync = () => {
-      const rect = node.getBoundingClientRect();
-      if (rect.top <= 0 && rect.bottom > 96) {
-        claim('features', { bg: 'var(--pink)', fg: 'var(--navy)' });
-      } else {
-        release('features');
-      }
-    };
-
-    sync();
-    window.addEventListener('scroll', sync, { passive: true });
-    window.addEventListener('resize', sync);
-    return () => {
-      window.removeEventListener('scroll', sync);
-      window.removeEventListener('resize', sync);
-      release('features');
-    };
-  }, [claim, release]);
+  // The bar goes Bubblegum while the custom-orders cards own the middle of the screen.
+  useNavClaimAtMidpoint(sectionRef, 'features', { bg: 'var(--pink)', fg: 'var(--navy)' });
 
   return (
     <section
@@ -41,6 +33,8 @@ export default function Features() {
         margin: '0 auto',
         padding: 'clamp(24px,3vw,48px) clamp(18px,4vw,40px)',
         display: 'grid',
+        /* Two cards, then a banner across both. Named so the banner can span
+           the row explicitly rather than relying on auto-fit to run out. */
         gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%,420px), 1fr))',
         gap: 'clamp(16px,2vw,26px)'
       }}
@@ -71,13 +65,9 @@ export default function Features() {
 
         {/* Custom orders is this section's hero moment — Dare Devil, full width. */}
         <BrandButton
-          href="#donut-lab"
+          href={LAB_HREF}
           className="lab-cta"
           block
-          onClick={(e) => {
-            e.preventDefault();
-            openLab();
-          }}
           style={{ marginTop: 'clamp(6px,1vw,12px)' }}
         >
           Try the donut lab
@@ -91,8 +81,12 @@ export default function Features() {
         />
       </article>
 
+      {/* Slot two, where the bulk card used to be. Petite donuts, aimed at the
+          customer who is counting something — the appeal is "you can still have
+          the whole taste", not "this is diet food", which is the one claim a
+          bakery should never make about a donut. */}
       <article
-        id="bulk"
+        id="petite"
         className="bulk-card"
         style={{
           position: 'relative',
@@ -100,26 +94,62 @@ export default function Features() {
           display: 'flex',
           flexDirection: 'column',
           padding: 'clamp(26px,3vw,44px)',
-          background: '#f7c55e'
+          /* Harbour blue rather than the bulk card's amber: this is a different
+             proposition and reads as one. */
+          background: 'var(--blue)'
         }}
       >
-        <h2 className="feature-title bulk-title" style={{ lineHeight: 0.9, color: 'var(--navy)' }}>
-          Got a lot of people?
+        <h2 className="feature-title bulk-title" style={{ lineHeight: 0.9, color: 'var(--cream)' }}>
+          Watching your figure?
         </h2>
-        <p style={{ margin: '18px 0 0', maxWidth: '32ch', fontSize: 'var(--type-body)', lineHeight: 1.4, color: 'var(--navy)' }}>
-          We've got a lot of donuts too. Perfect for offices, schools, events, parties, and celebrations.
+        <p
+          style={{
+            margin: '18px 0 0',
+            maxWidth: '32ch',
+            fontSize: 'var(--type-body)',
+            lineHeight: 1.4,
+            color: 'rgba(251,247,239,.88)'
+          }}
+        >
+          Get a full taste with our petite donuts. Same icing, same sprinkles, two bites — so you can have one
+          without making it a decision.
         </p>
 
-        {/* The cut-out box is the card's subject at every width. */}
-        <img src="/img/bulk-donut-box.png" alt="Open box of assorted donuts" className="bulk-card__photo" />
+        {/* A lineup rather than one hero donut: five in a row says "small, and
+            there are lots of them", which is the whole proposition. The art is
+            trimmed to its alpha bounds — the catalogue cut-outs are square
+            canvases roughly half transparent, and untrimmed they sat in a row
+            as five small donuts with big uneven gaps between them. */}
+        <div className="petite-row">
+          {PETITE.map((d) => (
+            <img key={d.src} src={d.src} alt={d.alt} loading="lazy" />
+          ))}
+        </div>
 
-        {/* Second card on the same screen, so it takes the ink outline. */}
-        <BrandButton href="#bulk" variant="outline" block style={{ marginTop: 'auto' }}>
-          Order bulk
+        <BrandButton href={shopHref({ tier: 'classic' })} variant="outline" block style={{ marginTop: 'auto' }}>
+          Shop petite
         </BrandButton>
 
-        {/* Straddles the card's top edge — the card deliberately does not clip. */}
+        {/* The petite badge belongs on this card now, not on the bulk one. */}
         <img src="/img/badge-petite-donuts.svg" alt="Petite donuts, party pack available" className="bulk-badge" />
+      </article>
+
+      {/* Bulk, moved out of the right-hand slot and laid across the full width
+          under both cards. A horizontal band suits it better than a card ever
+          did: the copy is one line and the subject is a wide box of donuts, and
+          it now points at the real bulk-orders page rather than at itself. */}
+      <article id="bulk" className="bulk-banner">
+        <div className="bulk-banner__copy">
+          <h2 className="feature-title bulk-banner__title">Got a lot of people?</h2>
+          <p className="bulk-banner__note">
+            We&rsquo;ve got a lot of donuts too. Offices, schools, events, parties and celebrations.
+          </p>
+          <BrandButton href={BULK_HREF} variant="outline" className="bulk-banner__cta">
+            Order bulk
+          </BrandButton>
+        </div>
+
+        <img src="/img/bulk-donut-box.png" alt="Open box of assorted donuts" className="bulk-banner__photo" />
       </article>
 
     </section>

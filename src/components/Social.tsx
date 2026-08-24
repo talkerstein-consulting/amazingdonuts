@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef } from 'react';
+import { Suspense, lazy, useRef } from 'react';
 import { Instagram } from 'lucide-react';
 import { BrandButton } from './brand';
 import FacebookSolid from './FacebookSolid';
@@ -6,15 +6,36 @@ import FacebookSolid from './FacebookSolid';
    of `three`, which is ~840kB of the bundle. Loading it on demand keeps that
    off the initial download — the section is well below the fold. */
 const LenticularCarousel = lazy(() => import('./lenticular-carousel'));
-import { useNavTheme } from '../lib/nav-theme';
+import { useNavClaimAtMidpoint } from '../lib/nav-theme';
 
-/* LenticularCarousel takes {src, title, meta, alt}. */
+/* LenticularCarousel takes {src, title, meta, alt}.
+ *
+ * Real reel covers from the shop's Instagram, converted from the supplied
+ * JPGs to 540x960 WebP — 9:16, twice the 230px card, 53kB each against the
+ * ~120kB originals. All 48 usable covers are in `public/img/reels/`; twelve
+ * are wired up here.
+ *
+ * Twelve, not forty-eight, because this carousel is WebGL: it builds a
+ * THREE texture per item up front, so every extra card is ~2MB of GPU memory
+ * whether or not anyone scrolls to it. Swapping which twelve is a one-line
+ * change; the other thirty-six are named reel-01…reel-48 in filename order.
+ *
+ * The picks lean product-forward, and the titles and alt text describe what is
+ * actually in each frame rather than inventing a caption for it.
+ */
 const PHOTOS = [
-  { src: '/img/social-1.jpg', title: 'Office run', meta: '@amazingdonuts', alt: 'Customer photo of a box of donuts' },
-  { src: '/img/social-2.jpg', title: 'Sprinkle haul', meta: '@amazingdonuts', alt: 'Customer photo of sprinkle donuts' },
-  { src: '/img/social-3.jpg', title: 'Review day', meta: '@amazingdonuts', alt: 'Customer reviewing a donut' },
-  { src: '/img/social-4.jpg', title: 'Best in the 6', meta: '@amazingdonuts', alt: 'Customer holding a donut' },
-  { src: '/img/social-5.jpg', title: 'Party pack', meta: '@amazingdonuts', alt: 'Customer photo of a party pack' }
+  { src: '/img/reels/reel-29.webp', title: 'Chanuka box',      meta: '@amazingdonutsto', alt: 'Box of donuts with chocolate glaze and coloured sprinkles' },
+  { src: '/img/reels/reel-02.webp', title: 'The classics',     meta: '@amazingdonutsto', alt: 'Open box of chocolate, pink and rainbow-sprinkle donuts' },
+  { src: '/img/reels/reel-03.webp', title: 'Fresh glazed',     meta: '@amazingdonutsto', alt: 'Glazed ring donuts cooling on a wire rack' },
+  { src: '/img/reels/reel-48.webp', title: 'Pink pomegranate', meta: '@amazingdonutsto', alt: 'Pink iced donuts topped with pomegranate seeds' },
+  { src: '/img/reels/reel-34.webp', title: 'Dreidels and stars', meta: '@amazingdonutsto', alt: 'Chocolate-dipped dreidel and star of David cookies on a tray' },
+  { src: '/img/reels/reel-19.webp', title: 'Blue and white',   meta: '@amazingdonutsto', alt: 'Donuts iced in blue and white with drizzle' },
+  { src: '/img/reels/reel-07.webp', title: 'Strawberry cookies', meta: '@amazingdonutsto', alt: 'Tray of pink strawberry-shaped iced cookies' },
+  { src: '/img/reels/reel-42.webp', title: 'White and sprinkles', meta: '@amazingdonutsto', alt: 'White-iced donuts scattered with rainbow sprinkles' },
+  { src: '/img/reels/reel-25.webp', title: 'Morning batch',    meta: '@amazingdonutsto', alt: 'Tray of freshly glazed ring donuts' },
+  { src: '/img/reels/reel-20.webp', title: 'Iced rounds',      meta: '@amazingdonutsto', alt: 'Rows of round cookies iced in red, green, yellow and blue' },
+  { src: '/img/reels/reel-12.webp', title: 'Sprinkle haul',    meta: '@amazingdonutsto', alt: 'Box of assorted sprinkle and chocolate donuts' },
+  { src: '/img/reels/reel-08.webp', title: 'Trays for the morning', meta: '@amazingdonutsto', alt: 'Racks of plain glazed donuts in the bakery' }
 ];
 
 const SOCIALS = [
@@ -23,31 +44,10 @@ const SOCIALS = [
 ];
 
 export default function Social() {
-  const { claim, release } = useNavTheme();
   const sectionRef = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
-    const node = sectionRef.current;
-    if (!node) return;
-
-    const sync = () => {
-      const rect = node.getBoundingClientRect();
-      if (rect.top <= 0 && rect.bottom > 96) {
-        claim('social', { bg: 'var(--orange)', fg: 'var(--navy)' });
-      } else {
-        release('social');
-      }
-    };
-
-    sync();
-    window.addEventListener('scroll', sync, { passive: true });
-    window.addEventListener('resize', sync);
-    return () => {
-      window.removeEventListener('scroll', sync);
-      window.removeEventListener('resize', sync);
-      release('social');
-    };
-  }, [claim, release]);
+  // Dare Devil orange, once the panel is what you are looking at.
+  useNavClaimAtMidpoint(sectionRef, 'social', { bg: 'var(--orange)', fg: 'var(--navy)' });
 
   return (
     <section id="wild" ref={sectionRef} className="section-band" style={{ maxWidth: 1240, margin: '0 auto', padding: 'clamp(16px,2vw,26px) clamp(18px,4vw,40px) clamp(24px,3vw,48px)' }}>

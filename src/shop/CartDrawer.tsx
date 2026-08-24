@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
 import { C, F, SQUIRCLE } from '../components/brand';
 import { useShop, money } from '../lib/shop';
+import { SHOP_HREF } from '../lib/shop-href';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -12,7 +13,7 @@ const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
  * something never takes you off what you were browsing.
  */
 export default function CartDrawer() {
-  const { cartOpen, closeCart, lines, count, subtotal, setQty, remove, openShop } = useShop();
+  const { cartOpen, closeCart, lines, count, subtotal, setQty, remove } = useShop();
 
   useEffect(() => {
     if (!cartOpen) return;
@@ -53,7 +54,7 @@ export default function CartDrawer() {
               </button>
             </header>
 
-            <div className="cart__body">
+            <div className="cart__body" data-lenis-prevent>
               {lines.length === 0 ? (
                 <div className="cart__empty">
                   <span className="cart__emptyIcon">
@@ -65,16 +66,11 @@ export default function CartDrawer() {
                   <p style={{ margin: 0, fontFamily: F.text, fontSize: 15, color: 'rgba(14,62,105,.7)' }}>
                     Pick a few and they will show up here.
                   </p>
-                  <button
-                    type="button"
-                    className="cart__checkout brand-press"
-                    onClick={() => {
-                      closeCart();
-                      openShop();
-                    }}
-                  >
+                  {/* Also `openShop()` until now, so an empty basket's only
+                      call to action closed the drawer and did nothing else. */}
+                  <a href={SHOP_HREF} className="cart__checkout brand-press" onClick={closeCart}>
                     Shop all donuts
-                  </button>
+                  </a>
                 </div>
               ) : (
                 <ul className="cart__lines">

@@ -1,0 +1,303 @@
+/* ==========================================================================
+   Donut Lab — "add to the box" claw sequence.
+
+   Ported from `claw_sequence_export/`. One 4300ms timeline, nine animations,
+   no JS driving frames: every element runs the SAME duration with `linear`
+   timing and sets `animation-timing-function` inside its own keyframes, so the
+   phases cannot drift apart. To retime the whole thing, change `--claw-t`.
+
+   Three structural rules from the handoff. Break any and it falls apart:
+
+     1. The stage is clipped, the rig is not. `.sb-stage` clips to the squircle
+        so art cannot escape it; `[data-claw-rig]` is a SIBLING overlay over the
+        same square with no clipping, which is what lets the claw enter from
+        outside the frame and carry the box out of it.
+     2. The carried box is a child of the claw head, so it inherits the lift and
+        the exit travel for free and they never need keeping in sync.
+     3. The cable's `scaleY` values pair 1:1 with the head's `translateY`
+        values — scaleY = headTopOffset / 90%. Change one, change its partner.
+
+   Two deviations from the export, both deliberate:
+     - Keyframes named `clawTuck` / `clawTucked` rather than `bldTuck` /
+       `bldTucked`. `bldTuck` already exists in stable-builder.css with
+       different values, and two @keyframes of one name silently clobber each
+       other depending on file order.
+     - Colours are brand tokens instead of the export's literals, which match
+       them exactly. `--claw-inside` is the one colour the sequence introduces:
+       a darker Shortbread for the carton interior, which has no token because
+       nothing else uses it.
+   ========================================================================== */
+
+.sb-claw {
+  /* 2500ms, down from the export's 4300ms. The percentages encode the
+     choreography, so retiming really is this one number - every beat scales
+     with it and none can drift out of step. 4.3s is a showreel length; on the
+     third or fourth donut somebody builds it is a wait, and the sequence is
+     confirmation of a tap rather than the point of the page. */
+  --claw-t: 2500ms;
+  /* The carton interior. Darker than --sand so the open box reads as having
+     depth before the lid arrives. */
+  --claw-inside: #e8dbc3;
+}
+
+/* --- the creation, shrinking into the rising box ------------------------- */
+/* The shrink ends at 24% — the exact frame `clawBoxIn` settles the box into
+   position. The two are the same beat: the donut arrives at its final size as
+   the carton arrives under it.
+   It used to run on its own 990ms clock against the box's 24% of 4300ms
+   (1032ms), so it finished 32ms early and the sizing and the landing were two
+   events instead of one. Percentage-based on the shared duration now, which is
+   the same rule every other element here follows: one duration, per-segment
+   easing inside the keyframes, so nothing can drift.
+   The `step-end` companion still cuts it at 30%, once the carton covers it. */
+@keyframes clawTuck {
+  0%        { transform: none; animation-timing-function: cubic-bezier(.34, .06, .4, 1); }
+  24%, 100% { transform: translateY(9%) scale(.16); }
+}
+@keyframes clawTucked {
+  0%, 29%   { opacity: 1; }
+  30%, 100% { opacity: 0; }
+}
+
+.sb-claw-tuck {
+  animation:
+    clawTuck var(--claw-t) linear both,
+    clawTucked var(--claw-t) step-end both;
+}
+
+/* --- the box on the stage (clipped) ------------------------------------- */
+.claw-box {
+  position: absolute;
+  left: 31%;
+  top: 50%;
+  width: 38%;
+  height: 26%;
+}
+
+.claw-inside {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 34%;
+  background: var(--claw-inside);
+  border-radius: 9px 9px 0 0;
+  box-shadow: inset 0 0 0 2px var(--navy);
+}
+
+.claw-body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 22%;
+  bottom: 0;
+  background: var(--cream);
+  border-radius: 0 0 9px 9px;
+  box-shadow: inset 0 0 0 2px var(--navy);
+}
+
+.claw-lid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 34%;
+  background: var(--sand);
+  border-radius: 9px 9px 0 0;
+  box-shadow: inset 0 0 0 2px var(--navy);
+}
+
+/* box rises from below the stage, overshoots 4.5%, settles (0 -> 24%) */
+@keyframes clawBoxIn {
+  0%          { opacity: 1; transform: translateY(150%); animation-timing-function: cubic-bezier(.24, .74, .3, 1); }
+  20%         { transform: translateY(-4.5%); animation-timing-function: cubic-bezier(.4, 0, .3, 1); }
+  24%, 71%    { opacity: 1; transform: translateY(0); }
+  71.01%,100% { opacity: 0; transform: translateY(0); }   /* handed to the claw */
+}
+
+/* lid falls in from above the frame, squashes, rebounds (28% -> 42%) */
+@keyframes clawLid {
+  0%, 28%   { transform: translateY(-520%) scaleX(1.02); animation-timing-function: cubic-bezier(.5, 0, .75, 1); }
+  36%       { transform: translateY(0) scaleX(1.06); animation-timing-function: cubic-bezier(.3, 0, .3, 1); }
+  39%       { transform: translateY(-9%) scaleX(.99); animation-timing-function: cubic-bezier(.4, 0, .3, 1); }
+  42%, 100% { transform: translateY(0) scaleX(1); }
+}
+
+/* The lid sits in its own container on the same rect as the box, so it never
+   inherits the rise: the bottom box comes up on its own, and the lid arrives
+   from above under its own steam. While the lid was a child of the rising box
+   the two movements were multiplied together and the drop read as part of the
+   rise. */
+[data-claw-box] { animation: clawBoxIn var(--claw-t) linear both; }
+[data-claw-lid] { animation: clawLidBox var(--claw-t) linear both; }
+[data-claw-lid] .claw-lid { animation: clawLid var(--claw-t) linear both; }
+
+/* The stage lid is handed to the claw at the same frame as the stage box. */
+@keyframes clawLidBox {
+  0%, 71%     { opacity: 1; }
+  71.01%,100% { opacity: 0; }
+}
+
+/* --- the rig (unclipped sibling) ---------------------------------------- */
+/* Fixed, not absolute, and that is the whole trick.
+   The rig has to reach up to the navbar and paint over it, but it lives inside
+   `.sb-stable` and the Lab page's `main`, both of which are `overflow: hidden`
+   to guarantee the builder never scrolls. An absolutely-positioned rig is
+   clipped by those; a fixed one is not, because neither ancestor has a
+   transform or filter to make itself a containing block.
+   Fixed also means the rig no longer inherits the stage's box, so
+   left/top/width/height are handed in as inline values measured once from the
+   stage - see the note on ClawRig. Every percentage inside still resolves
+   against the same square it always did.
+   z-index clears the sticky header, which sits at 60. */
+.claw-rig {
+  position: fixed;
+  z-index: 200;
+  pointer-events: none;
+}
+
+/* The line running off the top of the rig to the top of the window, so the
+   cable reads as coming down out of the navbar rather than starting in mid-air.
+   It rides with the rig, so it needs no animation of its own. */
+.claw-feed {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 1.4%;
+  height: 100vh;
+  margin-left: -.7%;
+  background: var(--navy);
+}
+
+/* Kept, but it now reads as the housing the cable feeds through rather than a
+   gantry parked at the top of the stage. */
+.claw-carriage {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 27%;
+  height: 11%;
+  transform: translateX(-50%);
+  background: var(--navy);
+  border-radius: 7px;
+}
+
+.claw-badge {
+  position: absolute;
+  left: 50%;
+  top: 2.5%;
+  width: 9%;
+  height: 5%;
+  transform: translateX(-50%);
+  background: var(--orange);
+  border-radius: 3px;
+}
+
+.claw-cable {
+  position: absolute;
+  left: 50%;
+  top: 10%;
+  width: 1.4%;
+  height: 90%;
+  margin-left: -.7%;
+  background: var(--navy);
+  transform-origin: top center;
+}
+
+.claw-head {
+  position: absolute;
+  left: 50%;
+  top: 10%;
+  width: 52%;
+  height: 20%;
+}
+
+.claw-head svg {
+  position: absolute;
+  left: -12%;
+  top: 0;
+  width: 124%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Child of the head, so it inherits the lift and the exit. top/width/height
+   are chosen so it registers pixel-exactly on the stage box at the grip
+   frame — 73% x 130% OF THE HEAD is the stage box's rect. */
+.claw-carried {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  width: 73%;
+  height: 130%;
+  transform: translateX(-50%);
+}
+
+/* Whole rig: in from off-screen left, overshoot, rattle, then out off-screen
+   right — the export's choreography, with its overshoot and its rattle intact.
+   The cable still feeds down from the navbar; only the traverse is horizontal.
+   The ends are `100vw`, not the export's `225%`. That percentage was of the rig
+   itself, which was as wide as the stage back when the rig was absolutely
+   positioned inside it; the rig is fixed now and the stage can be a third of a
+   wide window, so a percentage of it no longer guarantees clearing the screen.
+   The rig is never wider than the viewport, so one viewport width of travel
+   always carries it fully off either edge. The mid-sequence overshoot and
+   rattle stay in % of the rig, since those are relative to its own size. */
+@keyframes clawRig {
+  0%, 33.7% { transform: translateX(-100vw);  animation-timing-function: cubic-bezier(.16, .74, .3, 1); }
+  48%       { transform: translateX(4.5%);    animation-timing-function: cubic-bezier(.35, 0, .35, 1); }
+  52%       { transform: translateX(-1.6%);   animation-timing-function: cubic-bezier(.35, 0, .35, 1); }
+  55%       { transform: translateX(0);       animation-timing-function: linear; }
+  80%       { transform: translateX(0);       animation-timing-function: cubic-bezier(.55, 0, .75, 1); }
+  100%      { transform: translateX(100vw); }
+}
+/* Fades only after the box has cleared the frame, so nothing lingers. */
+@keyframes clawRigFade {
+  0%, 90%   { opacity: 1; }
+  97%, 100% { opacity: 0; }
+}
+
+/* head rides down the cable, bottoms out 8% deep, retracts to 70% */
+@keyframes clawDrop {
+  0%, 57%   { transform: translate(-50%, 55%);  animation-timing-function: cubic-bezier(.45, 0, .35, 1); }
+  64%       { transform: translate(-50%, 178%); animation-timing-function: cubic-bezier(.3, 0, .3, 1); }
+  67.4%     { transform: translate(-50%, 170%); }
+  71%       { transform: translate(-50%, 170%); animation-timing-function: cubic-bezier(.4, 0, .2, 1); }
+  80%, 100% { transform: translate(-50%, 70%); }
+}
+/* Paired 1:1 with clawDrop — scaleY = headTopOffset / 90%. */
+@keyframes clawCable {
+  0%, 57%   { transform: scaleY(.122); animation-timing-function: cubic-bezier(.45, 0, .35, 1); }
+  64%       { transform: scaleY(.396); animation-timing-function: cubic-bezier(.3, 0, .3, 1); }
+  67.4%     { transform: scaleY(.378); }
+  71%       { transform: scaleY(.378); animation-timing-function: cubic-bezier(.4, 0, .2, 1); }
+  80%, 100% { transform: scaleY(.155); }
+}
+
+/* elbowed arms: 30deg open until the head bottoms out, shut at 71% */
+@keyframes clawGripL { 0%, 67.4% { transform: rotate(30deg); }  71%, 100% { transform: rotate(0deg); } }
+@keyframes clawGripR { 0%, 67.4% { transform: rotate(-30deg); } 71%, 100% { transform: rotate(0deg); } }
+
+/* carried box: hidden until the grip closes, then it IS the box */
+@keyframes clawCarry { 0%, 71% { opacity: 0; } 71.01%, 100% { opacity: 1; } }
+@keyframes clawSway {
+  0%, 80% { rotate: 0deg; }
+  85%     { rotate: 5deg; }
+  91%     { rotate: -3.5deg; }
+  96%     { rotate: 2deg; }
+  100%    { rotate: 0deg; }
+}
+
+[data-claw-rig] { animation: clawRig var(--claw-t) linear both, clawRigFade var(--claw-t) linear both; }
+.claw-cable { animation: clawCable var(--claw-t) linear both; }
+.claw-head { animation: clawDrop var(--claw-t) linear both; }
+.claw-carried { animation: clawCarry var(--claw-t) linear both, clawSway var(--claw-t) linear both; }
+.claw-armL { animation: clawGripL var(--claw-t) linear both; }
+.claw-armR { animation: clawGripR var(--claw-t) linear both; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-claw-rig] { display: none; }
+  [data-claw-box] { animation: none !important; opacity: 1 !important; }
+  [data-claw-box] .claw-lid { animation: none !important; }
+  .sb-claw-tuck { animation: none !important; opacity: 0 !important; }
+}

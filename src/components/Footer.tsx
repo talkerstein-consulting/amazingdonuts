@@ -6,22 +6,30 @@ import { useScrollSpin } from '../hooks/useScrollSpin';
 import { Badge } from './brand';
 import type { BadgeKey } from './brand';
 import KosherBadge from './KosherBadge';
+import { HOME_HREF, onHomeClick } from '../lib/home-href';
+import { BULK_HREF, CAREERS_HREF, CONTACT_HREF } from '../lib/routes';
 import type { KosherKey } from './KosherBadge';
-import { useDonutLab } from '../lib/donut-lab';
+import { LAB_HREF } from '../lib/lab-href';
+import { shopHref } from '../lib/shop-href';
 import CurvedInput from './CurvedInput';
 
+/* Donuts and Cupcakes both pointed at '#favorites', so two differently
+   labelled links went to the same homepage teaser and neither of them to the
+   counter it named. Each one now opens the catalogue on its own collection. */
 const MENU_LINKS = [
-  { label: 'Donuts', href: '#favorites' },
-  { label: 'Custom', href: '#donut-lab' },
-  { label: 'Cupcakes', href: '#favorites' },
-  { label: 'Bulk orders', href: '#bulk' }
+  { label: 'Donuts', href: shopHref({ category: 'Donuts' }) },
+  { label: 'Donut lab', href: LAB_HREF },
+  { label: 'Cupcakes', href: shopHref({ category: 'Cupcakes' }) },
+  { label: 'Bulk orders', href: BULK_HREF }
 ];
 
+/* Franchise is gone rather than pointed somewhere: there is no franchise
+   programme, and a nav item is a promise that something exists behind it. All
+   three used to point at `#top`, which on any page but the homepage went
+   nowhere at all. */
 const COMPANY_LINKS = [
-  { label: 'Our story', href: '#top' },
-  { label: 'Careers', href: '#top' },
-  { label: 'Franchise', href: '#top' },
-  { label: 'Contact', href: '#top' }
+  { label: 'Careers', href: CAREERS_HREF },
+  { label: 'Contact', href: CONTACT_HREF }
 ];
 
 /**
@@ -323,7 +331,9 @@ export default function Footer({ ready }: { ready: boolean }) {
                 background: 'var(--navy)'
               }}
             >
-              <img src="/img/logo-amazing-donuts.svg" alt="Amazing Donuts" style={{ width: '100%', height: 'auto' }} />
+              <a href={HOME_HREF} onClick={onHomeClick} aria-label="Amazing Donuts, home" style={{ display: 'block', width: '100%' }}>
+                <img src="/img/logo-amazing-donuts.svg" alt="Amazing Donuts" style={{ width: '100%', height: 'auto', display: 'block' }} />
+              </a>
             </div>
             <p style={{ marginTop: 14, maxWidth: '26ch', fontSize: 15, lineHeight: 1.5, color: 'rgba(14,62,105,.65)' }}>
               Kosher donuts, cupcakes and baked goods, made fresh every day since 1997.

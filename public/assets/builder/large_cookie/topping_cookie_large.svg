@@ -1,4 +1,10 @@
-<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Sprinkle mask for the large cookie.
+     The marks were authored 68px left and 85px high of the icing they sit on,
+     where every other shape centres to within a pixel and lifts only ~4% of the
+     icing height so the sprinkles read as sitting on the domed top. Shifting the
+     viewBox origin by (-69,-58) moves the marks right and down onto the cookie
+     without touching the 1024 box, so the scale is unchanged. -->
+<svg width="1024" height="1024" viewBox="-69 -58 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_35_183)">
 <rect opacity="0.919841" x="483.564" y="440.92" width="51.0264" height="10.3885" rx="5.19426" transform="rotate(-7.27865 483.564 440.92)" fill="#0C0C0C"/>
 <rect opacity="0.968762" x="421.168" y="465.545" width="40.1968" height="11.2239" rx="5.61194" transform="rotate(113.94 421.168 465.545)" fill="#0C0C0C"/>

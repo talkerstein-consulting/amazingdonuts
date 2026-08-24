@@ -1,6 +1,8 @@
 import { motion } from 'motion/react';
 import { BrandButton } from './brand';
 import { useScrollSpin } from '../hooks/useScrollSpin';
+import { LAB_HREF } from '../lib/lab-href';
+import { SHOP_HREF } from '../lib/shop-href';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -33,10 +35,13 @@ export default function Hero({ ready }: { ready: boolean }) {
           textWrap: 'balance'
         }}
       >
-        <span>Life's too</span>
+        {/* The donut sits mid-line, so the break lands after it: two lines,
+            the second short. `flexBasis: 100%` is what forces that break —
+            the h1 is a flex row, so it cannot be done with a <br>. */}
+        <span>Have an</span>
         <img src="/img/heart-shape-donut-1.png" alt="Heart-shaped donut" style={{ height: 'clamp(0.62em,8vw,1em)', width: 'auto' }} />
-        <span>short</span>
-        <span style={{ flexBasis: '100%' }}>For boring donuts.</span>
+        <span>amazing</span>
+        <span style={{ flexBasis: '100%' }}>morning.</span>
       </motion.h1>
 
       <motion.p
@@ -64,8 +69,9 @@ export default function Hero({ ready }: { ready: boolean }) {
         style={{ marginTop: 'clamp(18px,2.4vw,28px)', display: 'flex', flexWrap: 'wrap', gap: 12 }}
       >
         {/* The page's single Dare Devil moment, paired with the ink outline. */}
-        <BrandButton href="#favorites">Get the good stuff</BrandButton>
-        <BrandButton href="#lab" variant="outline">
+        {/* Names no counter, so it opens the whole catalogue. */}
+        <BrandButton href={SHOP_HREF}>Get the good stuff</BrandButton>
+        <BrandButton href={LAB_HREF} variant="outline">
           Make your own
         </BrandButton>
       </motion.div>

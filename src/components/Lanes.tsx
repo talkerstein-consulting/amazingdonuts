@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import ScrollStack from './scroll-stack';
 import { BrandButton } from './brand';
-import { useDonutLab } from '../lib/donut-lab';
-import { useNavTheme } from '../lib/nav-theme';
+import { LAB_HREF } from '../lib/lab-href';
+import { shopHref } from '../lib/shop-href';
+import { useNavClaimAtMidpoint } from '../lib/nav-theme';
 import { SQUIRCLE } from './brand';
 
 const LANES = [
@@ -14,7 +15,9 @@ const LANES = [
     copyWidth: '22ch',
     image: '/img/hava-nagilla-donut-blue-white-sprinkles-1.png',
     alt: 'Pink glazed donut with blue and white sprinkles',
-    href: '#favorites',
+    /* The catalogue's own Classic/Special split, which is these two lanes.
+       Was '#favorites' — the homepage teaser, which showed neither. */
+    href: shopHref({ category: 'Donuts', tier: 'classic' }),
     cta: 'Shop classics',
     border: 'var(--navy)',
     hover: { background: 'var(--navy)', color: 'var(--pink)' }
@@ -27,7 +30,7 @@ const LANES = [
     copyWidth: '24ch',
     image: '/img/donut-cake-14-inch-1.png',
     alt: 'Cake donut with rainbow sprinkles',
-    href: '#favorites',
+    href: shopHref({ category: 'Donuts', tier: 'special' }),
     cta: 'Shop special',
     border: 'var(--sand)',
     hover: { background: 'var(--sand)', color: 'var(--blue)' }
@@ -35,12 +38,12 @@ const LANES = [
   {
     bg: 'var(--orange)',
     text: 'var(--navy)',
-    title: 'Custom',
+    title: 'Donut lab',
     copy: 'Your logo. Your message. Your very own donut.',
     copyWidth: '22ch',
     image: '/img/customizable-donut-1.png',
     alt: 'Donut with custom printed topper',
-    href: '#donut-lab',
+    href: LAB_HREF,
     cta: 'Try the donut lab',
     border: 'var(--navy)',
     hover: { background: 'var(--navy)', color: 'var(--orange)' }
@@ -48,8 +51,6 @@ const LANES = [
 ];
 
 function LaneCard({ lane }: { lane: (typeof LANES)[number] }) {
-  const { open: openLab } = useDonutLab();
-
   return (
     <article
       style={{
@@ -100,14 +101,6 @@ function LaneCard({ lane }: { lane: (typeof LANES)[number] }) {
         href={lane.href}
         variant="outline"
         block
-        onClick={
-          lane.href === '#donut-lab'
-            ? (e) => {
-                e.preventDefault();
-                openLab();
-              }
-            : undefined
-        }
         /* The knob stays Harbour per the spec; only the ring and label take the
            lane's contrast colour, since navy on Signal blue would not clear AA. */
         style={{ boxShadow: `inset 0 0 0 2px ${lane.border}`, color: lane.border }}
@@ -119,36 +112,12 @@ function LaneCard({ lane }: { lane: (typeof LANES)[number] }) {
 }
 
 export default function Lanes() {
-  const { claim, release } = useNavTheme();
   const sectionRef = useRef<HTMLElement | null>(null);
   const [active, setActive] = useState(0);
 
-  // The bar wears the colour of whichever lane card is in focus, but only
-  // while the stack is actually the thing sitting under the header.
-  useEffect(() => {
-    const node = sectionRef.current;
-    if (!node) return;
-
-    const sync = () => {
-      const rect = node.getBoundingClientRect();
-      const underHeader = rect.top <= 0 && rect.bottom > 96;
-      if (underHeader) {
-        const lane = LANES[active];
-        claim('lanes', { bg: lane.bg, fg: lane.text });
-      } else {
-        release('lanes');
-      }
-    };
-
-    sync();
-    window.addEventListener('scroll', sync, { passive: true });
-    window.addEventListener('resize', sync);
-    return () => {
-      window.removeEventListener('scroll', sync);
-      window.removeEventListener('resize', sync);
-      release('lanes');
-    };
-  }, [active, claim, release]);
+  // The bar wears the colour of whichever lane card is in focus, but only once
+  // the stack is the thing occupying the middle of the screen.
+  useNavClaimAtMidpoint(sectionRef, 'lanes', { bg: LANES[active].bg, fg: LANES[active].text });
 
   const onIndexChange = useCallback((index: number) => setActive(index), []);
 

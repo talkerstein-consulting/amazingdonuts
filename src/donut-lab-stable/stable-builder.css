@@ -1,0 +1,133 @@
+/**
+ * The stable Donut Lab builder.
+ *
+ * Motion and the handful of rules that cannot be expressed inline (scrollbar
+ * hiding, :active presses, focus rings). Everything positional stays in the
+ * components, next to the markup it belongs to, as in the handoff prototype.
+ */
+
+/* --- Motion. Timings are final per the handoff; do not round them. -------- */
+
+@keyframes bldDrop {
+  from { opacity: 0; transform: translateY(-14px) scale(.86); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes bldRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+/* The four-flap box fold, the ribbons, the bow and the old tuck lived here.
+   The finale is the claw sequence now — see claw-sequence.css — which brings
+   its own `clawTuck`. These are kept because they are the previous design and
+   cost nothing, but nothing references them: `bldTuck` in particular must not
+   be revived under that name while claw-sequence.css is loaded, since two
+   @keyframes of one name clobber each other by file order.
+
+   Retired: bldTuck, bldFoldT/B/L/R, bldRibbonX/Y, bldKnot. */
+@keyframes bldTuck {
+  from { transform: none; opacity: 1; }
+  to   { transform: translateY(7%) scale(.46); opacity: 0; }
+}
+@keyframes bldFoldT { from { transform: rotateX(-180deg); } to { transform: rotateX(0deg); } }
+@keyframes bldFoldB { from { transform: rotateX(180deg);  } to { transform: rotateX(0deg); } }
+@keyframes bldFoldL { from { transform: rotateY(180deg);  } to { transform: rotateY(0deg); } }
+@keyframes bldFoldR { from { transform: rotateY(-180deg); } to { transform: rotateY(0deg); } }
+@keyframes bldRibbonY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes bldRibbonX { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* Overshoot, then settle — a bow being pulled tight. */
+@keyframes bldKnot {
+  0%   { transform: scale(0); }
+  70%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+/* --- Rails ---------------------------------------------------------------- */
+
+/* Both rails scroll horizontally and must show no bar: the design has the
+   option sheet sitting flush on the action row, and a scrollbar gutter would
+   push the CTA down into the safe-area padding. */
+.sb-rail {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.sb-rail::-webkit-scrollbar { width: 0; height: 0; }
+
+.sb-options {
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+}
+
+/* --- Presses. Every control confirms the tap by shrinking. ---------------- */
+
+.sb-press        { transition: transform 140ms cubic-bezier(.2,.85,.3,1); }
+.sb-press:active { transform: scale(.94); }
+
+.sb-press-sm:active  { transform: scale(.96); }
+.sb-press-cta:active { transform: scale(.97); }
+.sb-press-row:active { transform: scale(.99); }
+
+.sb-tile {
+  transition: box-shadow 160ms ease, transform 200ms cubic-bezier(.2,.8,.2,1);
+}
+.sb-tile:active { transform: scale(.96); }
+
+.sb-pill        { transition: background 180ms ease, transform 140ms ease; }
+.sb-pill:active { transform: scale(.97); }
+
+/* --- Focus. Blue at 3px, per the accessibility notes in the handoff.
+   #4790FE is the site's --blue (Signal), so the token carries it. --------- */
+
+.sb-stable button:focus-visible,
+.sb-stable label:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The sprinkle stagger is skipped in JS. Everything else is collapsed here
+     rather than removed, so the box sequence still lands on its final frame. */
+  .sb-stable *,
+  .sb-stable *::before,
+  .sb-stable *::after {
+    animation-duration: .01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* --- Desktop -------------------------------------------------------------
+   The builder was drawn for a phone, where a full-width band and a left edge
+   to read down are exactly right. On a wide screen that left edge strands
+   every control against one side of a 1400px window while the stage sits
+   centred above it, so from 900px up the bands centre on the stage instead.
+
+   The rails are the one catch: they are scrolling flex containers, and
+   `justify-content: center` on a scroller pins the overflow to one side and
+   makes the first items unreachable. `auto` margins on the end children centre
+   the row only while it fits, and collapse to nothing once it overflows — so a
+   seven-tile shape rail centres and an eleven-tile icing rail still scrolls
+   from its true start. */
+@media (min-width: 900px) {
+  /* One measure for every band, so the header row, the note, the rails and the
+     action row all line up on the same centred column as the stage. */
+  .sb-stable .sb-measure {
+    max-width: 560px;
+    margin-inline: auto;
+    width: 100%;
+  }
+
+  .sb-stable .sb-head {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .sb-rail > *:first-child {
+    margin-inline-start: auto;
+  }
+
+  .sb-rail > *:last-child {
+    margin-inline-end: auto;
+  }
+}

@@ -3,6 +3,7 @@ import { ChevronDown, Plus, Search } from 'lucide-react';
 import { CATEGORIES, PRODUCTS, type Category, type Product } from '../data/products';
 import { C, F, SQUIRCLE } from './brand';
 import { useShop } from '../lib/shop';
+import { shopHref } from '../lib/shop-href';
 
 /** One product inside an expanded category: squircle photo bed, name, price, add. */
 function ProductThumb({ product }: { product: Product }) {
@@ -94,14 +95,12 @@ function CategoryRow({
   category,
   products,
   open,
-  onToggle,
-  onShopAll
+  onToggle
 }: {
   category: Category;
   products: Product[];
   open: boolean;
   onToggle: () => void;
-  onShopAll: () => void;
 }) {
   const cover = products[0];
   const shown = products.slice(0, PREVIEW_LIMIT);
@@ -181,11 +180,16 @@ function CategoryRow({
           {/* The row is a teaser, not the catalogue — the rest live in Shop all. */}
           {hidden > 0 && (
             <div style={{ padding: '0 12px 16px' }}>
-              <button
-                type="button"
+              {/* An anchor, and one that names its own collection.
+                  This was a button calling `openShop()`, which set the `#shop`
+                  hash — the route of the catalogue *overlay*, retired when
+                  /shop/ became a real page. The hash landed on the homepage,
+                  matched nothing, and the button appeared to do nothing. */}
+              <a
+                href={shopHref({ category })}
                 className="brand-press"
-                onClick={onShopAll}
                 style={{
+                  textDecoration: 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -207,7 +211,7 @@ function CategoryRow({
               >
                 Shop all {category}
                 <span style={{ opacity: 0.6 }}>+{hidden} more</span>
-              </button>
+              </a>
             </div>
           )}
         </>
@@ -217,7 +221,6 @@ function CategoryRow({
 }
 
 export default function Catalog() {
-  const { openShop } = useShop();
   const [query, setQuery] = useState('');
   const [openCategory, setOpenCategory] = useState<Category | null>(CATEGORIES[0]);
 
@@ -284,7 +287,6 @@ export default function Catalog() {
             // A search opens every matching category; otherwise one at a time.
             open={searching || openCategory === category}
             onToggle={() => setOpenCategory((current) => (current === category ? null : category))}
-            onShopAll={openShop}
           />
         ))}
 

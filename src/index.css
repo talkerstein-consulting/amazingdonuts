@@ -71,6 +71,13 @@
   --radius-chip: 24px;   /* chips and step rows     */
   --radius-pill: 999px;  /* pills, buttons, badges  */
 
+  /* --- Layout ------------------------------------------------------------
+     The sticky bar's height. Declared here because the Donut Lab page sizes
+     the builder as `100dvh - var(--nav-h)`: the builder must never scroll, so
+     it needs the bar's height as a number, not as a guess. Header.tsx reads
+     this same token. */
+  --nav-h: clamp(60px, 6.5vw, 78px);
+
   /* --- Colour: Palette 03 · Harbour ------------------------------------- */
   --navy: #0e3e69;    /* Harbour — the ink            */
   --cream: #fbf7ef;   /* Canvas — page background     */
@@ -90,6 +97,9 @@
    so the headline still needs no separate phone rule. */
 
 html {
+  /* Native smooth is the fallback for reduced motion and for anything that
+     scrolls before Lenis has initialised. Lenis turns it off for itself via
+     `html.lenis` below — the two fight over programmatic scrolls otherwise. */
   scroll-behavior: smooth;
   background: var(--cream);
   /* Firefox */
@@ -692,6 +702,42 @@ nav a,
   margin-top: clamp(20px, 2.4vw, 28px);
 }
 
+/* On a phone the six pills wrapped 2-2-1-1: the row widths differ by enough
+   (COR 483 against Sesame Free) that flex-wrap left a ragged, half-empty last
+   line. A two-column grid gives three even rows instead. The pills stretch to
+   the cell and centre their contents, and the horizontal padding drops — at
+   360px a cell is ~160px, and 14px each side plus 'Sesame Free' in Karla 700
+   would not fit. */
+@media (max-width: 700px) {
+  .footer-badges {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .footer-badges > * {
+    justify-content: center;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+/* At 320px a column is 109px, and the Pareve mark — the widest of the three
+   kosher marks at 466:145 — plus its label overran that by 6px. The marks come
+   down to 15px tall, which is the one dimension with slack: the labels are
+   already at the brand's smallest size and the padding is already halved.
+   !important because the height is an inline style on the <img>, and width
+   goes auto so the SVG keeps its own ratio. */
+@media (max-width: 380px) {
+  .footer-badges {
+    gap: 8px;
+  }
+
+  .footer-badges img {
+    height: 15px !important;
+    width: auto !important;
+  }
+}
+
 /* --- Mobile rhythm -------------------------------------------------------
    Phone spacing had drifted: 18/40/40/52px between sections and 10–18px under
    the headings. One value for each here. The bands carry half the section gap
@@ -748,4 +794,230 @@ nav a,
   .bulk-card > p {
     margin-top: 0 !important;
   }
+}
+
+/* ==========================================================================
+   Return-visit page slide.
+
+   The full preloader plays once per session; after that the short roll hands
+   over to this instead of the measured wordmark flight. It is an animation,
+   not a transition, deliberately — a keyframe reverts the transform when it
+   finishes, and a lingering `transform` on this wrapper would make it the
+   containing block for every `position: fixed` descendant inside it.
+
+   `100%` of the wrapper, not of the viewport, so it clears its own width at
+   any zoom. No overflow guard is needed: content translated off the left edge
+   does not create a scrollable region.
+   ========================================================================== */
+.site-slide-in {
+  animation: site-slide-in 0.52s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes site-slide-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-slide-in {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
+   Lenis (see lib/smooth-scroll.ts).
+
+   Lenis drives the document's real scrollTop, so nothing here transforms the
+   body; these four rules only stop native smooth scrolling from fighting it
+   and keep the page from scrolling while an overlay has it stopped.
+   ========================================================================== */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+html.lenis,
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+
+/* Lenis eases the wheel by default, including over a nested scroller. The
+   overlays each own a scroll region of their own, so they opt out. */
+.shop-body,
+.cabinet,
+.cart__body {
+  overscroll-behavior: contain;
+}
+
+/* ==========================================================================
+   Navbar search: icon → highlighted icon → expanded field.
+
+   The width is transitioned rather than animated in JS. It used to be a
+   motion `animate={{ width }}`, which writes an inline style every frame from
+   the main thread; on a busy page that stutters, which is what read as glitchy.
+   `width` is a layout property either way, but this hands the interpolation to
+   the browser instead of racing a rAF loop against the rest of the page.
+
+   The hover state is a rule rather than React state: nothing to re-render and
+   nothing to fall out of sync with the pointer.
+   ========================================================================== */
+.nav-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: transparent;
+  transition:
+    width 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.22s ease,
+    box-shadow 0.25s ease;
+}
+
+.nav-search.is-open {
+  background: rgba(251, 247, 239, 0.1);
+}
+
+/* Resting is a bare icon; hover tints the well behind it. Not while open —
+   the field is already its own surface. */
+.nav-search:not(.is-open):hover {
+  background: rgba(251, 247, 239, 0.14);
+}
+
+/* !important because the icon's resting colour is an inline style: it tracks
+   whichever colour the bar is currently wearing, which CSS cannot know. */
+.nav-search:not(.is-open):hover .nav-search__icon {
+  color: var(--pink) !important;
+}
+
+.nav-search__icon {
+  transition: color 0.18s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-search {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* ==========================================================================
+   Bulk banner.
+
+   "Got a lot of people?" was the right-hand card in the features grid; it is a
+   band across the bottom of that section now, under both cards, with the
+   petite-donuts card in the slot it used to hold.
+
+   It spans every column of the auto-fit grid above it. `1 / -1` rather than a
+   column count, because the grid collapses to one column on a phone and a
+   hard-coded span would leave a hole there.
+   ========================================================================== */
+.bulk-banner {
+  grid-column: 1 / -1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(18px, 3vw, 44px);
+  padding: clamp(22px, 2.6vw, 38px) clamp(24px, 3vw, 44px);
+  border-radius: 44px;
+  background: #f7c55e;
+  overflow: hidden;
+}
+
+.bulk-banner__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.bulk-banner__title {
+  margin: 0;
+  line-height: 0.9;
+  color: var(--navy);
+}
+
+.bulk-banner__note {
+  margin: 0;
+  max-width: 46ch;
+  font-size: var(--type-body);
+  line-height: 1.4;
+  color: var(--navy);
+}
+
+.bulk-banner__cta {
+  margin-top: 6px;
+}
+
+/* Bleeds off the band's bottom edge, which is why the banner clips. */
+.bulk-banner__photo {
+  flex: none;
+  width: min(42%, 420px);
+  height: auto;
+  margin-bottom: calc(-1 * clamp(18px, 4vw, 54px));
+  pointer-events: none;
+}
+
+/* Stacked on a phone: side by side, the copy loses to a 420px photograph. */
+@media (max-width: 700px) {
+  .bulk-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .bulk-banner__photo {
+    width: min(100%, 360px);
+    align-self: center;
+    margin-bottom: calc(-1 * clamp(14px, 5vw, 30px));
+  }
+}
+
+/* --- Petite lineup ------------------------------------------------------- */
+/* The row claims every pixel between the body copy and the CTA — `flex: 1` in
+   the card's column, with `min-height: 0` so it can actually shrink inside a
+   flex parent instead of being floored at its content height — and it clips.
+   The donuts are sized off that height, so five of them are far wider than the
+   card and the outer ones are cut by the frame. That crop is the point: it
+   reads as a tray continuing past the edge rather than five small donuts
+   marooned in a gap. */
+.petite-row {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  /* Centred, so the crop falls evenly on both ends. */
+  justify-content: center;
+  margin: clamp(14px, 2.2vw, 22px) 0 clamp(16px, 2.2vw, 24px);
+  pointer-events: none;
+}
+
+.petite-row img {
+  flex: none;
+  height: 100%;
+  width: auto;
+  /* `height: 100%` + `width: auto` on a replaced element inside a flex row
+     gives the browser no definite width to derive: measured, every image came
+     out 342px tall and 0px wide, so nothing was visible at all. An explicit
+     ratio makes the width definite again. 1.09 is the mean of the five trimmed
+     cut-outs (1.006 to 1.161) — near enough that none of them distorts, and
+     `object-fit: contain` absorbs the remainder. */
+  aspect-ratio: 1.09;
+  object-fit: contain;
+}
+
+/* A little rhythm, small enough that it never looks like a mistake. */
+.petite-row img:nth-child(even) {
+  transform: translateY(-6%);
 }

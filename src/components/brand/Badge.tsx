@@ -1,9 +1,30 @@
 import type { CSSProperties } from 'react';
-import { Flame, PartyPopper, Award, CalendarCheck, NutOff, MilkOff, WheatOff } from 'lucide-react';
+import {
+  Flame,
+  PartyPopper,
+  Award,
+  CalendarCheck,
+  NutOff,
+  MilkOff,
+  WheatOff,
+  BadgeCheck,
+  Leaf,
+  Wheat
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { C, F } from './tokens';
 
-export type BadgeKey = 'seller' | 'party' | 'classic' | 'special' | 'nut' | 'dairy' | 'sesame';
+export type BadgeKey =
+  | 'seller'
+  | 'party'
+  | 'classic'
+  | 'special'
+  | 'nut'
+  | 'dairy'
+  | 'sesame'
+  | 'cor'
+  | 'pareve'
+  | 'yoshon';
 
 type Spec = {
   label: string;
@@ -23,7 +44,16 @@ export const BADGES: Record<BadgeKey, Spec> = {
   special: { label: 'Special Order', Icon: CalendarCheck, bg: C.blue, fg: '#fff', large: true },
   nut:     { label: 'Nut Free',      Icon: NutOff,        outline: true },
   dairy:   { label: 'Dairy Free',    Icon: MilkOff,       outline: true },
-  sesame:  { label: 'Sesame Free',   Icon: WheatOff,      outline: true }
+  sesame:  { label: 'Sesame Free',   Icon: WheatOff,      outline: true },
+  /* Certification, as icon-and-label pills.
+     These are NOT the supplied COR/פרווה/ישן artwork — that artwork is
+     white-only and may never be recoloured, so it cannot appear on a light
+     surface or as an outline. `KosherBadge` still renders the real marks
+     wherever there is a solid Harbour ground to put them on. Yoshon takes the
+     wheat glyph because yoshon is a claim about the grain harvest. */
+  cor:     { label: 'COR 483',       Icon: BadgeCheck,    outline: true },
+  pareve:  { label: 'Pareve',        Icon: Leaf,          outline: true },
+  yoshon:  { label: 'Yoshon',        Icon: Wheat,         outline: true }
 };
 
 export const BADGE_KEYS = Object.keys(BADGES) as BadgeKey[];
@@ -32,10 +62,13 @@ type Props = {
   badge: BadgeKey;
   /** Force every badge to the outline treatment, ignoring its merchandising fill. */
   forceOutline?: boolean;
+  /** Half-height pill for places where the badges are supporting detail rather
+      than the point of the block — the catalogue's banner card, say. */
+  compact?: boolean;
   style?: CSSProperties;
 };
 
-export default function Badge({ badge, forceOutline = false, style }: Props) {
+export default function Badge({ badge, forceOutline = false, compact = false, style }: Props) {
   const spec = BADGES[badge];
   const outline = forceOutline || spec.outline;
   const { Icon } = spec;
@@ -45,25 +78,31 @@ export default function Badge({ badge, forceOutline = false, style }: Props) {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 8,
-        height: 34,
-        padding: '0 14px',
+        gap: compact ? 5 : 8,
+        height: compact ? 25 : 34,
+        padding: compact ? '0 9px' : '0 14px',
         borderRadius: 'var(--radius-pill)',
         // v5 badge type: Karla 700 at 13px. Special Order steps up to 14px —
         // its Signal fill sits in the 3:1–4:1 band, which needs the
         // large-text contrast threshold to pass.
         fontFamily: F.display,
         fontWeight: 700,
-        fontSize: spec.large ? 14 : 'var(--fs-label)',
-        letterSpacing: '.08em',
+        fontSize: compact ? 10 : spec.large ? 14 : 'var(--fs-label)',
+        letterSpacing: compact ? '.06em' : '.08em',
         textTransform: 'uppercase',
         ...(outline
-          ? { background: 'transparent', color: C.navy, boxShadow: `inset 0 0 0 2px ${C.navy}` }
+          ? {
+              background: 'transparent',
+              color: C.navy,
+              /* A 2px ring around a 25px pill reads as a blob; the compact
+                 outline thins to match its smaller type. */
+              boxShadow: `inset 0 0 0 ${compact ? 1.5 : 2}px ${C.navy}`
+            }
           : { background: spec.bg, color: spec.fg }),
         ...style
       }}
     >
-      <Icon size={16} strokeWidth={2.25} />
+      <Icon size={compact ? 12 : 16} strokeWidth={2.25} />
       {spec.label}
     </span>
   );
@@ -73,16 +112,18 @@ export default function Badge({ badge, forceOutline = false, style }: Props) {
 export function BadgeRow({
   badges,
   forceOutline = false,
+  compact = false,
   gap = 12
 }: {
   badges: BadgeKey[];
   forceOutline?: boolean;
+  compact?: boolean;
   gap?: number;
 }) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap }}>
       {badges.map((b) => (
-        <Badge key={b} badge={b} forceOutline={forceOutline} />
+        <Badge key={b} badge={b} forceOutline={forceOutline} compact={compact} />
       ))}
     </div>
   );

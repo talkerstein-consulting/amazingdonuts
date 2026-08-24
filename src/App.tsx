@@ -1,14 +1,13 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import './components/brand/brand.css';
 import './shop/shop.css';
 import { SquircleDefs } from './components/brand';
 import { NavThemeProvider } from './lib/nav-theme';
-import { DonutLabProvider, useDonutLab } from './lib/donut-lab';
 import { ShopProvider, useShop } from './lib/shop';
-import DonutLab from './donut-lab/DonutLab';
 import Preloader from './preloader/Preloader';
-import ShopAll from './shop/ShopAll';
+import { markPreloaded, preloadVariant } from './lib/preload-session';
+import { initSmoothScroll } from './lib/smooth-scroll';
 import ProductPanel from './shop/ProductPanel';
 import CartDrawer from './shop/CartDrawer';
 import AuthModal from './shop/AuthModal';
@@ -22,14 +21,16 @@ import Social from './components/Social';
 import Testimonials from './components/Testimonials';
 import Footer from './components/Footer';
 
-function Site({ ready }: { ready: boolean }) {
-  const { isOpen: labOpen, close: closeLab } = useDonutLab();
-  const { shopOpen, product } = useShop();
+function Site({ ready, slideIn }: { ready: boolean; slideIn: boolean }) {
+  const { product } = useShop();
   const [authOpen, setAuthOpen] = useState(false);
 
   return (
     <>
-      <div style={{ maxWidth: '100%', margin: '0 auto', background: 'var(--cream)', color: 'var(--navy)' }}>
+      <div
+        className={slideIn ? 'site-slide-in' : undefined}
+        style={{ maxWidth: '100%', margin: '0 auto', background: 'var(--cream)', color: 'var(--navy)' }}
+      >
         <Header onSignIn={() => setAuthOpen(true)} />
         <Hero ready={ready} />
         <Marquee />
@@ -40,13 +41,10 @@ function Site({ ready }: { ready: boolean }) {
         <Testimonials />
         <Footer ready={ready} />
       </div>
-      {shopOpen && <ShopAll />}
       {/* The product cabinet slides over the catalogue it came from. */}
       <AnimatePresence>{product && <ProductPanel key={product.id} product={product} />}</AnimatePresence>
       <CartDrawer />
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
-
-      {labOpen && <DonutLab onClose={closeLab} />}
     </>
   );
 }
@@ -57,15 +55,29 @@ export default function App() {
   // logo's box in order to land on it.
   const [loading, setLoading] = useState(true);
 
+  /* Read once, in the initialiser, and never again: the flag is written on
+     mount, so anything reading it later would see 'return' on the very load
+     that is still playing the full opening. */
+  const [variant] = useState(preloadVariant);
+  /* The return variant's navy panel wipes right while the page slides in from
+     the left. Both start on `onExit`, one movement; `onDone` then unmounts. */
+  const [sliding, setSliding] = useState(false);
+  /* Stable identities. The preloader no longer restarts if these change, but a
+     frame loop should not be handed a moving target either way. */
+  const onExit = useCallback(() => setSliding(true), []);
+  const onDone = useCallback(() => setLoading(false), []);
+  useEffect(markPreloaded, []);
+  useEffect(initSmoothScroll, []);
+
   return (
     <NavThemeProvider>
       <ShopProvider>
-        <DonutLabProvider>
-          <SquircleDefs />
-          {/* `ready` flips when the preloader has handed the wordmark to the bar. */}
-          <Site ready={!loading} />
-          {loading && <Preloader onDone={() => setLoading(false)} />}
-        </DonutLabProvider>
+        <SquircleDefs />
+        {/* `ready` flips when the preloader has handed the wordmark to the bar. */}
+        <Site ready={!loading} slideIn={sliding} />
+        {loading && (
+          <Preloader variant={variant} onExit={onExit} onDone={onDone} />
+        )}
       </ShopProvider>
     </NavThemeProvider>
   );

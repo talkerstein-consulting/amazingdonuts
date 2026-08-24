@@ -1,15 +1,15 @@
-# dependencies
+# Dependencies
 node_modules/
 
-# build output
+# Build output — regenerate with `npm run build`
 dist/
 
-# secrets — the React Bits Pro licence key lives here
-.env
-.env.local
-.env.*.local
+# TS incremental build cache
+*.tsbuildinfo
 
-# editor / OS
+# Local env / editor
+.env
+.env.*
+!.env.example
 .DS_Store
 Thumbs.db
-*.log

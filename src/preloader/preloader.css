@@ -23,7 +23,9 @@
   left: 0;
   right: 0;
   background: var(--navy);
-  will-change: height;
+  /* height for the first load's collapse into the navbar, transform for the
+     return load's wipe to the right. */
+  will-change: height, transform;
 }
 
 /* Wrapper owns the fade; the inner stage owns the fit transform, so the two
