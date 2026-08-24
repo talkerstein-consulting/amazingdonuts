@@ -31,11 +31,13 @@ function App(){
   const staff=["owner","staff"].includes(user?.role);
   const load=async()=>{if(!user||demo)return;try{if(staff){const [a,r,b,o]=await Promise.all([request("/admin/accounts"),request("/admin/applications"),request("/admin/bulk-requests"),request("/admin/custom-orders")]);setAccounts(a.accounts);setApplications(r.applications);setBulkRequests(b.requests);setCustomOrders(o.orders);}else setAccount((await request("/portal/account")).account);setError("");}catch(cause){setError(cause.message);}};
   useEffect(()=>{if(demo)return;request("/auth/session").then(({user})=>setUser(user)).catch(()=>setUser(null));},[demo]);
+  useEffect(()=>{if(user&&!staff&&!demo)location.replace("/account/");},[user,staff,demo]);
   useEffect(()=>{load();},[user,staff,demo]);
   useEffect(()=>{const syncView=()=>setView(viewFromHash());window.addEventListener("hashchange",syncView);return()=>window.removeEventListener("hashchange",syncView);},[]);
   useEffect(()=>{if(user&&!staff&&!['overview','statements','orders'].includes(view))location.hash='overview';},[user,staff,view]);
   if(user===undefined)return <div className="boot">Loading account service...</div>;
   if(!user)return <Login onUser={setUser}/>;
+  if(!staff&&!demo)return <div className="boot">Opening your storefront account...</div>;
   return <Shell user={user} view={view} onView={setView} pending={{requests:applications.filter(x=>x.status==="pending").length,"bulk-requests":bulkRequests.filter(x=>x.status==="pending").length}} onRefresh={load} onLogout={async()=>{if(!demo)await request("/auth/logout",{method:"POST"});setUser(null);}}>{error?<p className="global-error">{error}</p>:null}{staff?<Admin view={view} accounts={accounts||[]} setAccounts={setAccounts} applications={applications} setApplications={setApplications} bulkRequests={bulkRequests} setBulkRequests={setBulkRequests} customOrders={customOrders} demo={demo}/>:<Customer account={account} view={view}/>}</Shell>;
 }
 
