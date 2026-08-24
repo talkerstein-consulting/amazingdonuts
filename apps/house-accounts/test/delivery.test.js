@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { deliveryConfig, deliveryFee, merchandiseSubtotal, validateDelivery } from "../apps/api/delivery.js";
+import { deliveryConfig, deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery } from "../apps/api/delivery.js";
 
 const address = { postalCode: "M6A 2T9" };
 const policy = deliveryConfig({});
@@ -27,4 +27,9 @@ test("sums Square line items when subtotal_money is absent", () => {
     { total_money: { amount: 2000 } },
     { total_money: { amount: 600 } },
   ] }), 2600);
+});
+
+test("uses Square's taxable service-charge phase", () => {
+  assert.equal(deliveryServiceCharge(500)[0].calculation_phase, "SUBTOTAL_PHASE");
+  assert.equal(deliveryServiceCharge(500)[0].taxable, true);
 });

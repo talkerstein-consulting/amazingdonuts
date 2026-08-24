@@ -57,7 +57,7 @@ export function deliveryServiceCharge(amount) {
     uid: "website-delivery-fee",
     name: "Local delivery",
     amount_money: { amount, currency: "CAD" },
-    calculation_phase: "TOTAL_PHASE",
+    calculation_phase: "SUBTOTAL_PHASE",
     taxable: true,
     scope: "ORDER",
   }];
