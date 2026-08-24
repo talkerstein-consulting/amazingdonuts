@@ -328,7 +328,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
     if (!printOrder) return;
     dispatch({
       type: 'surprise',
-      next: { baseId: 'round', icingId: 'pink', fillingId: 'none', sprinkleId: 'rainbow', i: 3 }
+      next: { baseId: 'round', icingId: 'pink', fillingId: 'none', sprinkleId: 'rainbow', i: 4 }
     });
   }, [printOrder]);
 
