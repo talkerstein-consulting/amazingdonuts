@@ -287,6 +287,8 @@
 
 .cabinet__add:hover,
 .cart__checkout:hover { filter: brightness(1.06); transform: translateY(-2px); }
+.cart__checkout:hover,
+.cart__checkout:focus-visible { color: #fff; }
 
 .cabinet__add.is-added { background: var(--navy); }
 
@@ -1277,6 +1279,8 @@
 }
 
 .shop-promo__cta:hover { filter: brightness(1.06); transform: translateY(-2px); }
+.shop-promo__cta:hover,
+.shop-promo__cta:focus-visible { color: #fff; }
 
 @media (max-width: 699px) {
   /* Full width stacked: the banner is the page's one hero moment and the

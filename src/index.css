@@ -170,6 +170,15 @@ a:hover {
   color: var(--orange);
 }
 
+/* Link-based CTAs keep their label contrast instead of inheriting the text-link
+   hover colour above. */
+.commerce-success a:hover,
+.commerce-success a:focus-visible,
+.no-orders a:hover,
+.no-orders a:focus-visible {
+  color: #fff;
+}
+
 img {
   display: block;
 }
