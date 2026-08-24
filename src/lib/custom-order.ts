@@ -17,7 +17,7 @@ export const customizationComplete = (productId: string, qty: number, customizat
   if (PRINT_PRODUCTS.has(productId)) {
     return customization?.kind === 'print' && !!customization.icingFlavor && customization.artworks.length > 0 && customization.artworks.every(art => art.count > 0) && customization.artworks.reduce((sum, art) => sum + art.count, 0) === qty * 12;
   }
-  if (GLYPH_PRODUCTS.has(productId)) return customization?.kind === 'glyph' && /^[A-Z0-9]$/.test(customization.glyph);
+  if (GLYPH_PRODUCTS.has(productId)) return customization?.kind === 'glyph' && customization.glyph.trim().length > 0 && customization.glyph.trim().length <= 120;
   return true;
 };
 

@@ -4,7 +4,7 @@ import { customizationFor, imageDataUrl, type Customization } from '../lib/custo
 export default function CartCustomization({productId,qty,value,onChange}:{productId:string;qty:number;value?:Customization;onChange:(next:Customization)=>void}){
   const customization=value||customizationFor(productId);
   if(!customization)return null;
-  if(customization.kind==='glyph')return <div className="cart-custom"><label><span>Choose one letter or number</span><input className="cart-glyph" value={customization.glyph} maxLength={1} inputMode="text" placeholder="A" onChange={event=>onChange({kind:'glyph',glyph:event.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,1)})}/></label><small>The bakery will shape the donut cake as this character.</small></div>;
+  if(customization.kind==='glyph')return <div className="cart-custom"><label><span>Cake specifications</span><textarea className="cart-glyph" value={customization.glyph} maxLength={120} rows={2} placeholder="Examples: 20, MAZEL TOV, A & J" onChange={event=>onChange({kind:'glyph',glyph:event.target.value.toUpperCase()})}/></label><small>Enter the letters, numbers, or short message the bakery should shape. {customization.glyph.length}/120</small></div>;
   const total=qty*12,assigned=customization.artworks.reduce((sum,art)=>sum+art.count,0),remaining=Math.max(0,total-assigned);
   const withPrint=(patch:Partial<typeof customization>)=>onChange({...customization,...patch});
   const update=(key:string,patch:Record<string,unknown>)=>withPrint({artworks:customization.artworks.map(art=>art.key===key?{...art,...patch}:art)});
