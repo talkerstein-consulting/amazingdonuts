@@ -468,7 +468,7 @@ export const PRODUCTS: Product[] = [
     name: "Hot Dog Bun (special order)",
     price: "$1.20",
     category: "Breads",
-    img: "/products/breads/hot-dog-bun-special-order.jpg",
+    img: "/products/breads/hot-dog-bun-special-order.webp",
     url: "https://amazingdonuts.com/hot-dog-special-order/"
   },
   {
