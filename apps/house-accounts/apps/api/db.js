@@ -2,7 +2,7 @@ import pg from "pg";
 
 export function createPool(connectionString) {
   const local = connectionString.includes("localhost") || connectionString.includes("127.0.0.1");
-  return new pg.Pool({ connectionString, ssl: local ? false : { rejectUnauthorized: true }, max: process.env.VERCEL ? 1 : 10 });
+  return new pg.Pool({ connectionString, ssl: local ? false : { rejectUnauthorized: true }, options:"-c search_path=house_accounts,public", max: process.env.VERCEL ? 1 : 10 });
 }
 
 export async function transaction(pool, work) {

@@ -5,7 +5,7 @@ import { hashPassword } from "../apps/api/auth.js";
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
 const password=process.env.SEED_ADMIN_PASSWORD;
 if (!password || password.length<12) throw new Error("SEED_ADMIN_PASSWORD must be at least 12 characters.");
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes("localhost")?false:{rejectUnauthorized:true}});
+const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes("localhost")?false:{rejectUnauthorized:true},options:"-c search_path=house_accounts,public"});
 const client=await pool.connect();
 try {
   await client.query("BEGIN");
