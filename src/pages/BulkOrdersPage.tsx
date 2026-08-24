@@ -278,7 +278,7 @@ function IntakeForm() {
     setSubmitState('sending');
     setSubmitMessage('');
     try {
-      const response = await fetch('/api/house/public/applications', {
+      const response = await fetch('/api/house/public/bulk-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1282,6 +1282,35 @@
 .shop-promo__cta:hover,
 .shop-promo__cta:focus-visible { color: #fff; }
 
+.house-application-form {
+  margin-top: 30px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  background: #fff;
+}
+.house-application-form label { display: grid; gap: 7px; }
+.house-application-form label > span { font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.house-application-form input,
+.house-application-form select,
+.house-application-form textarea { width: 100%; min-height: 50px; padding: 12px 14px; border: 1px solid rgba(14,62,105,.24); background: var(--cream); color: var(--navy); font: inherit; }
+.house-application-form textarea { resize: vertical; }
+.house-application-form .wide { grid-column: 1 / -1; }
+.house-application-form button { min-height: 52px; border: 0; background: var(--orange); color: #fff; font-weight: 800; }
+.house-application-status { margin-top: 30px; padding: 28px; border-left: 4px solid var(--pink); background: #fff; color: var(--navy); }
+.house-application-status > svg { width: 36px; height: 36px; color: var(--pink); }
+.house-application-status h2 { margin: 14px 0 8px; }
+.house-application-status > strong { text-transform: capitalize; }
+.house-application-status a { min-height: 48px; margin-top: 18px; padding: 0 18px; display: inline-flex; align-items: center; background: var(--orange); color: #fff; font-weight: 800; }
+.house-application-status a:hover,
+.house-application-status a:focus-visible { color: #fff; }
+
+@media (max-width: 820px) {
+  .house-application-form { grid-template-columns: 1fr; padding: 18px; }
+  .house-application-form .wide { grid-column: auto; }
+}
+
 @media (max-width: 699px) {
   /* Full width stacked: the banner is the page's one hero moment and the
      button is the whole point of it, so it takes the measure it is given. */

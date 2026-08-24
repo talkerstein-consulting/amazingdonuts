@@ -110,6 +110,27 @@ CREATE TABLE IF NOT EXISTS applications (
 );
 CREATE INDEX IF NOT EXISTS applications_tenant_status_idx ON applications(tenant_id,status,created_at DESC);
 
+CREATE TABLE IF NOT EXISTS house_account_applications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  user_id UUID NOT NULL REFERENCES users(id),
+  organization_name TEXT NOT NULL,
+  organization_type TEXT NOT NULL,
+  contact_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+  review_notes TEXT,
+  reviewed_at TIMESTAMPTZ,
+  reviewed_by UUID REFERENCES users(id),
+  account_id UUID REFERENCES accounts(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id,user_id)
+);
+CREATE INDEX IF NOT EXISTS house_account_applications_tenant_status_idx ON house_account_applications(tenant_id,status,created_at DESC);
+
 CREATE TABLE IF NOT EXISTS account_users (
   account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
