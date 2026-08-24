@@ -193,7 +193,7 @@ export function createApp({ pool, square, config }) {
     await pool.query(`INSERT INTO webhook_events(tenant_id,provider_event_id,event_type,payload,status) VALUES($1,$2,$3,$4,$5) ON CONFLICT(provider,provider_event_id) DO NOTHING`,[tenant.rows[0]?.id||null,event.event_id,event.type,JSON.stringify(event),tenant.rowCount?"pending":"review"]); response.status(202).json({accepted:true});
   } catch(error){ next(error); }});
 
-  app.use((error,_request,response,_next)=>{ const status=error.status||500; if(status>=500) console.error(error); response.status(status).json({ error:{ code:error.code||"REQUEST_FAILED",message:status>=500?"The account service is temporarily unavailable.":error.message,...(status<500&&error.details?{details:error.details}:{}),...(status<500&&error.issues?{details:error.issues}:{}) } }); });
+  app.use((error,_request,response,_next)=>{ const validation=error instanceof z.ZodError,status=validation?400:error.status||500; if(status>=500) console.error(error); response.status(status).json({ error:{ code:validation?"VALIDATION_ERROR":error.code||"REQUEST_FAILED",message:validation?"Please check the highlighted information.":status>=500?"The account service is temporarily unavailable.":error.message,...(status<500&&error.details?{details:error.details}:{}),...(status<500&&error.issues?{details:error.issues}:{}) } }); });
   return app;
 }
 
