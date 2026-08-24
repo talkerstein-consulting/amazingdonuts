@@ -3,19 +3,19 @@ export const GLYPH_PRODUCTS = new Set(['letter-number-donut-cake']);
 
 export type Artwork = { key: string; name: string; dataUrl: string; count: number; assetId?: string };
 export type Customization =
-  | { kind: 'print'; artworks: Artwork[] }
+  | { kind: 'print'; icingFlavor: '' | 'Chocolate' | 'Vanilla'; sprinkleColours: string; artworks: Artwork[] }
   | { kind: 'glyph'; glyph: string };
 
 export const customizationFor = (productId: string): Customization | undefined =>
   PRINT_PRODUCTS.has(productId)
-    ? { kind: 'print', artworks: [] }
+    ? { kind: 'print', icingFlavor: '', sprinkleColours: '', artworks: [] }
     : GLYPH_PRODUCTS.has(productId)
       ? { kind: 'glyph', glyph: '' }
       : undefined;
 
 export const customizationComplete = (productId: string, qty: number, customization?: Customization) => {
   if (PRINT_PRODUCTS.has(productId)) {
-    return customization?.kind === 'print' && customization.artworks.length > 0 && customization.artworks.every(art => art.count > 0) && customization.artworks.reduce((sum, art) => sum + art.count, 0) === qty * 12;
+    return customization?.kind === 'print' && !!customization.icingFlavor && customization.artworks.length > 0 && customization.artworks.every(art => art.count > 0) && customization.artworks.reduce((sum, art) => sum + art.count, 0) === qty * 12;
   }
   if (GLYPH_PRODUCTS.has(productId)) return customization?.kind === 'glyph' && /^[A-Z0-9]$/.test(customization.glyph);
   return true;

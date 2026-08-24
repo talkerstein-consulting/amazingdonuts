@@ -581,6 +581,8 @@
 .cart-custom { display:grid; gap:9px; padding:12px; border-top:1px solid rgba(14,62,105,.14); color:var(--navy); }
 .cart-custom label>span,.cart-art label span { display:block; margin-bottom:5px; font-size:10px; font-weight:800; text-transform:uppercase; }
 .cart-custom__head { display:flex; justify-content:space-between; align-items:center; font-size:12px; }
+.cart-print-options { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.cart-print-options select,.cart-print-options input { width:100%; min-height:38px; padding:6px; border:1px solid rgba(14,62,105,.25); background:white; color:var(--navy); font:inherit; }
 .cart-custom__head span { color:rgba(14,62,105,.68); }
 .cart-upload { min-height:64px; padding:10px; display:grid; grid-template-columns:28px 1fr 20px; align-items:center; gap:9px; border:1px dashed rgba(14,62,105,.4); background:var(--cream); cursor:pointer; }
 .cart-upload input { position:absolute; opacity:0; pointer-events:none; }
