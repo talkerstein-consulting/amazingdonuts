@@ -295,7 +295,7 @@ export default function ProductPanel({ product }: { product: Product }) {
             </button>
 
             <p className="cabinet__fineprint">
-              {requiresPrintLeadTime ? `${qty} dozen units · minimum purchase 4 · minimum one week's notice required` : `${pieces * qty} ${pieces * qty === 1 ? 'piece' : 'pieces'} · order by 4pm for next-day collection`}
+              {requiresPrintLeadTime ? `${qty} dozen units · one week's notice required` : `${pieces * qty} ${pieces * qty === 1 ? 'piece' : 'pieces'} · order by 4pm for next-day collection`}
             </p>
           </div>
 
