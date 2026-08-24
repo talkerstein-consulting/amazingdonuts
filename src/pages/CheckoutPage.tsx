@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Building2, CreditCard, LockKeyhole, ShoppingBag, Store, Truck } from 'lucide-react';
 import { ShopProvider, money, useShop } from '../lib/shop';
 import AuthModal from '../shop/AuthModal';
+import CommerceLogo from './CommerceLogo';
 import '../index.css';
 import '../components/brand/brand.css';
 import '../shop/shop.css';
@@ -54,7 +55,7 @@ function Checkout(){
   if(success)return <main className="commerce-shell"><section className="commerce-success"><ShoppingBag/><p>Order confirmed</p><h1>Your box is on the bakery's list.</h1><strong>Order #{success.id.slice(-8)}</strong><span>{money(success.total/100)} · {fulfillment}</span>{success.delivery&&<small>Delivery is awaiting assignment by the bakery.</small>}<a href="/account/">View my orders</a></section></main>;
   const payable=quote?.order?.total/100;
   return <main className="commerce-shell">
-    <header className="commerce-top"><a href="/shop/"><ArrowLeft/> Back to the shop</a><img src="/img/logo-amazing-donuts.svg" alt="Amazing Donuts"/><a href="/account/">My account</a></header>
+    <header className="commerce-top"><a href="/shop/"><ArrowLeft/> Back to the shop</a><CommerceLogo/><a href="/account/">My account</a></header>
     <div className="checkout-grid"><form className="checkout-form" onSubmit={place}>
       <div className="commerce-heading"><p>Secure checkout</p><h1>Finish your order</h1><span><LockKeyhole/> Sign-in is required. Guest checkout is not available.</span></div>
       {session?.user?<section className="signed-row"><div><strong>{session.user.firstName} {session.user.lastName}</strong><span>{session.user.email}</span></div><a href="/account/">Manage account</a></section>:<section className="signin-gate"><h2>Sign in to continue</h2><p>Your cart is saved while you sign in or create an account.</p><button type="button" onClick={()=>setAuthOpen(true)}>Sign in or create account</button></section>}
