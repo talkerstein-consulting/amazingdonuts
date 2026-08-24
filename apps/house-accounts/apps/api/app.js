@@ -148,7 +148,7 @@ export function createApp({ pool, square, config }) {
     const result=await pool.query(`SELECT s.*,a.organization_name,a.billing_contact,t.name AS tenant_name,t.brand FROM statements s JOIN accounts a ON a.id=s.account_id JOIN tenants t ON t.id=s.tenant_id LEFT JOIN account_users au ON au.account_id=a.id AND au.user_id=$2 WHERE s.id=$1 AND s.tenant_id=$3 AND ($4::boolean OR au.user_id IS NOT NULL)`,[request.params.id,user.id,user.tenant_id,["owner","staff"].includes(user.role)]);
     if (!result.rowCount) throw Object.assign(new Error("Statement not found."),{status:404});
     const row=result.rows[0], pdf=await statementPdf(row,{name:row.tenant_name,brand:row.brand},{organization_name:row.organization_name,billing_contact:row.billing_contact});
-    response.set({"Content-Type":"application/pdf","Content-Disposition":`inline; filename="${row.statement_number}.pdf"`,"Cache-Control":"private, no-store"}).send(pdf);
+    response.set({"Content-Type":"application/pdf","Content-Disposition":`attachment; filename="${row.statement_number}.pdf"`,"Cache-Control":"private, no-store"}).send(pdf);
   } catch(error){ next(error); }});
 
   app.post("/api/orders/house-account", async (request,response,next)=>{ try {

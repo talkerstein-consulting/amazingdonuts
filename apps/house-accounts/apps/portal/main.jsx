@@ -9,6 +9,20 @@ const day=(value)=>value?new Date(value).toLocaleDateString("en-CA",{month:"shor
 const demoAccount={id:"demo",organization_name:"Eitz Chaim Schools",account_code_hint:"AD-1048",billing_email:"billing@eitzchaim.com",billing_contact:"Raviv Talkar",status:"active",currency:"CAD",payment_terms_days:30,credit:{creditLimit:250000,postedBalance:122490,balance:122490,reserved:18500,available:109010},orders:[],ledger:[],statements:[],payments:[],purchasers:[]};
 const navItems=[{id:"overview",label:"Overview",Icon:LayoutDashboard},{id:"requests",label:"Requests",Icon:ClipboardList},{id:"accounts",label:"Accounts",Icon:Building2},{id:"statements",label:"Statements",Icon:ReceiptText},{id:"orders",label:"Orders",Icon:Package},{id:"purchasers",label:"Purchasers",Icon:Users}];
 async function request(path,options){const response=await fetch(`/api/house${path}`,{headers:{"Content-Type":"application/json",...(options?.headers||{})},...options});const body=response.status===204?null:await response.json();if(!response.ok)throw new Error(body?.error?.message||"Request failed.");return body;}
+async function downloadStatement(statement){
+  const response=await fetch(`/api/house/statements/${statement.id}.pdf`);
+  if(!response.ok){
+    const body=await response.json().catch(()=>null);
+    throw new Error(body?.error?.message||"The statement PDF could not be downloaded.");
+  }
+  const url=URL.createObjectURL(await response.blob()),link=document.createElement("a");
+  link.href=url;
+  link.download=`${statement.statement_number||"account-statement"}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
 
 function App(){
   const demo=new URLSearchParams(location.search).has("demo"),[user,setUser]=useState(demo?{firstName:"Raviv",lastName:"Talkar",role:"owner",tenantName:"Amazing Donuts"}:undefined);
@@ -51,5 +65,23 @@ function Activity({entries=[]}){return <div className="table"><div className="ta
 function OrderTable({orders=[]}){return <div className="table"><div className="table-head"><span>Date</span><span>Order</span><span>Channel</span><span>Total</span></div>{orders.length?orders.map(x=><div className="table-row" key={x.id}><span>{day(x.ordered_at)}</span><strong>{x.organization_name||`#${x.receipt_number||String(x.square_order_id||x.id).slice(-8)}`}</strong><em>{x.source}</em><b>{cash(x.total,x.currency)}</b></div>):<div className="empty-row">No house-account orders yet.</div>}</div>}
 function StatementTable({statements=[]}){return <div className="table"><div className="table-head"><span>Period</span><span>Statement</span><span>Status</span><span>Amount</span></div>{statements.length?statements.map(x=><a className="table-row" key={x.id} href={`/api/house/statements/${x.id}.pdf`} target="_blank" rel="noreferrer"><span>{day(x.period_end)}</span><strong><FileText/> {x.organization_name||x.statement_number}</strong><em>{x.status}</em><b>{cash(x.closing_balance,x.currency)} <Download/></b></a>):<div className="empty-row">No statements issued yet.</div>}</div>}
 function PurchaserTable({purchasers=[]}){return <div className="table"><div className="table-head"><span>Organization</span><span>Purchaser</span><span>Role</span><span>Limit</span></div>{purchasers.length?purchasers.map(x=><div className="table-row" key={`${x.organization_name}-${x.id}`}><span>{x.organization_name}</span><strong>{x.first_name} {x.last_name}</strong><em>{x.role.replaceAll("_"," ")}</em><b>{x.purchase_limit==null?"No limit":cash(x.purchase_limit)}</b></div>):<div className="empty-row">No purchasers have been added yet.</div>}</div>}
-function Statements({account,staff,demo}){return <div className="statements"><StatementTable statements={account.statements}/>{staff?<form className="issue" onSubmit={async e=>{e.preventDefault();if(demo)return;const d=new FormData(e.currentTarget);await request(`/admin/accounts/${account.id}/statements`,{method:"POST",body:JSON.stringify({periodStart:d.get("from"),periodEnd:d.get("through")})});location.reload();}}><div><ReceiptText/><span><strong>Close a billing period</strong><small>Create an immutable statement snapshot and customer PDF.</small></span></div><label><span>From</span><input type="date" name="from" required/></label><label><span>Through</span><input type="date" name="through" required/></label><button>Issue statement</button></form>:null}</div>}
+function Statements({account,staff,demo}){
+  const [busy,setBusy]=useState(false),[error,setError]=useState("");
+  const issue=async event=>{
+    event.preventDefault();
+    if(demo)return;
+    const data=new FormData(event.currentTarget);
+    setBusy(true);
+    setError("");
+    try{
+      const {statement}=await request(`/admin/accounts/${account.id}/statements`,{method:"POST",body:JSON.stringify({periodStart:data.get("from"),periodEnd:data.get("through")})});
+      await downloadStatement(statement);
+      location.reload();
+    }catch(cause){
+      setError(cause.message);
+      setBusy(false);
+    }
+  };
+  return <div className="statements"><StatementTable statements={account.statements}/>{staff?<form className="issue" onSubmit={issue}><div><ReceiptText/><span><strong>Close a billing period</strong><small>Create an immutable statement snapshot and customer PDF.</small></span></div><label><span>From</span><input type="date" name="from" required disabled={busy}/></label><label><span>Through</span><input type="date" name="through" required disabled={busy}/></label>{error?<p className="error review-error">{error}</p>:null}<button disabled={busy}>{busy?"Creating PDF...":"Issue statement"}</button></form>:null}</div>
+}
 createRoot(document.getElementById("root")).render(<App/>);
