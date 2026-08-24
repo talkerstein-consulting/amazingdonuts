@@ -93,7 +93,8 @@ export default function Features() {
           borderRadius: 44,
           display: 'flex',
           flexDirection: 'column',
-          padding: 'clamp(26px,3vw,44px)',
+          /* Padding lives on `.bulk-card` — the petite row negates it to run
+             full-bleed, and it can only do that if there is one source. */
           /* Harbour blue rather than the bulk card's amber: this is a different
              proposition and reads as one. */
           background: 'var(--blue)'

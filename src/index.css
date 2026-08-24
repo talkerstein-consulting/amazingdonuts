@@ -363,6 +363,10 @@ nav a,
 /* Bulk card. The card never clips, so the petite badge can overhang its
    lower edge. */
 .bulk-card {
+  /* Declared here rather than inline so the petite row can pull itself back
+     out by exactly this much. Two copies of the number would drift. */
+  --bulk-pad: clamp(26px, 3vw, 44px);
+  padding: var(--bulk-pad);
   overflow: visible;
   min-height: clamp(520px, 132vw, 680px);
 }
@@ -999,7 +1003,14 @@ html.lenis,
   align-items: center;
   /* Centred, so the crop falls evenly on both ends. */
   justify-content: center;
-  margin: clamp(14px, 2.2vw, 22px) 0 clamp(16px, 2.2vw, 24px);
+  margin-top: clamp(14px, 2.2vw, 22px);
+  margin-bottom: clamp(16px, 2.2vw, 24px);
+  /* Full-bleed: the lineup is the card's photograph, so it runs to the frame
+     rather than sitting in the text's measure. Pulled out by the card's own
+     padding, which the row then re-crops against the card's true edges. The
+     card is `overflow: visible` for the badge, so the clipping is this row's
+     own — the badge still overhangs. */
+  margin-inline: calc(-1 * var(--bulk-pad));
   pointer-events: none;
 }
 
