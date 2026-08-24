@@ -1,5 +1,6 @@
 import express from "express";
 import helmet from "helmet";
+import nodemailer from "nodemailer";
 import { z } from "zod";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createSession, hashPassword, loadSession, logout, requireStaff, requireUser, verifyPassword } from "./auth.js";
@@ -161,8 +162,9 @@ export function createApp({ pool, square, config }) {
       ON CONFLICT(statement_id,notification_type) DO NOTHING`);
     const pending=await pool.query(`SELECT n.*,s.statement_number,s.closing_balance,s.currency,s.due_at,a.organization_name FROM statement_notifications n JOIN statements s ON s.id=n.statement_id JOIN accounts a ON a.id=s.account_id WHERE n.status='pending' ORDER BY n.created_at LIMIT 50`);
     let sent=0;
-    if(config.resendApiKey)for(const item of pending.rows){try{const subject=item.notification_type==='overdue'?`Overdue account statement ${item.statement_number}`:item.notification_type==='due_soon'?`Statement ${item.statement_number} is due soon`:`Amazing Donuts statement ${item.statement_number}`;const response=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${config.resendApiKey}`,"Content-Type":"application/json"},body:JSON.stringify({from:config.emailFrom,to:[item.recipient],subject,html:statementEmail(item,config.siteUrl)})});if(!response.ok)throw new Error((await response.json().catch(()=>null))?.message||"Email provider rejected the message.");await pool.query("UPDATE statement_notifications SET status='sent',sent_at=now(),attempts=attempts+1,error=NULL WHERE id=$1",[item.id]);sent++;}catch(error){await pool.query("UPDATE statement_notifications SET status=CASE WHEN attempts>=4 THEN 'failed' ELSE 'pending' END,attempts=attempts+1,error=$2 WHERE id=$1",[item.id,error.message]);}}
-    response.json({ok:true,issued,queued:pending.rowCount,sent,emailConfigured:Boolean(config.resendApiKey)});
+    const emailConfigured=Boolean(config.smtpHost&&config.smtpUser&&config.smtpPassword);
+    if(emailConfigured){const transport=smtpTransport(config);for(const item of pending.rows){try{const subject=item.notification_type==='overdue'?`Overdue account statement ${item.statement_number}`:item.notification_type==='due_soon'?`Statement ${item.statement_number} is due soon`:`Amazing Donuts statement ${item.statement_number}`;await transport.sendMail({from:config.emailFrom,to:item.recipient,replyTo:config.emailReplyTo,subject,html:statementEmail(item,config.siteUrl)});await pool.query("UPDATE statement_notifications SET status='sent',sent_at=now(),attempts=attempts+1,error=NULL WHERE id=$1",[item.id]);sent++;}catch(error){await pool.query("UPDATE statement_notifications SET status=CASE WHEN attempts>=4 THEN 'failed' ELSE 'pending' END,attempts=attempts+1,error=$2 WHERE id=$1",[item.id,error.message]);}}}
+    response.json({ok:true,issued,queued:pending.rowCount,sent,emailConfigured});
   }catch(error){next(error);}});
 
   app.get("/api/admin/accounts", async (request,response,next)=>{ try {
@@ -170,6 +172,14 @@ export function createApp({ pool, square, config }) {
     const accounts=await pool.query("SELECT * FROM accounts WHERE tenant_id=$1 ORDER BY created_at DESC",[user.tenant_id]);
     response.json({ accounts:await Promise.all(accounts.rows.map((account)=>hydrateAccount(pool,account))) });
   } catch(error){ next(error); }});
+  app.post("/api/admin/email-test",async(request,response,next)=>{try{
+    const user=requireStaff(request);
+    if(!(config.smtpHost&&config.smtpUser&&config.smtpPassword))throw Object.assign(new Error("SMTP is not configured."),{status:409});
+    const transport=smtpTransport(config);
+    await transport.verify();
+    const info=await transport.sendMail({from:config.emailFrom,to:user.email,replyTo:config.emailReplyTo,subject:"Amazing Donuts email connection test",text:"Hostinger SMTP is connected successfully to the Amazing Donuts account service."});
+    response.json({ok:true,accepted:info.accepted.length});
+  }catch(error){next(error);}});
   app.get("/api/admin/custom-orders",async(request,response,next)=>{try{const user=requireStaff(request),result=await pool.query(`SELECT so.id,so.square_order_id,so.payment_method AS source,so.status,so.total,so.currency,so.ordered_at,so.customizations,u.email,COALESCE(json_agg(json_build_object('id',a.id,'fileName',a.file_name,'mimeType',a.mime_type)) FILTER (WHERE a.id IS NOT NULL),'[]') AS assets FROM storefront_orders so JOIN users u ON u.id=so.user_id LEFT JOIN custom_order_assets a ON a.storefront_order_id=so.id WHERE so.tenant_id=$1 AND so.customizations<>'[]'::jsonb GROUP BY so.id,u.email ORDER BY so.ordered_at DESC LIMIT 100`,[user.tenant_id]);response.json({orders:result.rows});}catch(error){next(error);}});
   app.patch("/api/admin/accounts/:id", async (request,response,next)=>{ try {
     const user=requireStaff(request), input=accountUpdate.parse(request.body);
@@ -263,6 +273,7 @@ async function issueStatement(pool,user,accountId,input) {
 
 async function audit(pool,user,request,action,targetType,targetId,before,after){ await pool.query(`INSERT INTO audit_log(tenant_id,actor_user_id,action,target_type,target_id,before_state,after_state,ip_address,user_agent) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[user.tenant_id,user.id,action,targetType,targetId,before?JSON.stringify(before):null,after?JSON.stringify(after):null,request.ip,request.get("user-agent")]); }
 function requireCron(request,config){const expected=config.cronSecret;if(!expected||request.get("authorization")!==`Bearer ${expected}`)throw Object.assign(new Error("Cron authorization required."),{status:401,code:"UNAUTHORIZED"});}
+function smtpTransport(config){return nodemailer.createTransport({host:config.smtpHost,port:config.smtpPort,secure:config.smtpSecure,auth:{user:config.smtpUser,pass:config.smtpPassword}});}
 function statementEmail(statement,siteUrl){const amount=new Intl.NumberFormat("en-CA",{style:"currency",currency:statement.currency}).format(Number(statement.closing_balance)/100),label=statement.notification_type==='overdue'?"is overdue":statement.notification_type==='due_soon'?"is due soon":"is ready";return `<div style="font-family:Arial,sans-serif;color:#17394a;max-width:560px"><h1 style="font-size:24px">Your Amazing Donuts statement ${label}</h1><p>${statement.organization_name}</p><p><strong>${amount}</strong> is due ${String(statement.due_at).slice(0,10)}.</p><p>HST is already included in the underlying purchases.</p><p><a href="${siteUrl}/account/" style="display:inline-block;background:#d5008f;color:white;padding:12px 18px;text-decoration:none">View statement and pay</a></p></div>`;}
 
 const normalizeName=value=>String(value||"").toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]+/g," ").trim();
