@@ -1,0 +1,45 @@
+.delivery-policy {
+  padding: 14px;
+  background: #fff5cc;
+}
+
+.address-fields .delivery-instructions,
+.address-fields .no-contact {
+  grid-column: 1 / -1;
+}
+
+.checkout-form textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(14, 62, 105, .24);
+  background: #fbf7ef;
+  color: #0e3e69;
+  font: inherit;
+  resize: vertical;
+}
+
+.address-fields .no-contact {
+  display: flex;
+  grid-template-columns: 20px 1fr;
+  align-items: center;
+}
+
+.no-contact input {
+  width: 18px;
+  min-height: 18px;
+  margin: 0;
+}
+
+.summary-breakdown {
+  padding-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.summary-breakdown b { text-align: right; }
+
+@media (max-width: 820px) {
+  .address-fields .delivery-instructions,
+  .address-fields .no-contact { grid-column: auto; }
+}

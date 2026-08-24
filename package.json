@@ -11,6 +11,7 @@
     "accounts:migrate": "node apps/house-accounts/database/migrate.js",
     "accounts:seed": "node apps/house-accounts/database/seed.js",
     "accounts:import-owner": "node apps/house-accounts/database/import-owner.js",
+    "test": "node --test apps/house-accounts/test/*.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
