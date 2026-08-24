@@ -85,6 +85,31 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 CREATE INDEX IF NOT EXISTS accounts_tenant_status_idx ON accounts(tenant_id,status);
 
+CREATE TABLE IF NOT EXISTS applications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  organization_name TEXT NOT NULL,
+  organization_type TEXT NOT NULL,
+  contact_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT,
+  head_count TEXT,
+  needed_for DATE,
+  fulfillment TEXT,
+  products JSONB NOT NULL DEFAULT '[]',
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+  review_notes TEXT,
+  reviewed_at TIMESTAMPTZ,
+  reviewed_by UUID REFERENCES users(id),
+  account_id UUID REFERENCES accounts(id),
+  source TEXT NOT NULL DEFAULT 'bulk-orders',
+  metadata JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS applications_tenant_status_idx ON applications(tenant_id,status,created_at DESC);
+
 CREATE TABLE IF NOT EXISTS account_users (
   account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

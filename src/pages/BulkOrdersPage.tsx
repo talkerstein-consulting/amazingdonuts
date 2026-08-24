@@ -237,10 +237,13 @@ function IntakeForm() {
   const [products, setProducts] = useState<string[]>([]);
   const [fulfilment, setFulfilment] = useState<string>('');
   const [date, setDate] = useState('');
+  const [organization, setOrganization] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
+  const [submitState, setSubmitState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [submitMessage, setSubmitMessage] = useState('');
 
   /* The qualifier that actually matters: a date inside the lead time is not a
      rejection, it is a "phone us instead", and saying so on the form beats
@@ -269,32 +272,31 @@ function IntakeForm() {
   const toggleProduct = (p: string) =>
     setProducts((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
 
-  const send = (e: React.FormEvent) => {
+  const send = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const body = [
-      'BULK ORDER ENQUIRY',
-      '',
-      'Type: ' + (orderType || '—'),
-      'Head count: ' + (headCount || '—'),
-      'Needed for: ' + (date || '—'),
-      'Fulfilment: ' + (fulfilment || '—'),
-      'Products: ' + (products.length ? products.join(', ') : '—'),
-      '',
-      'Name: ' + name,
-      'Email: ' + email,
-      'Phone: ' + (phone || '—'),
-      '',
-      'Notes:',
-      notes || '—'
-    ].join('\n');
-
-    window.location.href =
-      'mailto:' +
-      SHOP_ADDRESS.email +
-      '?subject=' +
-      encodeURIComponent('Bulk order — ' + (orderType || 'enquiry') + (date ? ' for ' + date : '')) +
-      '&body=' +
-      encodeURIComponent(body);
+    setSubmitState('sending');
+    setSubmitMessage('');
+    try {
+      const response = await fetch('/api/house/public/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantSlug: 'amazing-donuts', organizationName: organization, organizationType: orderType,
+          contactName: name, email, phone, headCount, neededFor: date, fulfillment: fulfilment,
+          products, notes, website: ''
+        })
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error?.message || 'We could not send your request.');
+      setSubmitState('sent');
+      setSubmitMessage('Request received. Our team will review it and contact you with the next step.');
+      e.currentTarget.reset();
+      setOrderType(''); setHeadCount(''); setProducts([]); setFulfilment(''); setDate('');
+      setOrganization(''); setName(''); setEmail(''); setPhone(''); setNotes('');
+    } catch (error) {
+      setSubmitState('error');
+      setSubmitMessage(error instanceof Error ? error.message : 'We could not send your request.');
+    }
   };
 
   return (
@@ -400,6 +402,10 @@ function IntakeForm() {
 
       <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
         <label>
+          <FieldLabel label="Organization or event" Icon={Building2} />
+          <input required value={organization} onChange={(e) => setOrganization(e.target.value)} style={field} autoComplete="organization" />
+        </label>
+        <label>
           <FieldLabel label="Your name" Icon={UserRound} />
           <input required value={name} onChange={(e) => setName(e.target.value)} style={field} autoComplete="name" />
         </label>
@@ -438,9 +444,9 @@ function IntakeForm() {
       </label>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <BrandButton type="submit">Send the enquiry</BrandButton>
-        <span style={{ fontFamily: F.text, fontSize: 13.5, color: 'rgba(14,62,105,.6)' }}>
-          Opens your mail app, addressed to {SHOP_ADDRESS.email}.
+        <BrandButton type="submit" disabled={submitState === 'sending'}>{submitState === 'sending' ? 'Sending...' : 'Send the enquiry'}</BrandButton>
+        <span role="status" style={{ fontFamily: F.text, fontSize: 13.5, color: submitState === 'error' ? '#9d2424' : 'rgba(14,62,105,.7)' }}>
+          {submitMessage || 'Your request goes directly to the bakery team for review.'}
         </span>
       </div>
     </form>

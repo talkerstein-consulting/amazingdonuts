@@ -1,8 +1,8 @@
 import express from "express";
 import helmet from "helmet";
 import { z } from "zod";
-import { randomUUID } from "node:crypto";
-import { createSession, loadSession, logout, requireStaff, requireUser, verifyPassword } from "./auth.js";
+import { randomBytes, randomUUID } from "node:crypto";
+import { createSession, hashPassword, loadSession, logout, requireStaff, requireUser, verifyPassword } from "./auth.js";
 import { accountCredit, postSale, reserveCredit } from "./ledger.js";
 import { statementPdf } from "./statements.js";
 import { transaction } from "./db.js";
@@ -11,6 +11,8 @@ const loginSchema = z.object({ email:z.string().email(), password:z.string().min
 const statementSchema = z.object({ periodStart:z.iso.date(), periodEnd:z.iso.date() });
 const accountUpdate = z.object({ status:z.enum(["pending","active","suspended","closed"]), creditLimit:z.number().int().min(0), paymentTermsDays:z.number().int().min(0).max(120) });
 const houseOrderSchema = z.object({ accountId:z.uuid(), idempotencyKey:z.string().min(8).max(80), locationId:z.string(), fulfillment:z.record(z.string(),z.unknown()), lineItems:z.array(z.object({ catalog_object_id:z.string(), quantity:z.string(), modifiers:z.array(z.object({ catalog_object_id:z.string() })).optional() })).min(1) });
+const applicationSchema=z.object({tenantSlug:z.string().min(2).default("amazing-donuts"),organizationName:z.string().trim().min(2).max(160),organizationType:z.string().trim().min(2).max(80),contactName:z.string().trim().min(2).max(120),email:z.string().email(),phone:z.string().trim().max(40).optional().default(""),headCount:z.string().trim().max(40).optional().default(""),neededFor:z.iso.date(),fulfillment:z.string().trim().min(2).max(40),products:z.array(z.string().trim().min(1).max(80)).min(1).max(20),notes:z.string().trim().max(3000).optional().default(""),website:z.string().max(0).optional().default("")});
+const applicationReviewSchema=z.object({status:z.enum(["approved","rejected"]),reviewNotes:z.string().trim().max(2000).optional().default(""),creditLimit:z.number().int().min(0).max(100000000).default(0),paymentTermsDays:z.number().int().min(0).max(120).default(30)});
 
 export function createApp({ pool, square, config }) {
   const app = express();
@@ -28,6 +30,15 @@ export function createApp({ pool, square, config }) {
   } catch(error){ next(error); }});
   app.get("/api/auth/session", (request,response)=>response.json({ user:request.user ? publicUser(request.user) : null }));
   app.post("/api/auth/logout", async (request,response,next)=>{ try { await logout(pool,request,response,config.secureCookies); response.status(204).end(); } catch(error){ next(error); } });
+
+  app.post("/api/public/applications", async (request,response,next)=>{ try {
+    const input=applicationSchema.parse(request.body),tenant=await pool.query("SELECT id FROM tenants WHERE slug=$1 AND status='active'",[input.tenantSlug]);
+    if(!tenant.rowCount) throw Object.assign(new Error("This ordering program is unavailable."),{status:404});
+    const recent=await pool.query("SELECT id FROM applications WHERE tenant_id=$1 AND lower(email)=lower($2) AND created_at>now()-interval '2 minutes'",[tenant.rows[0].id,input.email]);
+    if(recent.rowCount) throw Object.assign(new Error("We already received this request. The team will review it shortly."),{status:409,code:"DUPLICATE_APPLICATION"});
+    const result=await pool.query(`INSERT INTO applications(tenant_id,organization_name,organization_type,contact_name,email,phone,head_count,needed_for,fulfillment,products,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id,status,created_at`,[tenant.rows[0].id,input.organizationName,input.organizationType,input.contactName,input.email.toLowerCase(),input.phone||null,input.headCount||null,input.neededFor,input.fulfillment,JSON.stringify(input.products),input.notes||null]);
+    response.status(201).json({application:result.rows[0]});
+  } catch(error){next(error);}});
 
   app.get("/api/portal/account", async (request,response,next)=>{ try {
     const user=requireUser(request);
@@ -48,6 +59,31 @@ export function createApp({ pool, square, config }) {
     const result=await pool.query(`UPDATE accounts SET status=$3,credit_limit=$4,payment_terms_days=$5,approved_at=CASE WHEN $3='active' AND approved_at IS NULL THEN now() ELSE approved_at END,updated_at=now() WHERE id=$1 AND tenant_id=$2 RETURNING *`,[request.params.id,user.tenant_id,input.status,input.creditLimit,input.paymentTermsDays]);
     await audit(pool,user,request,"account.updated","account",request.params.id,before.rows[0],result.rows[0]); response.json({ account:result.rows[0] });
   } catch(error){ next(error); }});
+
+  app.get("/api/admin/applications",async(request,response,next)=>{try{
+    const user=requireStaff(request),status=request.query.status;
+    if(status&&!['pending','approved','rejected'].includes(status)) throw Object.assign(new Error("Invalid application status."),{status:400});
+    const result=await pool.query(`SELECT * FROM applications WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,created_at DESC`,[user.tenant_id,status||null]);
+    response.json({applications:result.rows});
+  }catch(error){next(error);}});
+  app.patch("/api/admin/applications/:id",async(request,response,next)=>{try{
+    const user=requireStaff(request),input=applicationReviewSchema.parse(request.body);
+    const existing=await pool.query("SELECT * FROM applications WHERE id=$1 AND tenant_id=$2",[request.params.id,user.tenant_id]);
+    if(!existing.rowCount) throw Object.assign(new Error("Request not found."),{status:404});
+    if(existing.rows[0].status!=="pending") throw Object.assign(new Error("This request has already been reviewed."),{status:409});
+    let account=null,accountCode=null,squareCustomerId=null;
+    if(input.status==="approved"){
+      const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
+      const customer=await tenantSquare.createCustomer({idempotency_key:`house-application-${existing.rows[0].id}`,given_name:existing.rows[0].contact_name,family_name:existing.rows[0].organization_name,email_address:existing.rows[0].email,phone_number:existing.rows[0].phone||undefined,company_name:existing.rows[0].organization_name,reference_id:existing.rows[0].id});
+      squareCustomerId=customer.customer.id;
+      accountCode=`AD-${randomBytes(3).toString("hex").toUpperCase()}`;
+      const codeHash=await hashPassword(accountCode);
+      account=(await pool.query(`INSERT INTO accounts(tenant_id,organization_name,account_code_hash,account_code_hint,square_customer_id,billing_email,billing_contact,credit_limit,payment_terms_days,status,approved_at,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',now(),$10) RETURNING *`,[user.tenant_id,existing.rows[0].organization_name,codeHash,accountCode,squareCustomerId,existing.rows[0].email,existing.rows[0].contact_name,input.creditLimit,input.paymentTermsDays,JSON.stringify({applicationId:existing.rows[0].id,organizationType:existing.rows[0].organization_type})])).rows[0];
+    }
+    const updated=(await pool.query(`UPDATE applications SET status=$3,review_notes=$4,reviewed_at=now(),reviewed_by=$5,account_id=$6,updated_at=now() WHERE id=$1 AND tenant_id=$2 RETURNING *`,[request.params.id,user.tenant_id,input.status,input.reviewNotes||null,user.id,account?.id||null])).rows[0];
+    await audit(pool,user,request,`application.${input.status}`,"application",updated.id,existing.rows[0],updated);
+    response.json({application:updated,account,accountCode});
+  }catch(error){next(error);}});
 
   app.post("/api/admin/accounts/:id/statements", async (request,response,next)=>{ try {
     const user=requireStaff(request), input=statementSchema.parse(request.body);
@@ -88,8 +124,8 @@ export function createApp({ pool, square, config }) {
 const publicUser=(row)=>({id:row.id,email:row.email,firstName:row.first_name,lastName:row.last_name,role:row.role,tenantId:row.tenant_id,tenantSlug:row.tenant_slug||row.slug,tenantName:row.tenant_name});
 
 async function hydrateAccount(pool,account) {
-  const [credit,orders,ledger,statements,payments]=await Promise.all([accountCredit(pool,account.id),pool.query("SELECT * FROM orders WHERE account_id=$1 ORDER BY ordered_at DESC LIMIT 50",[account.id]),pool.query(`SELECT jt.id,jt.transaction_type,jt.description,jt.effective_at,jp.amount,jp.currency FROM journal_transactions jt JOIN journal_postings jp ON jp.transaction_id=jt.id WHERE jt.account_id=$1 AND jp.ledger_account='accounts_receivable' ORDER BY jt.effective_at DESC LIMIT 100`,[account.id]),pool.query("SELECT id,statement_number,period_start,period_end,due_at,closing_balance,currency,status FROM statements WHERE account_id=$1 ORDER BY period_end DESC LIMIT 30",[account.id]),pool.query("SELECT * FROM payment_allocations WHERE account_id=$1 ORDER BY created_at DESC LIMIT 30",[account.id])]);
-  return {...account,credit,orders:orders.rows,ledger:ledger.rows,statements:statements.rows,payments:payments.rows};
+  const [credit,orders,ledger,statements,payments,purchasers]=await Promise.all([accountCredit(pool,account.id),pool.query("SELECT * FROM orders WHERE account_id=$1 ORDER BY ordered_at DESC LIMIT 50",[account.id]),pool.query(`SELECT jt.id,jt.transaction_type,jt.description,jt.effective_at,jp.amount,jp.currency FROM journal_transactions jt JOIN journal_postings jp ON jp.transaction_id=jt.id WHERE jt.account_id=$1 AND jp.ledger_account='accounts_receivable' ORDER BY jt.effective_at DESC LIMIT 100`,[account.id]),pool.query("SELECT id,statement_number,period_start,period_end,due_at,closing_balance,currency,status FROM statements WHERE account_id=$1 ORDER BY period_end DESC LIMIT 30",[account.id]),pool.query("SELECT * FROM payment_allocations WHERE account_id=$1 ORDER BY created_at DESC LIMIT 30",[account.id]),pool.query(`SELECT u.id,u.first_name,u.last_name,u.email,u.phone,au.role,au.purchase_limit,au.status FROM account_users au JOIN users u ON u.id=au.user_id WHERE au.account_id=$1 ORDER BY u.last_name,u.first_name`,[account.id])]);
+  return {...account,credit,orders:orders.rows,ledger:ledger.rows,statements:statements.rows,payments:payments.rows,purchasers:purchasers.rows};
 }
 
 async function issueStatement(pool,user,accountId,input) {
