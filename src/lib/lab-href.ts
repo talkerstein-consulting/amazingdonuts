@@ -7,3 +7,11 @@
  * handler. Kept as a constant because five components point at it.
  */
 export const LAB_HREF = '/donut-lab/';
+
+export const PRINTED_DOZEN_LAB_HREF = `${LAB_HREF}?order=printed-dozen`;
+
+export function isPrintedDozenLab(
+  search = typeof window === 'undefined' ? '' : window.location.search
+) {
+  return new URLSearchParams(search).get('order') === 'printed-dozen';
+}

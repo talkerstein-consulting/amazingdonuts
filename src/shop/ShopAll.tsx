@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Plus, Donut, Dessert, Cake, Cookie, Wheat, LayoutGrid, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { CATEGORIES, PRODUCTS, type Category, type Product } from '../data/products';
-import { LAB_HREF } from '../lib/lab-href';
+import { LAB_HREF, PRINTED_DOZEN_LAB_HREF } from '../lib/lab-href';
 import { useGridColumns } from '../hooks/useGridColumns';
 import { readShopParams } from '../lib/shop-href';
 import { C, F, SQUIRCLE, BadgeRow } from '../components/brand';
@@ -175,6 +175,14 @@ const COLLECTION_COPY: Record<'all' | Category, { title: string; seo: string }> 
 
 export default function ShopAll() {
   const { openProduct, add } = useShop();
+  const openCatalogProduct = (product: Product) => {
+    if (product.id === 'twelve-custom-printed-donuts') window.location.assign(PRINTED_DOZEN_LAB_HREF);
+    else openProduct(product.id);
+  };
+  const addCatalogProduct = (product: Product) => {
+    if (product.id === 'twelve-custom-printed-donuts') window.location.assign(PRINTED_DOZEN_LAB_HREF);
+    else add(product);
+  };
   /* Opened from a homepage lane or the footer menu, the URL says which counter
      to show. Read in the lazy initialiser, not an effect: an effect would paint
      the unfiltered grid first and then visibly filter it. */
@@ -452,7 +460,7 @@ export default function ShopAll() {
               <div style={{ position: 'relative' }}>
                 <button
                   type="button"
-                  onClick={() => openProduct(tile.product.id)}
+                  onClick={() => openCatalogProduct(tile.product)}
                   aria-label={`View ${tile.product.name}`}
                   style={{
                     display: 'block',
@@ -477,8 +485,8 @@ export default function ShopAll() {
                 <button
                   type="button"
                   className="brand-press"
-                  onClick={() => add(tile.product)}
-                  aria-label={`Add ${tile.product.name} to box`}
+                  onClick={() => addCatalogProduct(tile.product)}
+                  aria-label={tile.product.id === 'twelve-custom-printed-donuts' ? 'Customize Twelve Custom Printed Donuts' : `Add ${tile.product.name} to box`}
                   style={{
                     position: 'absolute',
                     top: -6,
@@ -502,7 +510,7 @@ export default function ShopAll() {
 
               <button
                 type="button"
-                onClick={() => openProduct(tile.product.id)}
+                onClick={() => openCatalogProduct(tile.product)}
                 style={{ border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer' }}
               >
                 <h4

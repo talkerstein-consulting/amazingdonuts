@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
 import { ArrowLeft, ChevronRight, Dices, RefreshCw, Upload } from 'lucide-react';
+import { PRODUCTS } from '../data/products';
+import { isPrintedDozenLab } from '../lib/lab-href';
+import { useShop } from '../lib/shop';
 import SprinkleLayer from './SprinkleLayer';
 import {
   BASES, ICINGS, FILLINGS, SPRINKLES, RULES,
@@ -147,6 +150,7 @@ const SQUIRCLE: CSSProperties = { clipPath: 'url(#squircle-clip)' };
  */
 const LABEL_H = 32;
 const PANEL_H = 150;
+const PRINTED_DOZEN = PRODUCTS.find((product) => product.id === 'twelve-custom-printed-donuts');
 
 /**
  * Forward: the old panel leaves to the left, the new one arrives from the
@@ -307,6 +311,8 @@ type Tile = {
 
 export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: boolean }) {
   const [s, dispatch] = useReducer(reducer, undefined, hydrate);
+  const { add } = useShop();
+  const printOrder = isPrintedDozenLab();
   const railRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   /* 0–1 while the file is being read, null when idle. Transient UI, so it is
@@ -317,6 +323,14 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
   const stageBoxRef = useRef<HTMLDivElement | null>(null);
   const [rigBox, setRigBox] = useState<{ l: number; t: number; w: number; h: number } | null>(null);
   const shouldReduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (!printOrder) return;
+    dispatch({
+      type: 'surprise',
+      next: { baseId: 'round', icingId: 'pink', fillingId: 'none', sprinkleId: 'rainbow', i: 3 }
+    });
+  }, [printOrder]);
 
   const base = byId(BASES, s.baseId);
   const icing = byId(ICINGS, s.icingId);
@@ -419,7 +433,11 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
       dispatch({ type: 'reset' });
       return;
     }
-    if (last) dispatch({ type: 'add' });
+    if (last && printOrder && !s.print) fileRef.current?.click();
+    else if (last) {
+      if (printOrder && PRINTED_DOZEN) add(PRINTED_DOZEN);
+      dispatch({ type: 'add' });
+    }
     else dispatch({ type: 'goto', i: i + 1 });
   };
 
@@ -541,7 +559,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
   const nextLabel = s.added
     ? 'Build another'
     : last
-      ? 'Add to the box'
+      ? printOrder && !s.print ? 'Upload artwork' : 'Add to the box'
       : `Next · ${STEP_LABEL[steps[i + 1]]}`;
 
   /* --- Render ------------------------------------------------------------- */

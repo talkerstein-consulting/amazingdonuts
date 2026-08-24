@@ -14,6 +14,7 @@ import {
 import { PRODUCTS, type Product } from '../data/products';
 import { C, F, BadgeRow } from '../components/brand';
 import { useShop, money, priceOf } from '../lib/shop';
+import { PRINTED_DOZEN_LAB_HREF } from '../lib/lab-href';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -277,6 +278,10 @@ export default function ProductPanel({ product }: { product: Product }) {
               type="button"
               className={`cabinet__add brand-press${added ? ' is-added' : ''}`}
               onClick={() => {
+                if (product.id === 'twelve-custom-printed-donuts') {
+                  window.location.assign(PRINTED_DOZEN_LAB_HREF);
+                  return;
+                }
                 add(product, pieces * qty);
                 setAdded(true);
               }}
