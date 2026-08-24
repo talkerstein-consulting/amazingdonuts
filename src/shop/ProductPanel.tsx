@@ -14,6 +14,7 @@ import {
 import { PRODUCTS, type Product } from '../data/products';
 import { C, F, BadgeRow } from '../components/brand';
 import { useShop, money, priceOf } from '../lib/shop';
+import { minimumQuantityFor, PRINT_PRODUCTS } from '../lib/custom-order';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -57,13 +58,15 @@ export default function ProductPanel({ product }: { product: Product }) {
   const [added, setAdded] = useState(false);
 
   const unit = priceOf(product);
+  const requiresPrintLeadTime = PRINT_PRODUCTS.has(product.id);
+  const minimumQuantity = minimumQuantityFor(product.id);
   // A boxed item is already a set quantity; only by-the-piece stock takes packs.
   const byThePiece = unit > 0 && unit < 10;
   const pieces = byThePiece ? PACKS.find((p) => p.id === pack)!.pieces : 1;
 
   // A fresh product resets the picker — carrying a dozen over is never intended.
   useEffect(() => {
-    setQty(1);
+    setQty(minimumQuantityFor(product.id));
     setPack('single');
     setView(0);
     setAdded(false);
@@ -263,7 +266,7 @@ export default function ProductPanel({ product }: { product: Product }) {
                 Quantity
               </span>
               <div className="cabinet__stepper">
-                <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="One fewer">
+                <button type="button" disabled={qty<=minimumQuantity} onClick={() => setQty((q) => Math.max(minimumQuantity, q - 1))} aria-label="One fewer">
                   <Minus size={16} strokeWidth={2.6} />
                 </button>
                 <span aria-live="polite">{qty}</span>
@@ -292,7 +295,7 @@ export default function ProductPanel({ product }: { product: Product }) {
             </button>
 
             <p className="cabinet__fineprint">
-              {pieces * qty} {pieces * qty === 1 ? 'piece' : 'pieces'} · order by 4pm for next-day collection
+              {requiresPrintLeadTime ? `${qty} dozen units · minimum purchase 4 · minimum one week's notice required` : `${pieces * qty} ${pieces * qty === 1 ? 'piece' : 'pieces'} · order by 4pm for next-day collection`}
             </p>
           </div>
 
@@ -304,7 +307,7 @@ export default function ProductPanel({ product }: { product: Product }) {
                   <Icon size={18} strokeWidth={2.2} />
                   <div>
                     <strong>{title}</strong>
-                    <span>{body}</span>
+                    <span>{requiresPrintLeadTime && title === 'Pickup or delivery' ? "Please allow a minimum of one week's notice." : body}</span>
                   </div>
                 </li>
               ))}
@@ -327,7 +330,9 @@ export default function ProductPanel({ product }: { product: Product }) {
               {
                 id: 'delivery',
                 title: 'Pickup & delivery',
-                body: 'Same-day pickup from the store when ordered before 4pm. Next-day local delivery across the city; custom-printed orders need 48 hours.'
+                body: requiresPrintLeadTime
+                  ? "Custom-printed orders require a minimum of one week's notice. Choose pickup or local delivery during checkout."
+                  : 'Same-day pickup from the store when ordered before 4pm. Next-day local delivery across the city.'
               }
             ] as const
           ).map((section) => (

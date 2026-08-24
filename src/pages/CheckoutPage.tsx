@@ -8,7 +8,7 @@ import '../components/brand/brand.css';
 import '../shop/shop.css';
 import './commerce.css';
 import './delivery.css';
-import { customizationComplete, type Customization } from '../lib/custom-order';
+import { customizationComplete, PRINT_PRODUCTS, type Customization } from '../lib/custom-order';
 
 type Address = { addressLine1:string; addressLine2:string; locality:string; administrativeDistrictLevel1:string; postalCode:string; country:string };
 type Session = { user:null|{firstName:string;lastName:string;email:string}; profile:null|{default_phone?:string;default_address?:Partial<Address>}; houseAccount:null|{id:string;organizationName:string;status:string;credit:{available:number}} };
@@ -17,11 +17,14 @@ declare global { interface Window { Square?: { payments:(appId:string,locationId
 
 const blankAddress:Address={addressLine1:'',addressLine2:'',locality:'Toronto',administrativeDistrictLevel1:'ON',postalCode:'',country:'CA'};
 const tomorrow=()=>{const d=new Date(Date.now()+86400000);d.setHours(9,0,0,0);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16)};
+const printMinimum=()=>{const d=new Date(Date.now()+7*86400000);d.setMinutes(Math.ceil(d.getMinutes()/15)*15,0,0);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16)};
 async function api(path:string,options?:RequestInit){const response=await fetch(`/api/house${path}`,{headers:{'Content-Type':'application/json',...(options?.headers||{})},...options});const body=await response.json();if(!response.ok)throw new Error(body?.error?.message||'Request failed.');return body}
 
 function Checkout(){
   const {lines,subtotal,customize,clear}=useShop();
   const customReady=lines.every(line=>customizationComplete(line.product.id,line.qty,line.customization));
+  const requiresPrintLeadTime=lines.some(line=>PRINT_PRODUCTS.has(line.product.id));
+  const scheduledMinimum=requiresPrintLeadTime?printMinimum():tomorrow();
   const [session,setSession]=useState<Session>();
   const [authOpen,setAuthOpen]=useState(false);
   const [method,setMethod]=useState<'card'|'house_account'>('card');
@@ -41,6 +44,7 @@ function Checkout(){
 
   const loadSession=()=>api('/storefront/session').then(body=>{setSession(body);setPhone(body.profile?.default_phone||'');setAddress({...blankAddress,...(body.profile?.default_address||{})});if(!body.user)setAuthOpen(true)}).catch(cause=>setError(cause.message));
   useEffect(()=>{void loadSession();void api('/storefront/config').then(setConfig).catch(cause=>setError(cause.message))},[]);
+  useEffect(()=>{if(scheduledAt<scheduledMinimum)setScheduledAt(scheduledMinimum)},[scheduledAt,scheduledMinimum]);
   useEffect(()=>{if(!config?.applicationId||method!=='card'||!session?.user)return;let cancelled=false;const mount=async()=>{if(!window.Square){const script=document.createElement('script');script.src=config.environment==='sandbox'?'https://sandbox.web.squarecdn.com/v1/square.js':'https://web.squarecdn.com/v1/square.js';script.async=true;await new Promise<void>((resolve,reject)=>{script.onload=()=>resolve();script.onerror=()=>reject(new Error('Secure card fields could not load.'));document.head.appendChild(script)})}if(cancelled||!window.Square)return;card.current=await window.Square.payments(config.applicationId,config.locationId).card();await card.current.attach('#square-card')};void mount().catch(cause=>setError(cause.message));return()=>{cancelled=true;void card.current?.destroy().catch(()=>{});card.current=undefined}},[config,method,session?.user]);
 
   const items=()=>lines.map(line=>({name:line.product.name,quantity:line.qty}));
@@ -66,7 +70,7 @@ function Checkout(){
       <fieldset disabled={!session?.user||busy}><legend>Fulfillment</legend>
         <div className="segment"><button type="button" className={fulfillment==='pickup'?'active':''} onClick={()=>setFulfillment('pickup')}><Store/> Pickup</button><button type="button" className={fulfillment==='delivery'?'active':''} disabled={config?.delivery?.enabled===false} onClick={()=>setFulfillment('delivery')}><Truck/> Delivery</button></div>
         {fulfillment==='delivery'&&config?.delivery&&<p className="delivery-policy">Local delivery is {money(config.delivery.feeAmount/100)} and free on merchandise orders of {money(config.delivery.freeThreshold/100)} or more. {money(config.delivery.minimumAmount/100)} minimum.</p>}
-        <label><span>Date and time</span><input type="datetime-local" min={tomorrow()} value={scheduledAt} onChange={event=>setScheduledAt(event.target.value)} required/></label>
+        <label><span>Date and time</span><input type="datetime-local" min={scheduledMinimum} value={scheduledAt} onChange={event=>setScheduledAt(event.target.value)} required/>{requiresPrintLeadTime&&<small>Custom-printed items require at least one week's notice.</small>}</label>
         <label><span>Phone</span><input type="tel" value={phone} onChange={event=>setPhone(event.target.value)} required/></label>
         {fulfillment==='delivery'&&<div className="address-fields"><label><span>Street address</span><input value={address.addressLine1} onChange={event=>setAddress({...address,addressLine1:event.target.value})} required/></label><label><span>Unit</span><input value={address.addressLine2} onChange={event=>setAddress({...address,addressLine2:event.target.value})}/></label><label><span>City</span><input value={address.locality} onChange={event=>setAddress({...address,locality:event.target.value})} required/></label><label><span>Postal code</span><input value={address.postalCode} onChange={event=>setAddress({...address,postalCode:event.target.value.toUpperCase()})} autoComplete="postal-code" required/></label><label className="delivery-instructions"><span>Drop-off instructions</span><textarea value={deliveryInstructions} onChange={event=>setDeliveryInstructions(event.target.value)} maxLength={500} rows={3}/></label><label className="no-contact"><input type="checkbox" checked={noContact} onChange={event=>setNoContact(event.target.checked)}/><span>No-contact delivery</span></label></div>}
       </fieldset>

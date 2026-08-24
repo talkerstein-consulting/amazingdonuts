@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PRODUCTS, type Product } from '../data/products';
-import { customizationFor, type Customization } from './custom-order';
+import { customizationFor, minimumQuantityFor, type Customization } from './custom-order';
 
 /**
  * The storefront's client state: which view is showing, which product is open,
@@ -54,7 +54,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       const saved = JSON.parse(localStorage.getItem('amazing-cart') || '[]') as { id: string; qty: number; customization?: Customization }[];
       return saved.flatMap(({ id, qty, customization }) => {
         const product = PRODUCTS.find((item) => item.id === id);
-        return product && Number.isInteger(qty) && qty > 0 ? [{ product, qty, customization:customization||customizationFor(id) }] : [];
+        return product && Number.isInteger(qty) && qty > 0 ? [{ product, qty:Math.max(qty,minimumQuantityFor(id)), customization:customization||customizationFor(id) }] : [];
       });
     } catch { return []; }
   });
@@ -86,6 +86,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
 
   const add = useCallback((p: Product, qty = 1) => {
     setLines((prev) => {
+      qty=Math.max(qty,minimumQuantityFor(p.id));
       const at = prev.findIndex((l) => l.product.id === p.id);
       if (at === -1) return [...prev, { product: p, qty, customization:customizationFor(p.id) }];
       const next = [...prev];
@@ -97,7 +98,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
 
   const setQty = useCallback((id: string, qty: number) => {
     setLines((prev) =>
-      qty <= 0 ? prev.filter((l) => l.product.id !== id) : prev.map((l) => (l.product.id === id ? { ...l, qty } : l))
+      qty <= 0 ? prev.filter((l) => l.product.id !== id) : prev.map((l) => (l.product.id === id ? { ...l, qty:Math.max(qty,minimumQuantityFor(id)) } : l))
     );
   }, []);
 

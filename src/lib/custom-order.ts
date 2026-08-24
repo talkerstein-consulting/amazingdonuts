@@ -1,5 +1,6 @@
 export const PRINT_PRODUCTS = new Set(['twelve-custom-printed-donuts', 'twelve-custom-printed-cupcakes']);
 export const GLYPH_PRODUCTS = new Set(['letter-number-donut-cake']);
+export const minimumQuantityFor = (productId: string) => PRINT_PRODUCTS.has(productId) ? 4 : 1;
 
 export type Artwork = { key: string; name: string; dataUrl: string; count: number; assetId?: string };
 export type Customization =
@@ -15,7 +16,7 @@ export const customizationFor = (productId: string): Customization | undefined =
 
 export const customizationComplete = (productId: string, qty: number, customization?: Customization) => {
   if (PRINT_PRODUCTS.has(productId)) {
-    return customization?.kind === 'print' && !!customization.icingFlavor && customization.artworks.length > 0 && customization.artworks.every(art => art.count > 0) && customization.artworks.reduce((sum, art) => sum + art.count, 0) === qty * 12;
+    return qty >= 4 && customization?.kind === 'print' && !!customization.icingFlavor && customization.artworks.length > 0 && customization.artworks.every(art => art.count > 0 && art.count <= 4) && customization.artworks.reduce((sum, art) => sum + art.count, 0) === qty;
   }
   if (GLYPH_PRODUCTS.has(productId)) return customization?.kind === 'glyph' && customization.glyph.trim().length > 0 && customization.glyph.trim().length <= 120;
   return true;

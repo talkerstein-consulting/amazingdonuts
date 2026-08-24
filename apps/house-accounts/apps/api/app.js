@@ -202,6 +202,8 @@ async function issueStatement(pool,user,accountId,input) {
 async function audit(pool,user,request,action,targetType,targetId,before,after){ await pool.query(`INSERT INTO audit_log(tenant_id,actor_user_id,action,target_type,target_id,before_state,after_state,ip_address,user_agent) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[user.tenant_id,user.id,action,targetType,targetId,before?JSON.stringify(before):null,after?JSON.stringify(after):null,request.ip,request.get("user-agent")]); }
 
 const normalizeName=value=>String(value||"").toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]+/g," ").trim();
+const printProductNames=new Set(["twelve custom printed donuts","twelve custom printed cupcakes"]);
+const validatePrintedItems=input=>{for(const item of input.items){if(!printProductNames.has(normalizeName(item.name)))continue;if(item.quantity<4)throw Object.assign(new Error("Custom-printed items have a minimum purchase of four dozen units."),{status:409,code:"PRINT_MINIMUM_REQUIRED"});if(new Date(input.fulfillment.scheduledAt).getTime()<Date.now()+7*86400000)throw Object.assign(new Error("Custom-printed items require a minimum of one week's notice."),{status:409,code:"PRINT_LEAD_TIME_REQUIRED"});const custom=input.customizations?.find(entry=>normalizeName(entry.productName)===normalizeName(item.name));if(custom?.kind!=="print"||custom.artworks.some(art=>art.count>4)||custom.artworks.reduce((sum,art)=>sum+art.count,0)!==item.quantity)throw Object.assign(new Error("Assign one print file for each group of up to four dozen units."),{status:409,code:"PRINT_ARTWORK_REQUIRED"});}};
 async function catalogObjects(square){let cursor,objects=[];do{const page=await square.request("/v2/catalog/list",{query:{types:"ITEM,TAX",...(cursor?{cursor}:{})}});objects.push(...(page.objects||[]));cursor=page.cursor;}while(cursor);return objects;}
 async function buildSquareOrder(square,locationId,input,user){
   if(!locationId)throw Object.assign(new Error("The Square checkout location is not configured."),{status:503});
@@ -209,7 +211,7 @@ async function buildSquareOrder(square,locationId,input,user){
   const lineItems=input.items.map(line=>{
     const wanted=normalizeName(line.name),item=items.find(x=>normalizeName(x.item_data?.name)===wanted),variation=item?.item_data?.variations?.find(v=>v.item_variation_data?.price_money?.amount!=null&&!v.is_deleted);
     if(!variation)throw Object.assign(new Error(`${line.name} is not currently available in the Square catalog.`),{status:409,code:"CATALOG_ITEM_UNAVAILABLE"});
-    const custom=input.customizations?.find(entry=>normalizeName(entry.productName)===wanted),note=custom?.kind==="glyph"?`CUSTOM CAKE: ${custom.glyph}`:custom?.kind==="print"?`CUSTOM PRINT: ${custom.icingFlavor} icing${custom.sprinkleColours?`, ${custom.sprinkleColours} sprinkles`:""}. ${custom.artworks.map((art,index)=>`Design ${index+1} x ${art.count}`).join(", ")}. Artwork files are in the Amazing Donuts order portal.`:undefined;
+    const custom=input.customizations?.find(entry=>normalizeName(entry.productName)===wanted),note=custom?.kind==="glyph"?`CUSTOM CAKE: ${custom.glyph}`:custom?.kind==="print"?`CUSTOM PRINT: ${custom.icingFlavor} icing${custom.sprinkleColours?`, ${custom.sprinkleColours} sprinkles`:""}. ${custom.artworks.map((art,index)=>`Design ${index+1} x ${art.count} dozen units`).join(", ")}. Artwork files are in the Amazing Donuts order portal.`:undefined;
     return {catalog_object_id:variation.id,quantity:String(line.quantity),...(note?{note}:{})};
   });
   const recipient={display_name:input.fulfillment.recipient.displayName,email_address:input.fulfillment.recipient.email,phone_number:input.fulfillment.recipient.phone};
@@ -219,6 +221,7 @@ async function buildSquareOrder(square,locationId,input,user){
 }
 async function prepareSquareOrder(square,config,input,user){
   validateDelivery(input.fulfillment,config.delivery);
+  validatePrintedItems(input);
   const orderDraft=await buildSquareOrder(square,config.squareLocationId,input,user);
   const initial=(await square.request("/v2/orders/calculate",{method:"POST",body:{order:orderDraft}})).order;
   const fee=deliveryFee(merchandiseSubtotal(initial),input.fulfillment,config.delivery);

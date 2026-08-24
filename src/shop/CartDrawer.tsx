@@ -4,7 +4,7 @@ import { Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
 import { C, F, SQUIRCLE } from '../components/brand';
 import { useShop, money } from '../lib/shop';
 import { SHOP_HREF } from '../lib/shop-href';
-import { customizationComplete } from '../lib/custom-order';
+import { customizationComplete, minimumQuantityFor } from '../lib/custom-order';
 import CartCustomization from './CartCustomization';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -106,7 +106,7 @@ export default function CartDrawer() {
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div className="cart__stepper">
-                            <button type="button" onClick={() => setQty(product.id, qty - 1)} aria-label={`One fewer ${product.name}`}>
+                            <button type="button" disabled={qty<=minimumQuantityFor(product.id)} onClick={() => setQty(product.id, qty - 1)} aria-label={`One fewer ${product.name}`}>
                               <Minus size={14} strokeWidth={2.6} />
                             </button>
                             <span>{qty}</span>
