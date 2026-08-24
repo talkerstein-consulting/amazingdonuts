@@ -3,7 +3,8 @@ import helmet from "helmet";
 import { z } from "zod";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createSession, hashPassword, loadSession, logout, requireStaff, requireUser, verifyPassword } from "./auth.js";
-import { accountCredit, postSale, reserveCredit } from "./ledger.js";
+import { accountCredit, postPayment, postSale, reserveCredit } from "./ledger.js";
+import { processNextSquareEvent } from "../worker/process-square.js";
 import { statementPdf } from "./statements.js";
 import { transaction } from "./db.js";
 import { deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery } from "./delivery.js";
@@ -24,6 +25,7 @@ const customizationsSchema=z.array(z.discriminatedUnion("kind",[z.object({produc
 const checkoutSchema=z.object({idempotencyKey:z.uuid(),items:cartSchema,customizations:customizationsSchema,fulfillment:fulfillmentSchema,paymentMethod:z.enum(["card","house_account"]),sourceId:z.string().min(6).max(300).optional()});
 const uploadSchema=z.object({fileName:z.string().trim().min(1).max(180),dataUrl:z.string().max(1900000)});
 const profileSchema=z.object({firstName:z.string().trim().min(1).max(80),lastName:z.string().trim().min(1).max(80),phone:z.string().trim().max(40).optional().default(""),address:z.record(z.string(),z.string()).optional().default({})});
+const settlementSchema=z.object({sourceId:z.string().min(6).max(300),idempotencyKey:z.uuid()});
 
 export function createApp({ pool, square, config }) {
   const app = express();
@@ -117,6 +119,51 @@ export function createApp({ pool, square, config }) {
     if (!membership.rowCount) return response.json({ account:null });
     response.json({ account:await hydrateAccount(pool,membership.rows[0]) });
   } catch(error){ next(error); }});
+
+  app.post("/api/storefront/statements/:id/pay",async(request,response,next)=>{try{
+    const user=requireUser(request),input=settlementSchema.parse(request.body);
+    const result=await pool.query(`SELECT s.*,a.square_customer_id FROM statements s JOIN accounts a ON a.id=s.account_id JOIN account_users au ON au.account_id=a.id AND au.user_id=$2 WHERE s.id=$1 AND s.tenant_id=$3 AND au.status='active'`,[request.params.id,user.id,user.tenant_id]);
+    if(!result.rowCount)throw Object.assign(new Error("Statement not found."),{status:404});
+    const statement=result.rows[0];
+    if(["paid","void"].includes(statement.status)||Number(statement.closing_balance)<=0)throw Object.assign(new Error("This statement has no outstanding balance."),{status:409});
+    const duplicate=await pool.query("SELECT * FROM payment_allocations WHERE tenant_id=$1 AND metadata->>'idempotencyKey'=$2",[user.tenant_id,input.idempotencyKey]);
+    if(duplicate.rowCount)return response.json({payment:duplicate.rows[0],statement:{...statement,status:"paid"}});
+    const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
+    const payment=(await tenantSquare.createPayment({idempotency_key:`statement-${input.idempotencyKey}`,source_id:input.sourceId,amount_money:{amount:Number(statement.closing_balance),currency:statement.currency},customer_id:statement.square_customer_id,location_id:config.squareLocationId,reference_id:statement.statement_number,note:`House account settlement ${statement.statement_number}`,autocomplete:true})).payment;
+    await transaction(pool,async client=>{
+      await client.query(`INSERT INTO payment_allocations(tenant_id,account_id,statement_id,square_payment_id,amount,currency,status,received_at,metadata) VALUES($1,$2,$3,$4,$5,$6,'completed',now(),$7) ON CONFLICT(tenant_id,square_payment_id) DO NOTHING`,[user.tenant_id,statement.account_id,statement.id,payment.id,Number(statement.closing_balance),statement.currency,JSON.stringify({idempotencyKey:input.idempotencyKey})]);
+      await postPayment(client,{tenantId:user.tenant_id,accountId:statement.account_id,paymentId:payment.id,amount:Number(statement.closing_balance),currency:statement.currency,description:`Payment for ${statement.statement_number}`,actorId:user.id});
+      await client.query("UPDATE statements SET status='paid' WHERE id=$1",[statement.id]);
+    });
+    response.status(201).json({payment:{id:payment.id,status:payment.status},statement:{id:statement.id,status:"paid"}});
+  }catch(error){next(error);}});
+
+  app.get("/api/jobs/reconcile",async(request,response,next)=>{try{
+    requireCron(request,config);
+    const run=(await pool.query("INSERT INTO reconciliation_runs(tenant_id,status) SELECT id,'running' FROM tenants WHERE slug='amazing-donuts' RETURNING *")).rows[0];
+    const page=await square.listPayments({begin_time:new Date(Date.now()-35*86400000).toISOString(),sort_order:"ASC",limit:100});
+    let queued=0,processed=0;
+    for(const payment of page.payments||[]){if(payment.status!=="COMPLETED"||!(payment.source_type==="EXTERNAL"||payment.external_details?.source?.toLowerCase().includes("house account")))continue;const inserted=await pool.query(`INSERT INTO webhook_events(tenant_id,provider_event_id,event_type,payload,status) VALUES($1,$2,'payment.updated',$3,'pending') ON CONFLICT(provider,provider_event_id) DO NOTHING RETURNING id`,[run.tenant_id,`reconcile-${payment.id}`,JSON.stringify({data:{object:{payment:{id:payment.id}}}})]);queued+=inserted.rowCount;}
+    for(let index=0;index<100;index++){const item=await processNextSquareEvent(pool,square);if(!item)break;processed++;}
+    await pool.query("UPDATE reconciliation_runs SET status='completed',completed_at=now(),summary=$2 WHERE id=$1",[run.id,JSON.stringify({queued,processed})]);
+    response.json({ok:true,queued,processed});
+  }catch(error){next(error);}});
+
+  app.get("/api/jobs/statements",async(request,response,next)=>{try{
+    requireCron(request,config);
+    const today=new Date(),isFirst=today.getUTCDate()===1;
+    let issued=0;
+    if(isFirst){const end=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),0)),start=new Date(Date.UTC(end.getUTCFullYear(),end.getUTCMonth(),1)),periodStart=start.toISOString().slice(0,10),periodEnd=end.toISOString().slice(0,10);const accounts=await pool.query(`SELECT DISTINCT a.id,a.tenant_id FROM accounts a JOIN journal_transactions jt ON jt.account_id=a.id AND jt.effective_at>=$1::date AND jt.effective_at<($2::date+1) WHERE a.status='active'`,[periodStart,periodEnd]);for(const account of accounts.rows){try{await issueStatement(pool,{tenant_id:account.tenant_id},account.id,{periodStart,periodEnd});issued++;}catch(error){if(error.code!=="23505")throw error;}}}
+    await pool.query("UPDATE statements SET status='overdue' WHERE status IN ('issued','partially_paid') AND due_at<CURRENT_DATE");
+    await pool.query(`INSERT INTO statement_notifications(tenant_id,statement_id,notification_type,recipient)
+      SELECT s.tenant_id,s.id,CASE WHEN s.status='overdue' THEN 'overdue' WHEN s.due_at<=CURRENT_DATE+3 THEN 'due_soon' ELSE 'issued' END,a.billing_email
+      FROM statements s JOIN accounts a ON a.id=s.account_id WHERE s.status IN ('issued','partially_paid','overdue')
+      ON CONFLICT(statement_id,notification_type) DO NOTHING`);
+    const pending=await pool.query(`SELECT n.*,s.statement_number,s.closing_balance,s.currency,s.due_at,a.organization_name FROM statement_notifications n JOIN statements s ON s.id=n.statement_id JOIN accounts a ON a.id=s.account_id WHERE n.status='pending' ORDER BY n.created_at LIMIT 50`);
+    let sent=0;
+    if(config.resendApiKey)for(const item of pending.rows){try{const subject=item.notification_type==='overdue'?`Overdue account statement ${item.statement_number}`:item.notification_type==='due_soon'?`Statement ${item.statement_number} is due soon`:`Amazing Donuts statement ${item.statement_number}`;const response=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${config.resendApiKey}`,"Content-Type":"application/json"},body:JSON.stringify({from:config.emailFrom,to:[item.recipient],subject,html:statementEmail(item,config.siteUrl)})});if(!response.ok)throw new Error((await response.json().catch(()=>null))?.message||"Email provider rejected the message.");await pool.query("UPDATE statement_notifications SET status='sent',sent_at=now(),attempts=attempts+1,error=NULL WHERE id=$1",[item.id]);sent++;}catch(error){await pool.query("UPDATE statement_notifications SET status=CASE WHEN attempts>=4 THEN 'failed' ELSE 'pending' END,attempts=attempts+1,error=$2 WHERE id=$1",[item.id,error.message]);}}
+    response.json({ok:true,issued,queued:pending.rowCount,sent,emailConfigured:Boolean(config.resendApiKey)});
+  }catch(error){next(error);}});
 
   app.get("/api/admin/accounts", async (request,response,next)=>{ try {
     const user=requireStaff(request);
@@ -215,6 +262,8 @@ async function issueStatement(pool,user,accountId,input) {
 }
 
 async function audit(pool,user,request,action,targetType,targetId,before,after){ await pool.query(`INSERT INTO audit_log(tenant_id,actor_user_id,action,target_type,target_id,before_state,after_state,ip_address,user_agent) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[user.tenant_id,user.id,action,targetType,targetId,before?JSON.stringify(before):null,after?JSON.stringify(after):null,request.ip,request.get("user-agent")]); }
+function requireCron(request,config){const expected=config.cronSecret;if(!expected||request.get("authorization")!==`Bearer ${expected}`)throw Object.assign(new Error("Cron authorization required."),{status:401,code:"UNAUTHORIZED"});}
+function statementEmail(statement,siteUrl){const amount=new Intl.NumberFormat("en-CA",{style:"currency",currency:statement.currency}).format(Number(statement.closing_balance)/100),label=statement.notification_type==='overdue'?"is overdue":statement.notification_type==='due_soon'?"is due soon":"is ready";return `<div style="font-family:Arial,sans-serif;color:#17394a;max-width:560px"><h1 style="font-size:24px">Your Amazing Donuts statement ${label}</h1><p>${statement.organization_name}</p><p><strong>${amount}</strong> is due ${String(statement.due_at).slice(0,10)}.</p><p>HST is already included in the underlying purchases.</p><p><a href="${siteUrl}/account/" style="display:inline-block;background:#d5008f;color:white;padding:12px 18px;text-decoration:none">View statement and pay</a></p></div>`;}
 
 const normalizeName=value=>String(value||"").toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]+/g," ").trim();
 const printProductNames=new Set(["twelve custom printed donuts","twelve custom printed cupcakes"]);

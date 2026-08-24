@@ -313,6 +313,20 @@ CREATE TABLE IF NOT EXISTS reconciliation_runs (
   error TEXT
 );
 
+CREATE TABLE IF NOT EXISTS statement_notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  statement_id UUID NOT NULL REFERENCES statements(id),
+  notification_type TEXT NOT NULL CHECK (notification_type IN ('issued','due_soon','overdue')),
+  recipient TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent','failed')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  sent_at TIMESTAMPTZ,
+  error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (statement_id,notification_type)
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id),

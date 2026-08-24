@@ -25,6 +25,7 @@ export class SquareAdapter {
   createPayment(body) { return this.request("/v2/payments", { method: "POST", body }); }
   retrieveOrder(id) { return this.request(`/v2/orders/${encodeURIComponent(id)}`); }
   retrievePayment(id) { return this.request(`/v2/payments/${encodeURIComponent(id)}`); }
+  listPayments(query) { return this.request("/v2/payments", { query }); }
   searchCustomers(body) { return this.request("/v2/customers/search", { method: "POST", body }); }
   createCustomer(body) { return this.request("/v2/customers", { method: "POST", body }); }
 }

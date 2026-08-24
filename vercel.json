@@ -6,6 +6,10 @@
   "functions": {
     "api/house.js": { "maxDuration": 30 }
   },
+  "crons": [
+    { "path": "/api/house/jobs/reconcile", "schedule": "17 6 * * *" },
+    { "path": "/api/house/jobs/statements", "schedule": "37 6 * * *" }
+  ],
   "rewrites": [
     { "source": "/api/house/:path*", "destination": "/api/house?__path=:path*" }
   ],
@@ -26,6 +30,13 @@
       "source": "/checkout/(.*)",
       "headers": [
         { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://sandbox.web.squarecdn.com https://web.squarecdn.com; frame-src 'self' https://sandbox.web.squarecdn.com https://web.squarecdn.com https://geoissuer.cardinalcommerce.com; connect-src 'self' https://sandbox.web.squarecdn.com https://web.squarecdn.com https://pci-connect.squareupsandbox.com https://pci-connect.squareup.com https://o160250.ingest.sentry.io; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://sandbox.web.squarecdn.com https://web.squarecdn.com; font-src 'self' https://fonts.gstatic.com https://square-fonts-production-f.squarecdn.com https://d1g145x70srn7h.cloudfront.net; img-src 'self' data:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    },
+    {
+      "source": "/account/(.*)",
+      "headers": [
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://sandbox.web.squarecdn.com https://web.squarecdn.com; frame-src 'self' https://sandbox.web.squarecdn.com https://web.squarecdn.com https://geoissuer.cardinalcommerce.com; connect-src 'self' https://sandbox.web.squarecdn.com https://web.squarecdn.com https://pci-connect.squareupsandbox.com https://pci-connect.squareup.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://sandbox.web.squarecdn.com https://web.squarecdn.com; font-src 'self' https://fonts.gstatic.com https://square-fonts-production-f.squarecdn.com https://d1g145x70srn7h.cloudfront.net; img-src 'self' data:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
       ]
     }
