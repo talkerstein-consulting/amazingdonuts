@@ -1276,3 +1276,92 @@
   margin: clamp(16px, 2vw, 24px) auto 0;
   padding: 0 var(--shop-gutter);
 }
+
+/* --- Product cabinet: sticky buy bar -------------------------------------
+   Shown only while the inline "Add to the box" is scrolled out of the panel,
+   which an IntersectionObserver in ProductPanel decides. On a phone the single
+   column puts that button ~190px below the fold; on a wide window it is
+   already visible and this stays out of the way.
+
+   `position: sticky; bottom: 0` inside the cabinet's own scrollport, rather
+   than a `fixed` bar that would have to be kept aligned with a panel that is
+   itself fixed and animating in from the right. */
+.cabinet__buybar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px clamp(12px, 2vw, 20px) calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--cream);
+  border-top: 1px solid rgba(14, 62, 105, 0.12);
+  box-shadow: 0 -10px 24px -18px rgba(14, 62, 105, 0.5);
+  /* Out of the way by default: translated down and inert, so it neither takes
+     taps nor shows through the panel's rounded corner. */
+  transform: translateY(110%);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, visibility 0s linear 0.28s;
+}
+
+.cabinet__buybar.is-shown {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, visibility 0s;
+}
+
+.cabinet__buybarMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cabinet__buybarName {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.2;
+  color: rgba(14, 62, 105, 0.62);
+  /* One line: a two-line product name would change the bar's height as you
+     move between products. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cabinet__buybarTotal {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 17px;
+  line-height: 1.1;
+  color: var(--navy);
+}
+
+.cabinet__buybarPieces {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  color: rgba(14, 62, 105, 0.62);
+}
+
+/* The bar's own button is compact — the total is already stated beside it. */
+.cabinet__buybar .cabinet__add {
+  flex: none;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0 20px;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cabinet__buybar {
+    transition-duration: 0.01ms;
+  }
+}
