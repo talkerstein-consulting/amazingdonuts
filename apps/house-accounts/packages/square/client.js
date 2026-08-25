@@ -23,6 +23,11 @@ export class SquareAdapter {
 
   createOrder(body) { return this.request("/v2/orders", { method: "POST", body }); }
   createPayment(body) { return this.request("/v2/payments", { method: "POST", body }); }
+  createCard(body) { return this.request("/v2/cards", { method: "POST", body }); }
+  listCards(query) { return this.request("/v2/cards", { query }); }
+  disableCard(id) { return this.request(`/v2/cards/${encodeURIComponent(id)}/disable`, { method:"POST" }); }
+  refundPayment(body) { return this.request("/v2/refunds", { method:"POST", body }); }
+  retrieveRefund(id) { return this.request(`/v2/refunds/${encodeURIComponent(id)}`); }
   retrieveOrder(id) { return this.request(`/v2/orders/${encodeURIComponent(id)}`); }
   retrievePayment(id) { return this.request(`/v2/payments/${encodeURIComponent(id)}`); }
   listPayments(query) { return this.request("/v2/payments", { query }); }

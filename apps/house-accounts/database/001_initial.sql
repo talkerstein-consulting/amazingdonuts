@@ -140,6 +140,23 @@ CREATE TABLE IF NOT EXISTS account_users (
   PRIMARY KEY (account_id,user_id)
 );
 
+CREATE TABLE IF NOT EXISTS account_cards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id),
+  square_card_id TEXT NOT NULL,
+  card_brand TEXT,
+  last_4 TEXT,
+  exp_month INTEGER,
+  exp_year INTEGER,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
+  consented_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id,square_card_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS account_cards_default_idx ON account_cards(account_id) WHERE status='active';
+
 CREATE TABLE IF NOT EXISTS customer_profiles (
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
