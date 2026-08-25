@@ -54,7 +54,7 @@ export function createApp({ pool, square, config }) {
     const exists=await pool.query("SELECT id FROM users WHERE lower(email)=lower($1)",[input.email]);
     if(exists.rowCount) throw Object.assign(new Error("An account already exists for this email. Please sign in."),{status:409,code:"EMAIL_EXISTS"});
     const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(tenant.rows[0].id):square;
-    const customer=await tenantSquare.createCustomer({idempotency_key:`storefront-${randomUUID()}`,given_name:input.firstName,family_name:input.lastName,email_address:input.email.toLowerCase(),phone_number:input.phone||undefined});
+    const customer=await tenantSquare.createCustomer({idempotency_key:randomUUID(),given_name:input.firstName,family_name:input.lastName,email_address:input.email.toLowerCase(),phone_number:input.phone||undefined});
     const passwordHash=await hashPassword(input.password);
     const user=await transaction(pool,async client=>{
       const created=(await client.query("INSERT INTO users(email,password_hash,first_name,last_name,phone) VALUES(lower($1),$2,$3,$4,$5) RETURNING *",[input.email,passwordHash,input.firstName,input.lastName,input.phone||null])).rows[0];
@@ -96,7 +96,7 @@ export function createApp({ pool, square, config }) {
     const account=membership.rows[0],existing=await pool.query("SELECT * FROM account_cards WHERE account_id=$1 AND status='active'",[account.id]);
     if(existing.rowCount)return response.json({card:publicCard(existing.rows[0])});
     const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
-    const created=(await tenantSquare.createCard({idempotency_key:`account-card-${randomUUID()}`,source_id:input.sourceId,card:{customer_id:account.square_customer_id,cardholder_name:input.cardholderName}})).card;
+    const created=(await tenantSquare.createCard({idempotency_key:randomUUID(),source_id:input.sourceId,card:{customer_id:account.square_customer_id,cardholder_name:input.cardholderName}})).card;
     const stored=(await pool.query(`INSERT INTO account_cards(tenant_id,account_id,user_id,square_card_id,card_brand,last_4,exp_month,exp_year,consented_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()) RETURNING *`,[user.tenant_id,account.id,user.id,created.id,created.card_brand||null,created.last_4||null,created.exp_month||null,created.exp_year||null])).rows[0];
     await Promise.all([sendEmail(config,{to:user.email,subject:"Card saved for your Amazing Donuts house account",text:`Your ${created.card_brand||"card"} ending in ${created.last_4||""} is now on file. House-account credit is enabled. This card may be charged for statement balances under your authorization.`}),notifyOwners(config,"House-account card added",`${account.organization_name}\n${user.email}\n${created.card_brand||"Card"} ending ${created.last_4||""}`)]);
     response.status(201).json({card:publicCard(stored),creditEnabled:true});
@@ -155,7 +155,7 @@ export function createApp({ pool, square, config }) {
     const duplicate=await pool.query("SELECT * FROM payment_allocations WHERE tenant_id=$1 AND metadata->>'idempotencyKey'=$2",[user.tenant_id,input.idempotencyKey]);
     if(duplicate.rowCount)return response.json({payment:duplicate.rows[0],statement:{...statement,status:"paid"}});
     const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
-    const payment=(await tenantSquare.createPayment({idempotency_key:`statement-${input.idempotencyKey}`,source_id:input.sourceId,amount_money:{amount:Number(statement.closing_balance),currency:statement.currency},customer_id:statement.square_customer_id,location_id:config.squareLocationId,reference_id:statement.statement_number,note:`House account settlement ${statement.statement_number}`,autocomplete:true})).payment;
+    const payment=(await tenantSquare.createPayment({idempotency_key:input.idempotencyKey,source_id:input.sourceId,amount_money:{amount:Number(statement.closing_balance),currency:statement.currency},customer_id:statement.square_customer_id,location_id:config.squareLocationId,reference_id:statement.statement_number,note:`House account settlement ${statement.statement_number}`,autocomplete:true})).payment;
     await transaction(pool,async client=>{
       await client.query(`INSERT INTO payment_allocations(tenant_id,account_id,statement_id,square_payment_id,amount,currency,status,received_at,metadata) VALUES($1,$2,$3,$4,$5,$6,'completed',now(),$7) ON CONFLICT(tenant_id,square_payment_id) DO NOTHING`,[user.tenant_id,statement.account_id,statement.id,payment.id,Number(statement.closing_balance),statement.currency,JSON.stringify({idempotencyKey:input.idempotencyKey})]);
       await postPayment(client,{tenantId:user.tenant_id,accountId:statement.account_id,paymentId:payment.id,amount:Number(statement.closing_balance),currency:statement.currency,description:`Payment for ${statement.statement_number}`,actorId:user.id});
@@ -244,7 +244,7 @@ export function createApp({ pool, square, config }) {
     if(input.status==="approved"){
       const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
       const knownCustomer=await pool.query("SELECT square_customer_id FROM customer_profiles WHERE tenant_id=$1 AND user_id=$2 LIMIT 1",[user.tenant_id,existing.rows[0].user_id]);
-      if(knownCustomer.rowCount)squareCustomerId=knownCustomer.rows[0].square_customer_id;else{const customer=await tenantSquare.createCustomer({idempotency_key:`house-application-${existing.rows[0].id}`,given_name:existing.rows[0].contact_name,family_name:existing.rows[0].organization_name,email_address:existing.rows[0].email,phone_number:existing.rows[0].phone||undefined,company_name:existing.rows[0].organization_name,reference_id:existing.rows[0].id});squareCustomerId=customer.customer.id;}
+      if(knownCustomer.rowCount)squareCustomerId=knownCustomer.rows[0].square_customer_id;else{const customer=await tenantSquare.createCustomer({idempotency_key:existing.rows[0].id,given_name:existing.rows[0].contact_name,family_name:existing.rows[0].organization_name,email_address:existing.rows[0].email,phone_number:existing.rows[0].phone||undefined,company_name:existing.rows[0].organization_name,reference_id:existing.rows[0].id});squareCustomerId=customer.customer.id;}
       accountCode=`AD-${randomBytes(3).toString("hex").toUpperCase()}`;
       const codeHash=await hashPassword(accountCode);
       account=(await pool.query(`INSERT INTO accounts(tenant_id,organization_name,account_code_hash,account_code_hint,square_customer_id,billing_email,billing_contact,credit_limit,payment_terms_days,status,approved_at,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',now(),$10) RETURNING *`,[user.tenant_id,existing.rows[0].organization_name,codeHash,accountCode,squareCustomerId,existing.rows[0].email,existing.rows[0].contact_name,input.creditLimit,input.paymentTermsDays,JSON.stringify({applicationId:existing.rows[0].id,organizationType:existing.rows[0].organization_type})])).rows[0];
