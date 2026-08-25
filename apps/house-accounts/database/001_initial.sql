@@ -203,6 +203,8 @@ CREATE TABLE IF NOT EXISTS custom_order_assets (
 );
 CREATE INDEX IF NOT EXISTS custom_order_assets_order_idx ON custom_order_assets(storefront_order_id);
 ALTER TABLE storefront_orders ADD COLUMN IF NOT EXISTS customizations JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE storefront_orders ADD COLUMN IF NOT EXISTS square_invoice_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS storefront_orders_invoice_idx ON storefront_orders(tenant_id,square_invoice_id) WHERE square_invoice_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -227,6 +229,7 @@ CREATE TABLE IF NOT EXISTS orders (
   UNIQUE (tenant_id,square_order_id)
 );
 CREATE INDEX IF NOT EXISTS orders_account_date_idx ON orders(account_id,ordered_at DESC);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS square_invoice_id TEXT;
 
 CREATE TABLE IF NOT EXISTS journal_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

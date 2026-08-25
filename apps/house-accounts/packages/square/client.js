@@ -23,6 +23,9 @@ export class SquareAdapter {
 
   createOrder(body) { return this.request("/v2/orders", { method: "POST", body }); }
   createPayment(body) { return this.request("/v2/payments", { method: "POST", body }); }
+  createInvoice(body) { return this.request("/v2/invoices", { method:"POST", body }); }
+  publishInvoice(id,body) { return this.request(`/v2/invoices/${encodeURIComponent(id)}/publish`, { method:"POST", body }); }
+  retrieveInvoice(id) { return this.request(`/v2/invoices/${encodeURIComponent(id)}`); }
   createCard(body) { return this.request("/v2/cards", { method: "POST", body }); }
   listCards(query) { return this.request("/v2/cards", { query }); }
   disableCard(id) { return this.request(`/v2/cards/${encodeURIComponent(id)}/disable`, { method:"POST" }); }
