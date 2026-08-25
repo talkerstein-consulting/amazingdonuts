@@ -461,6 +461,7 @@
 .payment-confirm button:hover, .payment-confirm button:focus-visible { color: #fff; filter: brightness(.92); }
 .payment-confirm .payment-confirm-cancel:hover, .payment-confirm .payment-confirm-cancel:focus-visible { background: #e8f4f7; color: #0b4774; }
 
+
 /* --- order summary ------------------------------------------------------- */
 /* Inverted: Harbour ground with Canvas ink. The summary is the receipt rather
    than a form section, and the site already pairs navy panels with cream copy
