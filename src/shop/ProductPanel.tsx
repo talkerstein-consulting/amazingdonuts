@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Check,
@@ -56,6 +56,42 @@ export default function ProductPanel({ product }: { product: Product }) {
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [added, setAdded] = useState(false);
+
+  /* The buy bar shows exactly when the real CTA is not on screen.
+     Measured before this existed: on a phone the inline "Add to the box" sat
+     187px below the fold (bottom at 999 in an 812 viewport), because the single
+     column stacks the 4:5 media pane above the info cards. On a wide window it
+     is already visible at 615-673, so a bar there would be a duplicate of a
+     button you can see.
+     Hence an observer rather than a width media query: a 1440x600 window is
+     wide enough to keep the two-column layout and still short enough to push
+     the CTA under, and a breakpoint would miss that. */
+  const cabRef = useRef<HTMLElement | null>(null);
+  const addRef = useRef<HTMLButtonElement | null>(null);
+  const [ctaOnScreen, setCtaOnScreen] = useState(true);
+
+  /* A new product opens at the top of the panel. The cabinet is one scroll
+     container reused across products, so without this, picking something from
+     "Goes well with" kept the previous product's scroll position and dropped
+     you into the middle of the new one — measured at 700px down, well past the
+     photograph and the price. */
+  useEffect(() => {
+    cabRef.current?.scrollTo({ top: 0 });
+  }, [product.id]);
+
+  useEffect(() => {
+    const el = addRef.current;
+    const root = cabRef.current;
+    if (!el || !root) return;
+    /* Root is the cabinet, not the viewport: the cabinet is its own scroll
+       container, so "off screen" here means scrolled out of the panel. */
+    const io = new IntersectionObserver(([entry]) => setCtaOnScreen(entry.isIntersecting), {
+      root,
+      threshold: 0
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [product.id]);
 
   const unit = priceOf(product);
   const requiresPrintLeadTime = PRINT_PRODUCTS.has(product.id);
@@ -127,6 +163,7 @@ export default function ProductPanel({ product }: { product: Product }) {
       />
 
     <motion.aside
+      ref={cabRef}
       className="cabinet"
       data-lenis-prevent
       role="dialog"
@@ -277,6 +314,7 @@ export default function ProductPanel({ product }: { product: Product }) {
             </div>
 
             <button
+              ref={addRef}
               type="button"
               className={`cabinet__add brand-press${added ? ' is-added' : ''}`}
               onClick={() => {
@@ -380,6 +418,45 @@ export default function ProductPanel({ product }: { product: Product }) {
             ))}
           </div>
         </section>
+      </div>
+
+      {/* Sticky buy bar. Last child of the scroll container and
+          `position: sticky; bottom: 0`, so it sits on the fold rather than
+          being a second fixed layer to keep aligned with the panel.
+          Same action and the same running total as the inline button — it is
+          the same purchase, not a shortcut past the box-size and quantity
+          choices above it. */}
+      <div className={`cabinet__buybar${ctaOnScreen ? '' : ' is-shown'}`} aria-hidden={ctaOnScreen}>
+        <span className="cabinet__buybarMeta">
+          <span className="cabinet__buybarName">{product.name}</span>
+          <span className="cabinet__buybarTotal">
+            {money(total)}
+            <span className="cabinet__buybarPieces">
+              {' '}
+              · {pieces * qty} {pieces * qty === 1 ? 'piece' : 'pieces'}
+            </span>
+          </span>
+        </span>
+        <button
+          type="button"
+          className={`cabinet__add brand-press${added ? ' is-added' : ''}`}
+          /* Not focusable while hidden, or a keyboard user tabs into a button
+             that is translated off the bottom of the panel. */
+          tabIndex={ctaOnScreen ? -1 : 0}
+          onClick={() => {
+            add(product, pieces * qty);
+            setAdded(true);
+          }}
+        >
+          {added ? (
+            <>
+              <Check size={18} strokeWidth={3} style={{ marginRight: 8 }} />
+              Added
+            </>
+          ) : (
+            <>Add to the box</>
+          )}
+        </button>
       </div>
 
       <button type="button" onClick={closeProduct} aria-label="Close" className="cabinet__close">
