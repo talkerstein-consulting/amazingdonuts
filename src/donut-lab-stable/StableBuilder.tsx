@@ -20,6 +20,17 @@ import './claw-sequence.css';
    actually changes what people see. Anyone carrying a v1 build would otherwise
    have kept opening the lab on whatever they last picked, which is exactly the
    reason pink and rainbow did not look like the defaults. */
+/**
+ * What "how many of these?" offers. A half dozen and a dozen are how the
+ * bakery already sells donuts, so those are the two that matter; one is the
+ * default and stays on the row so the choice reads as a choice.
+ */
+const QUANTITIES: { label: string; count: number }[] = [
+  { label: 'Just one', count: 1 },
+  { label: 'Half dozen · 6', count: 6 },
+  { label: 'Dozen · 12', count: 12 }
+];
+
 const STORE_KEY = 'ad-builder-v2';
 
 /* --- State ---------------------------------------------------------------- */
@@ -37,6 +48,16 @@ type State = {
   i: number;
   /** The box-and-ribbon sequence has played. */
   added: boolean;
+  /**
+   * How many of this donut they want. One question, asked after the build, and
+   * it means N copies of the configuration on screen — not N different donuts.
+   *
+   * This replaced a build-a-box counter that tracked "3 of 6 built" across a
+   * run of individually-customised donuts. It was more machinery than the
+   * choice deserved: wanting six of the thing you just made is the common case,
+   * and wanting six *different* ones is served by resetting the builder.
+   */
+  qty: number;
 };
 
 const INITIAL: State = {
@@ -46,7 +67,8 @@ const INITIAL: State = {
   sprinkleId: 'rainbow',
   print: null,
   i: 0,
-  added: false
+  added: false,
+  qty: 1
 };
 
 /**
@@ -87,6 +109,8 @@ type Action =
   | { type: 'goto'; i: number }
   | { type: 'surprise'; next: Partial<State> }
   | { type: 'reset' }
+  /** The answer to "how many of these?", asked after the build. */
+  | { type: 'qty'; count: number }
   | { type: 'add' };
 
 function reducer(state: State, action: Action): State {
@@ -100,7 +124,7 @@ function reducer(state: State, action: Action): State {
         baseId: action.id,
         fillingId: RULES.takesFilling(action.id) ? state.fillingId : 'none',
         print: RULES.takesPrint(action.id) ? state.print : null,
-        added: false
+        added: false, qty: 1
       };
     }
     case 'icing':
@@ -109,22 +133,24 @@ function reducer(state: State, action: Action): State {
         ...state,
         icingId: action.id,
         sprinkleId: RULES.takesSprinkles(action.id) ? state.sprinkleId : 'none',
-        added: false
+        added: false, qty: 1
       };
     case 'filling':
-      return { ...state, fillingId: action.id, added: false };
+      return { ...state, fillingId: action.id, added: false, qty: 1 };
     case 'sprinkle':
-      return { ...state, sprinkleId: action.id, added: false };
+      return { ...state, sprinkleId: action.id, added: false, qty: 1 };
     case 'print':
-      return { ...state, print: action.print, added: false };
+      return { ...state, print: action.print, added: false, qty: 1 };
     case 'goto':
-      return { ...state, i: Math.max(0, action.i), added: false };
+      return { ...state, i: Math.max(0, action.i), added: false, qty: 1 };
     case 'surprise':
-      return { ...state, ...action.next, print: null, added: false };
+      return { ...state, ...action.next, print: null, added: false, qty: 1 };
     case 'reset':
       return { ...INITIAL };
     case 'add':
       return { ...state, added: true };
+    case 'qty':
+      return { ...state, qty: action.count };
     default:
       return state;
   }
@@ -717,6 +743,62 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
           )}
           {/* 'In the box', and the kosher badges under it, are pulled for now.
               The fold itself is the confirmation. */}
+
+          {/* --- how many of these? ------------------------------------------
+              Asked after the build, not before it: before, the question wants a
+              commitment from someone who has not yet seen what they can make.
+
+              Hidden on a printed order. That path adds `twelve-custom-printed-
+              donuts` to the cart, which is a dozen by definition, so offering
+              "half dozen" there would be nonsense and passing 12 through would
+              mean twelve dozen. */}
+          {s.added && !printOrder && (
+            <div style={{ display: 'grid', gap: 8, justifyItems: 'center' }}>
+              <span
+                style={{
+                  fontFamily: 'var(--font-label)',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '.14em',
+                  textTransform: 'uppercase',
+                  color: 'var(--text-muted)'
+                }}
+              >
+                How many of these?
+              </span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                {QUANTITIES.map((option) => {
+                  const on = s.qty === option.count;
+                  return (
+                    <button
+                      key={option.count}
+                      type="button"
+                      className="sb-press"
+                      aria-pressed={on}
+                      onClick={() => dispatch({ type: 'qty', count: option.count })}
+                      style={{
+                        minHeight: 40,
+                        padding: '0 15px',
+                        border: 0,
+                        borderRadius: 'var(--radius-pill)',
+                        /* The site's chip language: Bubblegum when chosen, a
+                           hairline ring when not. */
+                        background: on ? 'var(--pink)' : 'transparent',
+                        boxShadow: on ? 'none' : 'inset 0 0 0 1.5px rgba(14,62,105,.24)',
+                        color: 'var(--navy)',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: 13.5,
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

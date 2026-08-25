@@ -2,7 +2,14 @@
 
 @font-face {
   font-family: 'NCL Qikober';
-  src: url('/fonts/NCLQikober-Regular.ttf') format('truetype');
+  /* woff2 first: 25kB against the TTF's 88kB, a 71% saving on the one file
+     that gates every heading. woff covers browsers without woff2; the TTF stays
+     last as a floor. Order matters - the browser takes the first format it
+     supports, so listing the TTF earlier would hand it 88kB unnecessarily. */
+  src:
+    url('/fonts/NCLQikober-Regular.woff2') format('woff2'),
+    url('/fonts/NCLQikober-Regular.woff') format('woff'),
+    url('/fonts/NCLQikober-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -12,7 +19,13 @@
   /* --- Fonts (brand system v5) -------------------------------------------
      NCL Qikober for display, Karla for everything else. The doc is explicit:
      "there is no third face". */
-  --font-display: 'NCL Qikober', 'Karla', sans-serif;
+  /* Impact before Karla as the fallback while Qikober loads. Qikober is very
+     condensed - ten cap-H at 100px measure 323px against Arial's 722 - so the
+     old fallback chain landed on a face 124% too wide and a two-line headline
+     wrapped to four before snapping back. Impact is +72%, and it is a local
+     face on Windows and macOS so it costs no request. Karla stays behind it as
+     the brand's own fallback. */
+  --font-display: 'NCL Qikober', Impact, 'Haettenschweiler', 'Karla', sans-serif;
   --font-body: 'Karla', system-ui, sans-serif;
   --font-cta: 'Karla', system-ui, sans-serif;
   --font-label: 'Karla', system-ui, sans-serif;

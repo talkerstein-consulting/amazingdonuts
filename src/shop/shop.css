@@ -1298,7 +1298,7 @@
 .house-application-form textarea { resize: vertical; }
 .house-application-form .wide { grid-column: 1 / -1; }
 .house-application-form button { min-height: 52px; border: 0; background: var(--orange); color: #fff; font-weight: 800; }
-.house-application-status { margin-top: 30px; padding: 28px; border-left: 4px solid var(--pink); background: #fff; color: var(--navy); }
+.house-application-status { margin-top: 30px; padding: 28px; border-radius: var(--radius-panel); background: #fff; color: var(--navy); }
 .house-application-status > svg { width: 36px; height: 36px; color: var(--pink); }
 .house-application-status h2 { margin: 14px 0 8px; }
 .house-application-status > strong { text-transform: capitalize; }

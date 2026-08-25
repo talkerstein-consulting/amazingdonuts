@@ -1,1 +1,863 @@
-.commerce-shell{min-height:100vh;background:#fbf7ef;color:#0e3e69;font-family:var(--font-body)}.commerce-top{height:76px;padding:0 clamp(18px,4vw,48px);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(14,62,105,.15);background:white}.commerce-top img{width:min(210px,38vw);height:28px}.commerce-top a,.commerce-top button{display:flex;align-items:center;gap:8px;border:0;background:none;color:#0e3e69;font-weight:700;text-decoration:none}.commerce-top svg{width:18px}.checkout-grid{width:min(1180px,calc(100% - 32px));margin:0 auto;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,.75fr);gap:44px;padding:52px 0 80px}.commerce-heading p{margin:0 0 8px;color:#d00788;font-weight:800;text-transform:uppercase}.commerce-heading h1{margin:0;font-family:var(--font-display);font-size:clamp(46px,6vw,76px);font-weight:400;line-height:.9;text-transform:uppercase}.commerce-heading>span{margin-top:16px;display:flex;align-items:center;gap:8px;color:rgba(14,62,105,.7)}.commerce-heading svg{width:17px}.checkout-form fieldset{margin:30px 0 0;padding:24px;border:1px solid rgba(14,62,105,.18);background:white}.checkout-form legend{padding:0 8px;font-family:var(--font-cta);font-weight:800;text-transform:uppercase}.checkout-form label,.profile-form label{display:grid;gap:7px;margin-top:16px}.checkout-form label span,.profile-form label span{font-size:12px;font-weight:800;text-transform:uppercase}.checkout-form input,.profile-form input{width:100%;min-height:50px;padding:0 14px;border:1px solid rgba(14,62,105,.24);background:#fbf7ef;color:#0e3e69;font:inherit}.segment,.payment-options{display:flex;gap:10px}.segment button,.payment-options button{min-height:52px;padding:0 18px;border:1px solid rgba(14,62,105,.22);display:flex;align-items:center;justify-content:center;gap:9px;background:white;color:#0e3e69;font-weight:700}.segment button{flex:1}.segment button.active,.payment-options button.active{border-color:#0e3e69;background:#e8f5f8}.segment svg,.payment-options svg{width:19px}.payment-options{flex-direction:column}.payment-options button{justify-content:flex-start;text-align:left}.payment-options button span,.payment-options button strong,.payment-options button small{display:block}.payment-options button small{margin-top:3px;color:rgba(14,62,105,.65);font-weight:500}.signed-row,.signin-gate{margin-top:28px;padding:18px 20px;border-left:4px solid #d00788;background:white;display:flex;justify-content:space-between;align-items:center}.signed-row strong,.signed-row span{display:block}.signed-row span{margin-top:4px;color:rgba(14,62,105,.65)}.signed-row a{color:#0e3e69}.signin-gate{display:block}.signin-gate h2,.signin-gate p{margin:0 0 9px}.signin-gate button,.place-order,.commerce-success a,.account-gate button,.no-orders a,.profile-form button{min-height:52px;padding:0 22px;border:0;background:#ff6832;color:white;font-weight:800;text-decoration:none}.square-card{min-height:90px;margin-top:18px}.house-note{padding:14px;background:#fff5cc}.address-fields{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.address-fields label:first-child{grid-column:1/-1}.checkout-error,.auth__error{padding:12px 14px;background:#fde6e6;color:#9d2424}.place-order{width:100%;margin-top:20px;font-size:17px}.place-order:disabled{opacity:.45}.order-summary{position:sticky;top:24px;align-self:start;padding:26px;background:white;border-top:5px solid #d00788}.order-summary>p{margin:0;color:#d00788;font-weight:800;text-transform:uppercase}.order-summary h2{margin:4px 0 20px;font-family:var(--font-display);font-size:38px;font-weight:400;text-transform:uppercase}.summary-line{padding:12px 0;border-bottom:1px solid rgba(14,62,105,.12);display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:12px;align-items:center}.summary-line img{width:56px;height:56px;object-fit:contain}.summary-line strong,.summary-line small{display:block}.summary-line small{margin-top:4px;color:rgba(14,62,105,.6)}.summary-total{padding:20px 0 10px;display:flex;justify-content:space-between}.commerce-success{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px}.commerce-success>svg{width:54px;height:54px;color:#d00788}.commerce-success p{color:#d00788;font-weight:800;text-transform:uppercase}.commerce-success h1{max-width:12ch;margin:10px;font-family:var(--font-display);font-size:clamp(48px,7vw,90px);font-weight:400;line-height:.9;text-transform:uppercase}.commerce-success span{margin:8px 0 24px}.commerce-success a{display:grid;place-items:center}.auth__nameRow{display:grid;grid-template-columns:1fr 1fr;gap:12px}.account-layout{width:min(1180px,calc(100% - 32px));margin:0 auto;display:grid;grid-template-columns:270px minmax(0,1fr);gap:40px;padding:48px 0 80px}.account-nav{align-self:start;padding:20px;background:#0e3e69;color:white}.account-person{padding:10px 8px 22px;border-bottom:1px solid rgba(255,255,255,.22)}.account-person>span{width:48px;height:48px;margin-bottom:12px;display:grid;place-items:center;background:#d00788;font-weight:900}.account-person strong,.account-person small{display:block}.account-person small{margin-top:4px;color:#a9c0ca}.account-nav>button{width:100%;min-height:48px;padding:0 10px;border:0;display:flex;align-items:center;gap:10px;background:transparent;color:#c9d9df;font-weight:700}.account-nav>button.active{background:#294f62;color:white;border-left:3px solid #f3c51e}.account-nav svg{width:19px}.house-credit{margin-top:24px;padding:16px;background:white;color:#0e3e69}.house-credit strong,.house-credit span{display:block;margin-top:6px}.house-credit span{font-size:13px}.customer-orders{display:grid;gap:14px;margin-top:30px}.customer-orders article{background:white;border:1px solid rgba(14,62,105,.16)}.customer-orders article header,.customer-orders article footer{padding:16px 18px;display:flex;justify-content:space-between;align-items:center;background:#f1f5f5}.customer-orders header span,.customer-orders header strong{display:block}.customer-orders header span{font-size:12px;color:rgba(14,62,105,.65)}.customer-orders header em{text-transform:capitalize}.customer-orders article>div{padding:8px 18px}.customer-orders article p{display:flex;justify-content:space-between}.no-orders{margin-top:30px;padding:50px;text-align:center;background:white}.no-orders svg{width:42px;height:42px;color:#d00788}.no-orders a{display:inline-grid;place-items:center}.profile-form{margin-top:30px;padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;background:white}.profile-form .wide,.profile-form button{grid-column:1/-1}.profile-form button{margin-top:18px}.account-message{padding:12px;background:#e4f5ed}.account-gate>a{position:absolute;top:24px;left:24px;display:flex;gap:8px;color:#0e3e69}.account-gate>section{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px}.account-gate section>svg{width:50px;height:50px;color:#d00788}.account-gate h1{font-family:var(--font-display);font-size:clamp(50px,7vw,86px);font-weight:400;text-transform:uppercase}.account-gate p{max-width:48ch}.account-gate button{margin-top:16px}@media(max-width:820px){.checkout-grid,.account-layout{grid-template-columns:1fr}.order-summary{position:static;grid-row:1}.account-nav{display:grid;grid-template-columns:1fr 1fr}.account-person,.house-credit{grid-column:1/-1}.commerce-top{height:66px}.commerce-top a:last-child{font-size:0}.address-fields,.profile-form,.auth__nameRow{grid-template-columns:1fr}.address-fields label:first-child,.profile-form .wide,.profile-form button{grid-column:auto}.checkout-form fieldset{padding:18px}.commerce-heading h1{font-size:50px}}
+/* ==========================================================================
+   Commerce pages — checkout and account.
+
+   Restyled to the brand system documented in STYLE.md. Every selector name is
+   unchanged, so no markup or checkout logic moved: this file is colour, shape
+   and type only.
+
+   What it was violating, measured before the rewrite:
+     - Zero brand colour tokens. Every colour was a literal, including ten that
+       are not in the palette at all — most visibly `#d00788`, a magenta that
+       is not Bubblegum (`#fbbfec`) and appeared nine times.
+     - `border-radius` appeared ZERO times. The brand has a four-radius set;
+       every corner here was square.
+     - `background: white` on every card. There is no pure white in the
+       palette; card surfaces are Shortbread on a Canvas page.
+     - Display headings at `clamp(46px, 6vw, 76px)`, which is above the top of
+       the type scale (`--type-section` caps at 55px). Their local
+       `text-transform: uppercase` was redundant rather than wrong - index.css
+       already sets `h1, h2, h3` uppercase site-wide - so it is dropped as
+       duplication, not as a correction.
+     - No focus ring and no press feedback.
+
+   Two notes on scope:
+     - This file is shared with AccountPage, so the account page inherits the
+       same tokens. That is deliberate: the shell rules (`.commerce-shell`,
+       `.commerce-top`, `.commerce-heading`) are common to both, and styling
+       one page's copy of them would have split the two apart.
+     - The palette has no error or warning colour. Errors use `--text-price`
+       (Brick, the price red) over a 10% wash of itself rather than importing a
+       new red, and warnings use Shortbread with a hairline.
+   ========================================================================== */
+
+/* --- shell --------------------------------------------------------------- */
+.commerce-shell {
+  min-height: 100dvh;
+  background: var(--cream);
+  color: var(--navy);
+  font-family: var(--font-body);
+}
+
+/* Height from `--nav-h`, the same token the site header uses, so the two bars
+   agree instead of one being 76px by coincidence. */
+.commerce-top {
+  height: var(--nav-h);
+  padding: 0 clamp(18px, 4vw, 40px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(14, 62, 105, 0.15);
+  background: var(--cream);
+}
+
+.commerce-top img {
+  width: min(210px, 38vw);
+  height: 28px;
+}
+
+.commerce-top a,
+.commerce-top button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--navy);
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--fs-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.commerce-top a:hover,
+.commerce-top button:hover {
+  background: rgba(14, 62, 105, 0.07);
+}
+
+.commerce-top svg {
+  width: 18px;
+}
+
+/* The house measure: 1240 capped, with the standard gutter either side. */
+.checkout-grid {
+  width: min(1240px, calc(100% - 2 * clamp(18px, 4vw, 40px)));
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.75fr);
+  gap: clamp(24px, 3.4vw, 44px);
+  padding: clamp(28px, 4vw, 52px) 0 clamp(48px, 6vw, 80px);
+}
+
+/* --- headings ------------------------------------------------------------ */
+/* The eyebrow is the house label: Karla 700, 13px, tracked, uppercase, in the
+   muted ink. It was 800 in an off-palette magenta. */
+.commerce-heading p {
+  margin: 0 0 10px;
+  font-family: var(--font-label);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* `--type-section`, so the page hero cannot exceed the scale. Uppercase comes
+   from the global `h1, h2, h3` rule in index.css; it is not repeated here. */
+.commerce-heading h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--type-section);
+  font-weight: 400;
+  line-height: 0.92;
+}
+
+.commerce-heading > span {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.commerce-heading svg {
+  width: 17px;
+}
+
+/* --- form ---------------------------------------------------------------- */
+.checkout-form fieldset {
+  margin: clamp(20px, 2.4vw, 30px) 0 0;
+  padding: clamp(18px, 2.2vw, 26px);
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--sand);
+}
+
+/* A <legend> is laid out on the fieldset's top edge, not inside its padding:
+   measured, it sat 26px in from the left but 0px from the top, while every
+   other container on this page puts its heading at the full padding inset.
+   `float: left` with a full width takes it out of that special rendering and
+   lets it flow as an ordinary block heading inside the panel - the fieldset
+   then needs the float cleared, below. */
+.checkout-form legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin-bottom: 8px;
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: var(--fs-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* A float does not push block siblings down, only inline content, so the first
+   control was overlapping the legend by 15px. This clears it; everything after
+   flows normally below. */
+.checkout-form legend + * {
+  clear: both;
+}
+
+.checkout-form fieldset::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+.checkout-form label,
+.profile-form label {
+  display: grid;
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.checkout-form label span,
+.profile-form label span {
+  font-family: var(--font-cta);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* Fields match the contact and bulk forms: 16px radius, a 2px inset ring
+   rather than a border, on Canvas so they read as insets in a Shortbread card. */
+.checkout-form input,
+.profile-form input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.2);
+  background: var(--cream);
+  color: var(--navy);
+  font: inherit;
+}
+
+.checkout-form small,
+.checkout-form label small {
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+}
+
+/* --- segmented controls, as chips ---------------------------------------- */
+/* The site's active-state language: Bubblegum fill when selected, a hairline
+   ring when not. Selected used to be a pale blue that is not in the palette. */
+.segment,
+.payment-options {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.segment button,
+.payment-options button {
+  min-height: 52px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.24);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: transparent;
+  color: var(--navy);
+  font-family: var(--font-cta);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.segment button {
+  flex: 1;
+}
+
+.segment button:active,
+.payment-options button:active {
+  transform: scale(0.97);
+}
+
+.segment button.active,
+.payment-options button.active {
+  background: var(--pink);
+  box-shadow: none;
+  /* Navy on Bubblegum — it is far too light to carry cream type. */
+  color: var(--navy);
+}
+
+.segment button:disabled,
+.payment-options button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.segment svg,
+.payment-options svg {
+  width: 19px;
+}
+
+/* The payment rows are two-line, so they take the chip radius rather than a
+   full pill and align left. */
+.payment-options {
+  flex-direction: column;
+}
+
+.payment-options button {
+  justify-content: flex-start;
+  text-align: left;
+  padding: 14px 18px;
+  border-radius: var(--radius-chip);
+}
+
+.payment-options button span,
+.payment-options button strong,
+.payment-options button small {
+  display: block;
+}
+
+.payment-options button small {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.payment-options button.active small {
+  /* On the Bubblegum fill the muted ink is too light to stay legible. */
+  color: rgba(14, 62, 105, 0.75);
+}
+
+/* --- sign-in state ------------------------------------------------------- */
+/* No accent stripe. A single-sided rule is not a pattern the brand system
+   has - the fill and the radius are what make this read as a card. */
+.signed-row,
+.signin-gate {
+  margin-top: clamp(20px, 2.4vw, 28px);
+  padding: 18px 22px;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: var(--sand);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.signed-row strong,
+.signed-row span {
+  display: block;
+}
+
+.signed-row span {
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+.signed-row a {
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.signin-gate {
+  display: block;
+}
+
+.signin-gate h2 {
+  margin: 0 0 9px;
+  font-family: var(--font-display);
+  font-size: var(--fs-swatch);
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.signin-gate p {
+  margin: 0 0 14px;
+  color: var(--text-body);
+}
+
+/* --- primary actions ----------------------------------------------------- */
+/* Dare Devil, pill, one per screen. The checkout's hero action is the place
+   order button; the sign-in gate and the success screen each have their own
+   screen, so none of them collide. */
+.signin-gate button,
+.place-order,
+.commerce-success a,
+.account-gate button,
+.no-orders a,
+.profile-form button {
+  min-height: 56px;
+  padding: 0 26px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--orange);
+  color: #fff;
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: var(--fs-body);
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.signin-gate button:active,
+.place-order:active,
+.commerce-success a:active,
+.account-gate button:active,
+.no-orders a:active,
+.profile-form button:active {
+  transform: scale(0.97);
+}
+
+.place-order {
+  width: 100%;
+  margin-top: 22px;
+}
+
+.place-order:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Square injects its own iframe here; it only needs a bed and some room. */
+.square-card {
+  min-height: 90px;
+  margin-top: 18px;
+  padding: 4px;
+  border-radius: 16px;
+  background: var(--cream);
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.2);
+}
+
+.house-note {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--sand);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.18);
+  color: var(--text-body);
+}
+
+.address-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+}
+
+.address-fields label:first-child {
+  grid-column: 1 / -1;
+}
+
+/* Brick, the price red — the palette has no dedicated error colour, so the
+   error state is built from a brand ink rather than a new one. */
+.checkout-error,
+.auth__error {
+  margin-top: 18px;
+  padding: 13px 16px;
+  border-radius: 16px;
+  background: rgba(179, 58, 17, 0.1);
+  box-shadow: inset 0 0 0 1.5px rgba(179, 58, 17, 0.35);
+  color: var(--text-price);
+  font-weight: 700;
+}
+
+/* --- order summary ------------------------------------------------------- */
+/* Inverted: Harbour ground with Canvas ink. The summary is the receipt rather
+   than a form section, and the site already pairs navy panels with cream copy
+   (the footer, the account nav, the careers panel). `--text-on-navy` is the
+   token for secondary copy in this direction - do not reuse `--text-muted`
+   here, it is tuned for a light ground. */
+.order-summary {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  padding: clamp(20px, 2.4vw, 28px);
+  border-radius: var(--radius-panel);
+  background: var(--navy);
+  color: var(--cream);
+}
+
+.order-summary > p {
+  margin: 0;
+  font-family: var(--font-label);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-on-navy);
+}
+
+.order-summary h2 {
+  margin: 6px 0 20px;
+  font-family: var(--font-display);
+  font-size: var(--type-card-heading-sm);
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.summary-line {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(251, 247, 239, 0.18);
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+/* A photo bed, so it gets a bed's treatment: Canvas ground and a rounded
+   corner. (The site's product beds use the squircle clip, which needs
+   `<SquircleDefs />` mounted — this page does not mount it, so a radius
+   stands in.) */
+.summary-line img {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--cream);
+  object-fit: contain;
+}
+
+.summary-line strong,
+.summary-line small {
+  display: block;
+}
+
+.summary-line small {
+  margin-top: 4px;
+  color: var(--text-on-navy);
+}
+
+.summary-total {
+  padding: 20px 0 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.summary-total strong {
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: var(--fs-sub);
+}
+
+.order-summary > small {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-on-navy);
+  font-size: var(--fs-small);
+  line-height: 1.45;
+}
+
+/* --- success ------------------------------------------------------------- */
+.commerce-success {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30px;
+}
+
+/* Navy, not orange: the CTA below is the screen's one Dare Devil moment. */
+.commerce-success > svg {
+  width: 54px;
+  height: 54px;
+  color: var(--navy);
+}
+
+.commerce-success p {
+  margin: 14px 0 0;
+  font-family: var(--font-label);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.commerce-success h1 {
+  max-width: 16ch;
+  margin: 10px;
+  font-family: var(--font-display);
+  font-size: var(--type-section);
+  font-weight: 400;
+  line-height: 0.92;
+}
+
+.commerce-success span {
+  margin: 8px 0 24px;
+  color: var(--text-body);
+}
+
+.commerce-success small {
+  margin-bottom: 20px;
+  color: var(--text-muted);
+}
+
+.commerce-success a {
+  display: grid;
+  place-items: center;
+}
+
+/* --- account ------------------------------------------------------------- */
+.auth__nameRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.account-layout {
+  width: min(1240px, calc(100% - 2 * clamp(18px, 4vw, 40px)));
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  gap: clamp(24px, 3vw, 40px);
+  padding: clamp(28px, 4vw, 48px) 0 clamp(48px, 6vw, 80px);
+}
+
+.account-nav {
+  align-self: start;
+  padding: 20px;
+  border-radius: var(--radius-panel);
+  background: var(--navy);
+  color: var(--cream);
+}
+
+.account-person {
+  padding: 10px 8px 22px;
+  border-bottom: 1px solid rgba(251, 247, 239, 0.22);
+}
+
+/* Bubblegum with navy initials, in a pill. */
+.account-person > span {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--pink);
+  color: var(--navy);
+  font-family: var(--font-cta);
+  /* 800, not 900: Karla is loaded at 400-800 and 900 would be synthesised. */
+  font-weight: 800;
+}
+
+.account-person strong,
+.account-person small {
+  display: block;
+}
+
+.account-person small {
+  margin-top: 4px;
+  color: var(--text-on-navy);
+}
+
+.account-nav > button {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  color: var(--text-on-navy);
+  font-family: var(--font-cta);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.account-nav > button:hover {
+  background: rgba(251, 247, 239, 0.08);
+}
+
+/* Active reads from the fill and the ink alone - no edge stripe. */
+.account-nav > button.active {
+  background: rgba(251, 247, 239, 0.14);
+  color: var(--cream);
+}
+
+.account-nav svg {
+  width: 19px;
+}
+
+.house-credit {
+  margin-top: 24px;
+  padding: 16px;
+  border-radius: var(--radius-chip);
+  background: var(--cream);
+  color: var(--navy);
+}
+
+.house-credit strong,
+.house-credit span {
+  display: block;
+  margin-top: 6px;
+}
+
+.house-credit span {
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+}
+
+.customer-orders {
+  display: grid;
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.customer-orders article {
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--sand);
+  overflow: hidden;
+}
+
+.customer-orders article header,
+.customer-orders article footer {
+  padding: 16px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--cream);
+}
+
+.customer-orders header span,
+.customer-orders header strong {
+  display: block;
+}
+
+.customer-orders header span {
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+}
+
+.customer-orders header em {
+  text-transform: capitalize;
+}
+
+.customer-orders article > div {
+  padding: 8px 18px;
+}
+
+.customer-orders article p {
+  display: flex;
+  justify-content: space-between;
+}
+
+.no-orders {
+  margin-top: 30px;
+  padding: 50px;
+  text-align: center;
+  border-radius: var(--radius-panel);
+  background: var(--sand);
+}
+
+.no-orders svg {
+  width: 42px;
+  height: 42px;
+  color: var(--navy);
+}
+
+.no-orders a {
+  display: inline-grid;
+  place-items: center;
+  margin-top: 18px;
+}
+
+.profile-form {
+  margin-top: 30px;
+  padding: clamp(18px, 2.2vw, 26px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+  border-radius: var(--radius-panel);
+  background: var(--sand);
+}
+
+.profile-form .wide,
+.profile-form button {
+  grid-column: 1 / -1;
+}
+
+.profile-form button {
+  margin-top: 18px;
+}
+
+.account-message {
+  padding: 13px 16px;
+  border-radius: 16px;
+  background: var(--sand);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.18);
+}
+
+.account-gate > a {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  display: flex;
+  gap: 8px;
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.account-gate > section {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30px;
+}
+
+.account-gate section > svg {
+  width: 50px;
+  height: 50px;
+  color: var(--navy);
+}
+
+.account-gate h1 {
+  font-family: var(--font-display);
+  font-size: var(--type-section);
+  font-weight: 400;
+  line-height: 0.92;
+}
+
+.account-gate p {
+  max-width: 48ch;
+  color: var(--text-body);
+}
+
+.account-gate button {
+  margin-top: 16px;
+}
+
+/* --- focus: Signal blue at 3px, the site-wide ring ----------------------- */
+.commerce-shell a:focus-visible,
+.commerce-shell button:focus-visible,
+.commerce-shell input:focus-visible,
+.commerce-shell textarea:focus-visible,
+.account-gate a:focus-visible,
+.account-gate button:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+}
+
+@media (max-width: 820px) {
+  .checkout-grid,
+  .account-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .order-summary {
+    position: static;
+    grid-row: 1;
+  }
+
+  .account-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .account-person,
+  .house-credit {
+    grid-column: 1 / -1;
+  }
+
+  .commerce-top a:last-child {
+    font-size: 0;
+  }
+
+  .address-fields,
+  .profile-form,
+  .auth__nameRow {
+    grid-template-columns: 1fr;
+  }
+
+  .address-fields label:first-child,
+  .profile-form .wide,
+  .profile-form button {
+    grid-column: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .commerce-shell *,
+  .account-gate * {
+    transition-duration: 0.01ms !important;
+  }
+}
