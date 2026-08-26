@@ -17,7 +17,7 @@ export class SquareAdapter {
       ...(body ? { body: JSON.stringify(body) } : {})
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw Object.assign(new Error(payload.errors?.[0]?.detail || "Square rejected the request."), { status: 502, details: payload.errors });
+    if (!response.ok) throw Object.assign(new Error(payload.errors?.[0]?.detail || "Square rejected the request."), { status: [401,403,429].includes(response.status) ? 502 : response.status, details: payload.errors });
     return payload;
   }
 
