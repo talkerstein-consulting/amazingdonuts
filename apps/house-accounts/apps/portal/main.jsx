@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Building2, ClipboardList, CreditCard, Download, FileText, LayoutDashboard, LogOut, Package, ReceiptText, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
 import "./portal.css";
@@ -909,37 +909,7 @@ function AccountDetail({ account, staff, demo }) {
         </form>
         </section>
       ) : null}
-      {staff ? (
-        <section className="settings-section card-settings">
-          <header><div><span>Payment method</span><h3>Card on file</h3></div><p>Card details stay securely with Square.</p></header>
-          <div className="card-status"><div><CreditCard/><span><strong>{account.cards?.find((card) => card.status === "active") ? `${account.cards.find((card) => card.status === "active").card_brand || "Card"} ending ${account.cards.find((card) => card.status === "active").last_4}` : "No active card"}</strong><small>{account.cards?.some(card=>card.status==="active")?"Available for authorized statement collection":"Credit checkout remains unavailable until a card is saved"}</small></span></div><div className="card-actions">
-          <button
-            type="button"
-            onClick={async () => {
-              await request(`/admin/accounts/${account.id}/card/replacement`, {
-                method: "POST",
-              });
-              alert("Secure card-update email sent.");
-            }}
-          >
-            {account.cards?.some(card=>card.status==="active")?"Request card update":"Send secure setup link"}
-          </button>
-          {account.cards?.some(card=>card.status==="active")?<button
-            className="danger-button"
-            type="button"
-            onClick={async () => {
-              if (confirm("Disable the active card?")) {
-                await request(`/admin/accounts/${account.id}/card/disable`, {
-                  method: "POST",
-                });
-                location.reload();
-              }
-            }}
-          >
-            Disable card
-          </button>:null}</div></div>
-        </section>
-      ) : null}
+      {staff ? <AdminCardManager account={account} demo={demo} /> : null}
       {staff ? <AccountMemberForm account={account} /> : null}
       <nav className="detail-tabs">
         <button className={tab === "activity" ? "active" : ""} onClick={() => setTab("activity")}>
@@ -954,6 +924,47 @@ function AccountDetail({ account, staff, demo }) {
       </nav>
       {tab === "activity" ? <Activity entries={account.ledger} account={account} staff={staff} demo={demo} /> : tab === "statements" ? <Statements account={account} staff={staff} demo={demo} /> : <OrderTable orders={account.orders} />}
     </article>
+  );
+}
+function AdminCardManager({ account, demo }) {
+  const activeCard = account.cards?.find((card) => card.status === "active"), card = useRef(null);
+  const [editing, setEditing] = useState(false), [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState(""), [error, setError] = useState("");
+  const fieldId = `admin-square-card-${account.id}`;
+  useEffect(() => {
+    if (!editing || demo) return;
+    let cancelled = false;
+    const mount = async () => {
+      const config = await request("/storefront/config");
+      if (!window.Square) {
+        const script = document.createElement("script");
+        script.src = config.environment === "sandbox" ? "https://sandbox.web.squarecdn.com/v1/square.js" : "https://web.squarecdn.com/v1/square.js";
+        script.async = true;
+        await new Promise((resolve, reject) => { script.onload = resolve; script.onerror = () => reject(new Error("Secure card fields could not load.")); document.head.appendChild(script); });
+      }
+      if (cancelled || !window.Square) return;
+      card.current = await window.Square.payments(config.applicationId, config.locationId).card();
+      await card.current.attach(`#${fieldId}`);
+      setReady(true);
+    };
+    void mount().catch((cause) => setError(cause.message));
+    return () => { cancelled = true; setReady(false); void card.current?.destroy().catch(() => {}); card.current = null; };
+  }, [editing, demo, fieldId]);
+  return (
+    <section className="settings-section card-settings">
+      <header><div><span>Payment method</span><h3>Card on file</h3></div><p>Enter the card here. Card details are sent directly to Square and never stored on this website.</p></header>
+      <div className="card-status"><div><CreditCard/><span><strong>{activeCard ? `${activeCard.card_brand || "Card"} ending ${activeCard.last_4}` : "No active card"}</strong><small>{activeCard ? "Available for authorized statement collection" : "Credit checkout remains unavailable until a card is saved"}</small></span></div><div className="card-actions">
+        <button type="button" onClick={() => { setEditing(true); setMessage(""); setError(""); }}>{activeCard ? "Replace card" : "Add card"}</button>
+        <button className="secondary-button" type="button" onClick={async()=>{try{await request(`/admin/accounts/${account.id}/card/replacement`,{method:"POST"});setMessage("Secure card link emailed to the account contact.");}catch(cause){setError(cause.message);}}}>Email secure link</button>
+        {activeCard ? <button className="danger-button" type="button" onClick={async()=>{if(confirm("Disable the active card? Credit checkout and automatic collection will stop.")){await request(`/admin/accounts/${account.id}/card/disable`,{method:"POST"});location.reload();}}}>Disable card</button> : null}
+      </div></div>
+      {editing ? <form className="admin-card-entry" onSubmit={async(event)=>{event.preventDefault();setBusy(true);setError("");setMessage("");try{if(demo){setMessage("Demo card saved.");setEditing(false);return;}if(!card.current)throw new Error("The secure card form is still loading.");const data=new FormData(event.currentTarget),token=await card.current.tokenize({intent:"STORE",customerInitiated:false,sellerKeyedIn:true,billingContact:{givenName:String(data.get("cardholderName")||account.billing_contact||account.organization_name),email:account.billing_email}});if(token.status!=="OK"||!token.token)throw new Error(token.errors?.[0]?.message||"Card authorization failed.");await request(`/admin/accounts/${account.id}/card`,{method:"POST",body:JSON.stringify({sourceId:token.token,cardholderName:data.get("cardholderName"),authorizationConfirmed:data.get("authorizationConfirmed")==="on"})});location.reload();}catch(cause){setError(cause.message);}finally{setBusy(false);}}}>
+        <label><span>Cardholder name</span><input name="cardholderName" required minLength="2" defaultValue={account.billing_contact||account.organization_name}/></label>
+        <div className="square-card-field"><span>Card details</span><div id={fieldId}>{demo ? <p>Secure Square card field</p> : null}</div>{!ready&&!demo?<small>Loading secure card field...</small>:null}</div>
+        <label className="card-authorization"><input type="checkbox" name="authorizationConfirmed" required/><span>I confirm the customer authorized Amazing Donuts to store this card and charge approved statements.</span></label>
+        <div className="card-entry-actions"><button disabled={busy||(!ready&&!demo)}>{busy?"Saving...":activeCard?"Save replacement card":"Save card"}</button><button className="secondary-button" type="button" onClick={()=>setEditing(false)}>Cancel</button></div>
+      </form> : null}
+      {message ? <p className="card-message success">{message}</p> : null}{error ? <p className="card-message error">{error}</p> : null}
+    </section>
   );
 }
 function AccountMemberForm({ account }) {
