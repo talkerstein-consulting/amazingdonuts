@@ -97,8 +97,16 @@ export default function AuthModal({ open, onClose, onSuccess }: { open: boolean;
                       method: 'POST', headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(mode === 'in' ? { email, password, tenant: 'amazing-donuts' } : { email, password, firstName, lastName, phone, tenantSlug: 'amazing-donuts' })
                     });
-                    const body = await response.json();
-                    if (!response.ok) throw new Error(body?.error?.message || 'We could not sign you in.');
+                    const rawBody = await response.text();
+                    let body: any = null;
+                    try { body = rawBody ? JSON.parse(rawBody) : null; } catch { /* Vercel can return plain text for platform-level failures. */ }
+                    if (!response.ok) {
+                      const fallback = mode === 'in'
+                        ? 'Sign in is temporarily unavailable. Please try again.'
+                        : 'Account creation is temporarily unavailable. Please try again.';
+                      throw new Error(body?.error?.message || fallback);
+                    }
+                    if (!body?.user) throw new Error('The account service returned an invalid response. Please try again.');
                     window.dispatchEvent(new CustomEvent('amazing:auth-changed', { detail: body.user }));
                     onSuccess?.(); onClose();
                   } catch (cause) { setError(cause instanceof Error ? cause.message : 'We could not sign you in.'); }
