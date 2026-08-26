@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Building2, ClipboardList, Download, FileText, LayoutDashboard, LogOut, Package, ReceiptText, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
+import { Building2, ClipboardList, CreditCard, Download, FileText, LayoutDashboard, LogOut, Package, ReceiptText, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
 import "./portal.css";
 import "./portal-workspaces.css";
 
@@ -850,8 +850,10 @@ function AccountDetail({ account, staff, demo }) {
         </p>
       </div>
       {staff ? (
+        <section className="settings-section billing-settings">
+          <header><div><span>Account settings</span><h3>Credit & billing</h3></div><p>Control the approved balance, payment terms, and statement schedule.</p></header>
         <form
-          className="controls"
+          className="settings-grid"
           onSubmit={async (e) => {
             e.preventDefault();
             if (demo) return;
@@ -900,17 +902,17 @@ function AccountDetail({ account, staff, demo }) {
             </select>
           </label>
           <label>
-            <span>Collection</span>
-            <span>
-              <input type="checkbox" name="autoChargeStatements" defaultChecked={account.auto_charge_statements} /> Charge saved card when due
-            </span>
+            <span>Automatic collection</span>
+            <span className="toggle-field"><input type="checkbox" name="autoChargeStatements" defaultChecked={account.auto_charge_statements} /><i/><b>Charge saved card when due</b></span>
           </label>
-          <button>Save account</button>
+          <div className="form-actions"><button>Save billing settings</button></div>
         </form>
+        </section>
       ) : null}
       {staff ? (
-        <div className="controls">
-          <strong>{account.cards?.find((card) => card.status === "active") ? `${account.cards.find((card) => card.status === "active").card_brand || "Card"} ending ${account.cards.find((card) => card.status === "active").last_4}` : "No active card"}</strong>
+        <section className="settings-section card-settings">
+          <header><div><span>Payment method</span><h3>Card on file</h3></div><p>Card details stay securely with Square.</p></header>
+          <div className="card-status"><div><CreditCard/><span><strong>{account.cards?.find((card) => card.status === "active") ? `${account.cards.find((card) => card.status === "active").card_brand || "Card"} ending ${account.cards.find((card) => card.status === "active").last_4}` : "No active card"}</strong><small>{account.cards?.some(card=>card.status==="active")?"Available for authorized statement collection":"Credit checkout remains unavailable until a card is saved"}</small></span></div><div className="card-actions">
           <button
             type="button"
             onClick={async () => {
@@ -920,11 +922,11 @@ function AccountDetail({ account, staff, demo }) {
               alert("Secure card-update email sent.");
             }}
           >
-            Request card update
+            {account.cards?.some(card=>card.status==="active")?"Request card update":"Send secure setup link"}
           </button>
-          <button
+          {account.cards?.some(card=>card.status==="active")?<button
+            className="danger-button"
             type="button"
-            disabled={!account.cards?.some((card) => card.status === "active")}
             onClick={async () => {
               if (confirm("Disable the active card?")) {
                 await request(`/admin/accounts/${account.id}/card/disable`, {
@@ -935,8 +937,8 @@ function AccountDetail({ account, staff, demo }) {
             }}
           >
             Disable card
-          </button>
-        </div>
+          </button>:null}</div></div>
+        </section>
       ) : null}
       {staff ? <AccountMemberForm account={account} /> : null}
       <nav className="detail-tabs">
@@ -959,8 +961,10 @@ function AccountMemberForm({ account }) {
   const [organizationType, setOrganizationType] = useState(initialType);
   const roles = organizationRoles[organizationType];
   return (
+    <section className="settings-section team-settings">
+      <header><div><span>Access</span><h3>Team members</h3></div><p>Add an existing website customer and control what they can do.</p></header>
     <form
-      className="controls"
+      className="settings-grid team-grid"
       onSubmit={async (event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
@@ -969,7 +973,7 @@ function AccountMemberForm({ account }) {
       }}
     >
       <label>
-        <span>1. Organization type</span>
+        <span><i className="step-number">1</i> Organization type</span>
         <select value={organizationType} onChange={(event) => setOrganizationType(event.target.value)}>
           {Object.keys(organizationRoles).map((type) => (
             <option key={type}>{type}</option>
@@ -977,7 +981,7 @@ function AccountMemberForm({ account }) {
         </select>
       </label>
       <label>
-        <span>2. Member role</span>
+        <span><i className="step-number">2</i> Member role</span>
         <select name="organizationRole">
           {roles.map(([value, label]) => (
             <option key={value} value={value}>
@@ -986,12 +990,12 @@ function AccountMemberForm({ account }) {
           ))}
         </select>
       </label>
-      <label>
+      <label className="member-email">
         <span>Member email</span>
-        <input name="email" type="email" required />
+        <input name="email" type="email" placeholder="name@organization.com" required />
       </label>
       <label>
-        <span>Permissions</span>
+        <span>Access level</span>
         <select name="role">
           <option value="account_admin">Administrator</option>
           <option value="purchaser">Purchaser</option>
@@ -999,19 +1003,22 @@ function AccountMemberForm({ account }) {
         </select>
       </label>
       <label>
-        <span>Purchase limit</span>
-        <input name="purchaseLimit" type="number" min="0" step="1" />
+        <span>Per-order limit <small>Optional</small></span>
+        <input name="purchaseLimit" type="number" min="0" step="1" placeholder="No limit" />
       </label>
-      <button>Add member</button>
+      <div className="form-actions"><button>Add team member</button></div>
     </form>
+    </section>
   );
 }
 function Activity({ entries = [], account, staff, demo }) {
   return (
     <>
       {staff ? (
+        <details className="ledger-tools">
+          <summary>Post a manual adjustment</summary>
         <form
-          className="controls"
+          className="settings-grid ledger-grid"
           onSubmit={async (e) => {
             e.preventDefault();
             if (demo) return;
@@ -1054,8 +1061,9 @@ function Activity({ entries = [], account, staff, demo }) {
             <span>Description</span>
             <input name="description" required />
           </label>
-          <button>Post entry</button>
+          <div className="form-actions"><button>Post entry</button></div>
         </form>
+        </details>
       ) : null}
       <div className="table">
         <div className="table-head">
