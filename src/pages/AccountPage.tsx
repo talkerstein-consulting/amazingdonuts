@@ -8,6 +8,43 @@ import "../shop/shop.css";
 import "./commerce.css";
 
 const cash = (n: number, c = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency: c }).format(Number(n || 0) / 100);
+const organizationRoles: Record<string, [string, string][]> = {
+  School: [
+    ["principal", "Principal"],
+    ["office_manager", "Office manager"],
+    ["teacher", "Teacher"],
+    ["staff", "Staff"],
+  ],
+  Shul: [
+    ["rabbi", "Rabbi"],
+    ["president", "President"],
+    ["administrator", "Administrator"],
+    ["staff", "Staff"],
+  ],
+  Caterer: [
+    ["owner", "Owner"],
+    ["operations_manager", "Operations manager"],
+    ["sales_coordinator", "Sales coordinator"],
+    ["staff", "Staff"],
+  ],
+  "Event planner": [
+    ["owner", "Owner"],
+    ["lead_planner", "Lead planner"],
+    ["coordinator", "Coordinator"],
+    ["staff", "Staff"],
+  ],
+  "Corporate or office": [
+    ["owner_executive", "Owner or executive"],
+    ["office_manager", "Office manager"],
+    ["department_manager", "Department manager"],
+    ["employee", "Employee"],
+  ],
+  "Other business": [
+    ["owner", "Owner"],
+    ["manager", "Manager"],
+    ["staff", "Staff"],
+  ],
+};
 const day = (v: string) =>
   new Date(v).toLocaleDateString("en-CA", {
     year: "numeric",
@@ -309,6 +346,7 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
           )}
         </div>
         {!session.houseAccount.card || new URLSearchParams(location.search).has("replace-card") ? <SaveHouseCard session={session} onSaved={() => location.reload()} /> : null}
+        {session.houseAccount.role === "account_admin" ? <CustomerMemberManager session={session} account={account} /> : null}
         {account?.ledger?.length ? (
           <div className="customer-orders">
             <h2>Credit activity</h2>
@@ -438,6 +476,88 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
         </button>
       </form>
     </>
+  );
+}
+
+function CustomerMemberManager({ session, account }: { session: any; account: any }) {
+  const initialType = organizationRoles[session.houseAccount.organizationType] ? session.houseAccount.organizationType : "Other business";
+  const [organizationType, setOrganizationType] = useState(initialType);
+  const [message, setMessage] = useState("");
+  return (
+    <section className="house-application-status">
+      <Building2 />
+      <h2>Organization members</h2>
+      <p>Add people who already have an Amazing Donuts website account.</p>
+      <form
+        className="house-application-form"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          setMessage("");
+          const data = new FormData(event.currentTarget);
+          try {
+            await api("/storefront/house-members", { method: "POST", body: JSON.stringify({ email: data.get("email"), organizationType, organizationRole: data.get("organizationRole"), role: data.get("role"), purchaseLimit: data.get("purchaseLimit") ? Math.round(Number(data.get("purchaseLimit")) * 100) : null }) });
+            setMessage("Member added.");
+            event.currentTarget.reset();
+          } catch (cause) {
+            setMessage(cause instanceof Error ? cause.message : "Member could not be added.");
+          }
+        }}
+      >
+        <label>
+          <span>1. Organization type</span>
+          <select value={organizationType} onChange={(event) => setOrganizationType(event.target.value)}>
+            {Object.keys(organizationRoles).map((type) => (
+              <option key={type}>{type}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>2. Member role</span>
+          <select name="organizationRole">
+            {organizationRoles[organizationType].map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Member email</span>
+          <input name="email" type="email" required />
+        </label>
+        <label>
+          <span>Permissions</span>
+          <select name="role">
+            <option value="purchaser">Can purchase</option>
+            <option value="account_admin">Account administrator</option>
+            <option value="viewer">View only</option>
+          </select>
+        </label>
+        <label>
+          <span>Purchase limit</span>
+          <input name="purchaseLimit" type="number" min="0" step="1" />
+        </label>
+        <button>Add member</button>
+        {message ? <p className="wide">{message}</p> : null}
+      </form>
+      {account?.purchasers?.length ? (
+        <div className="customer-orders">
+          {account.purchasers.map((member: any) => (
+            <article key={member.id}>
+              <header>
+                <div>
+                  <strong>
+                    {member.first_name} {member.last_name}
+                  </strong>
+                  <span>{member.email}</span>
+                </div>
+                <em>{String(member.organization_role).replace(/_/g, " ")}</em>
+              </header>
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </section>
   );
 }
 

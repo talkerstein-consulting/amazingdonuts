@@ -5,6 +5,43 @@ import "./portal.css";
 import "./portal-workspaces.css";
 
 const cash = (amount, currency = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(Number(amount || 0) / 100);
+const organizationRoles = {
+  School: [
+    ["principal", "Principal"],
+    ["office_manager", "Office manager"],
+    ["teacher", "Teacher"],
+    ["staff", "Staff"],
+  ],
+  Shul: [
+    ["rabbi", "Rabbi"],
+    ["president", "President"],
+    ["administrator", "Administrator"],
+    ["staff", "Staff"],
+  ],
+  Caterer: [
+    ["owner", "Owner"],
+    ["operations_manager", "Operations manager"],
+    ["sales_coordinator", "Sales coordinator"],
+    ["staff", "Staff"],
+  ],
+  "Event planner": [
+    ["owner", "Owner"],
+    ["lead_planner", "Lead planner"],
+    ["coordinator", "Coordinator"],
+    ["staff", "Staff"],
+  ],
+  "Corporate or office": [
+    ["owner_executive", "Owner or executive"],
+    ["office_manager", "Office manager"],
+    ["department_manager", "Department manager"],
+    ["employee", "Employee"],
+  ],
+  "Other business": [
+    ["owner", "Owner"],
+    ["manager", "Manager"],
+    ["staff", "Staff"],
+  ],
+};
 const day = (value) =>
   value
     ? new Date(value).toLocaleDateString("en-CA", {
@@ -901,51 +938,7 @@ function AccountDetail({ account, staff, demo }) {
           </button>
         </div>
       ) : null}
-      {staff ? (
-        <form
-          className="controls"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            const data = new FormData(event.currentTarget);
-            await request(`/admin/accounts/${account.id}/purchasers`, {
-              method: "POST",
-              body: JSON.stringify({
-                email: data.get("email"),
-                organizationRole: data.get("organizationRole"),
-                role: data.get("role"),
-                purchaseLimit: data.get("purchaseLimit") ? Math.round(Number(data.get("purchaseLimit")) * 100) : null,
-              }),
-            });
-            location.reload();
-          }}
-        >
-          <label>
-            <span>Member email</span>
-            <input name="email" type="email" required />
-          </label>
-          <label>
-            <span>Organization role</span>
-            <select name="organizationRole">
-              <option value="principal">Principal</option>
-              <option value="manager">Manager</option>
-              <option value="staff">Staff</option>
-            </select>
-          </label>
-          <label>
-            <span>Permissions</span>
-            <select name="role">
-              <option value="account_admin">Administrator</option>
-              <option value="purchaser">Purchaser</option>
-              <option value="viewer">Viewer</option>
-            </select>
-          </label>
-          <label>
-            <span>Purchase limit</span>
-            <input name="purchaseLimit" type="number" min="0" step="1" />
-          </label>
-          <button>Add member</button>
-        </form>
-      ) : null}
+      {staff ? <AccountMemberForm account={account} /> : null}
       <nav className="detail-tabs">
         <button className={tab === "activity" ? "active" : ""} onClick={() => setTab("activity")}>
           Activity
@@ -959,6 +952,58 @@ function AccountDetail({ account, staff, demo }) {
       </nav>
       {tab === "activity" ? <Activity entries={account.ledger} account={account} staff={staff} demo={demo} /> : tab === "statements" ? <Statements account={account} staff={staff} demo={demo} /> : <OrderTable orders={account.orders} />}
     </article>
+  );
+}
+function AccountMemberForm({ account }) {
+  const initialType = organizationRoles[account.metadata?.organizationType] ? account.metadata.organizationType : "Other business";
+  const [organizationType, setOrganizationType] = useState(initialType);
+  const roles = organizationRoles[organizationType];
+  return (
+    <form
+      className="controls"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        await request(`/admin/accounts/${account.id}/purchasers`, { method: "POST", body: JSON.stringify({ email: data.get("email"), organizationType, organizationRole: data.get("organizationRole"), role: data.get("role"), purchaseLimit: data.get("purchaseLimit") ? Math.round(Number(data.get("purchaseLimit")) * 100) : null }) });
+        location.reload();
+      }}
+    >
+      <label>
+        <span>1. Organization type</span>
+        <select value={organizationType} onChange={(event) => setOrganizationType(event.target.value)}>
+          {Object.keys(organizationRoles).map((type) => (
+            <option key={type}>{type}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span>2. Member role</span>
+        <select name="organizationRole">
+          {roles.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span>Member email</span>
+        <input name="email" type="email" required />
+      </label>
+      <label>
+        <span>Permissions</span>
+        <select name="role">
+          <option value="account_admin">Administrator</option>
+          <option value="purchaser">Purchaser</option>
+          <option value="viewer">Viewer</option>
+        </select>
+      </label>
+      <label>
+        <span>Purchase limit</span>
+        <input name="purchaseLimit" type="number" min="0" step="1" />
+      </label>
+      <button>Add member</button>
+    </form>
   );
 }
 function Activity({ entries = [], account, staff, demo }) {

@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS account_users (
   account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('account_admin','purchaser','viewer')),
-  organization_role TEXT NOT NULL DEFAULT 'staff' CHECK (organization_role IN ('principal','manager','staff')),
+  organization_role TEXT NOT NULL DEFAULT 'staff',
   purchase_limit BIGINT,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
   PRIMARY KEY (account_id,user_id)
@@ -166,6 +166,20 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS next_statement_at DATE;
 ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS requested_credit_limit BIGINT;
 ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS estimated_order_total BIGINT;
 ALTER TABLE account_users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'staff';
+ALTER TABLE account_users DROP CONSTRAINT IF EXISTS account_users_organization_role_check;
+UPDATE account_users au SET organization_role=CASE
+  WHEN au.organization_role='principal' AND COALESCE(a.metadata->>'organizationType','Other business')='Shul' THEN 'rabbi'
+  WHEN au.organization_role='principal' AND COALESCE(a.metadata->>'organizationType','Other business')='Caterer' THEN 'owner'
+  WHEN au.organization_role='principal' AND COALESCE(a.metadata->>'organizationType','Other business')='Event planner' THEN 'owner'
+  WHEN au.organization_role='principal' AND COALESCE(a.metadata->>'organizationType','Other business')='Corporate or office' THEN 'owner_executive'
+  WHEN au.organization_role='principal' AND COALESCE(a.metadata->>'organizationType','Other business')='Other business' THEN 'owner'
+  WHEN au.organization_role='manager' AND COALESCE(a.metadata->>'organizationType','Other business')='School' THEN 'office_manager'
+  WHEN au.organization_role='manager' AND COALESCE(a.metadata->>'organizationType','Other business')='Shul' THEN 'administrator'
+  WHEN au.organization_role='manager' AND COALESCE(a.metadata->>'organizationType','Other business')='Caterer' THEN 'operations_manager'
+  WHEN au.organization_role='manager' AND COALESCE(a.metadata->>'organizationType','Other business')='Event planner' THEN 'lead_planner'
+  WHEN au.organization_role='manager' AND COALESCE(a.metadata->>'organizationType','Other business')='Corporate or office' THEN 'office_manager'
+  ELSE au.organization_role END
+FROM accounts a WHERE a.id=au.account_id AND au.organization_role IN ('principal','manager');
 
 CREATE TABLE IF NOT EXISTS customer_profiles (
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
