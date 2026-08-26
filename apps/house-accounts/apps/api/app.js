@@ -2,7 +2,7 @@ import express from "express";
 import helmet from "helmet";
 import nodemailer from "nodemailer";
 import { z } from "zod";
-import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { createSession, hashPassword, loadSession, logout, requireStaff, requireUser, verifyPassword } from "./auth.js";
 import { accountCredit, postPayment, postSale, reserveCredit } from "./ledger.js";
 import { processNextSquareEvent } from "../worker/process-square.js";
@@ -11,6 +11,8 @@ import { transaction } from "./db.js";
 import { deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery } from "./delivery.js";
 
 const loginSchema = z.object({ email:z.string().email(), password:z.string().min(8), tenant:z.string().min(2) });
+const forgotPasswordSchema=z.object({email:z.string().email(),tenantSlug:z.string().min(2).default("amazing-donuts")});
+const resetPasswordSchema=z.object({token:z.string().min(32).max(200),password:z.string().min(8).max(200)});
 const statementSchema = z.object({ periodStart:z.iso.date(), periodEnd:z.iso.date(), scheduledChargeAt:z.iso.datetime().optional() });
 const accountUpdate = z.object({ status:z.enum(["pending","active","suspended","closed"]), creditLimit:z.number().int().min(0), paymentTermsDays:z.number().int().min(0).max(120), billingFrequency:z.enum(["manual","weekly","monthly"]).default("manual"), autoChargeStatements:z.boolean().default(false) });
 const houseOrderSchema = z.object({ accountId:z.uuid(), idempotencyKey:z.string().min(8).max(80), locationId:z.string(), fulfillment:z.record(z.string(),z.unknown()), lineItems:z.array(z.object({ catalog_object_id:z.string(), quantity:z.string(), modifiers:z.array(z.object({ catalog_object_id:z.string() })).optional() })).min(1) });
@@ -51,6 +53,16 @@ export function createApp({ pool, square, config }) {
   } catch(error){ next(error); }});
   app.get("/api/auth/session", (request,response)=>response.json({ user:request.user ? publicUser(request.user) : null }));
   app.post("/api/auth/logout", async (request,response,next)=>{ try { await logout(pool,request,response,config.secureCookies); response.status(204).end(); } catch(error){ next(error); } });
+  app.post("/api/auth/forgot-password",async(request,response,next)=>{try{
+    const input=forgotPasswordSchema.parse(request.body),result=await pool.query(`SELECT u.id,u.email,u.first_name,t.id AS tenant_id FROM users u JOIN tenant_memberships tm ON tm.user_id=u.id JOIN tenants t ON t.id=tm.tenant_id WHERE lower(u.email)=lower($1) AND t.slug=$2 AND u.status='active' LIMIT 1`,[input.email,input.tenantSlug]);
+    if(result.rowCount){const user=result.rows[0],token=randomBytes(32).toString("base64url"),tokenHash=createHash("sha256").update(token).digest("hex");await transaction(pool,async client=>{await client.query("UPDATE password_reset_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL",[user.id]);await client.query("INSERT INTO password_reset_tokens(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval '1 hour')",[user.id,tokenHash]);});await sendEmail(config,{to:user.email,subject:"Reset your Amazing Donuts password",text:`Hi ${user.first_name},\n\nReset your password using this secure link:\n${config.siteUrl}/account/?reset=${encodeURIComponent(token)}\n\nThis link expires in one hour and can only be used once. If you did not request this, you can ignore this email.`});}
+    response.json({ok:true,message:"If an account exists for that email, a reset link has been sent."});
+  }catch(error){next(error);}});
+  app.post("/api/auth/reset-password",async(request,response,next)=>{try{
+    const input=resetPasswordSchema.parse(request.body),tokenHash=createHash("sha256").update(input.token).digest("hex"),found=await pool.query("SELECT * FROM password_reset_tokens WHERE token_hash=$1 AND used_at IS NULL AND expires_at>now() LIMIT 1",[tokenHash]);
+    if(!found.rowCount)throw Object.assign(new Error("This password reset link is invalid or has expired."),{status:400,code:"INVALID_RESET_TOKEN"});
+    const passwordHash=await hashPassword(input.password),reset=found.rows[0];await transaction(pool,async client=>{await client.query("UPDATE users SET password_hash=$2 WHERE id=$1",[reset.user_id,passwordHash]);await client.query("UPDATE password_reset_tokens SET used_at=now() WHERE id=$1",[reset.id]);await client.query("DELETE FROM sessions WHERE user_id=$1",[reset.user_id]);});response.json({ok:true});
+  }catch(error){next(error);}});
 
   app.post("/api/storefront/register",async(request,response,next)=>{try{
     const input=registerSchema.parse(request.body),tenant=await pool.query("SELECT * FROM tenants WHERE slug=$1 AND status='active'",[input.tenantSlug]);

@@ -83,6 +83,7 @@ declare global {
 }
 
 export default function AccountPage() {
+  const resetToken = new URLSearchParams(location.search).get("reset");
   const [session, setSession] = useState<any>();
   const [orders, setOrders] = useState<any[]>([]);
   const [creditAccount, setCreditAccount] = useState<any>();
@@ -103,8 +104,9 @@ export default function AccountPage() {
       })
       .catch((error) => setMessage(error.message));
   useEffect(() => {
-    void load();
-  }, []);
+    if (!resetToken) void load();
+  }, [resetToken]);
+  if (resetToken) return <PasswordReset token={resetToken} />;
   if (!session?.user)
     return (
       <main className="commerce-shell account-gate">
@@ -192,6 +194,11 @@ export default function AccountPage() {
       </div>
     </main>
   );
+}
+
+function PasswordReset({token}:{token:string}){
+  const [password,setPassword]=useState(""),[confirmPassword,setConfirmPassword]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState(false);
+  return <main className="commerce-shell account-gate"><a href="/shop/"><ArrowLeft/> Back to shop</a><section><UserRound/><h1>Choose a new password</h1><p>Your reset link can be used once and expires after one hour.</p><form onSubmit={async event=>{event.preventDefault();setMessage("");if(password!==confirmPassword){setMessage("Passwords do not match.");return;}setBusy(true);try{await api("/auth/reset-password",{method:"POST",body:JSON.stringify({token,password})});location.assign("/account/");}catch(error:any){setMessage(error.message);}finally{setBusy(false);}}}><label>New password<input type="password" minLength={8} required autoComplete="new-password" value={password} onChange={event=>setPassword(event.target.value)}/></label><label>Confirm password<input type="password" minLength={8} required autoComplete="new-password" value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)}/></label>{message&&<p role="alert">{message}</p>}<button disabled={busy}>{busy?"Updating...":"Update password"}</button></form></section></main>;
 }
 
 function Orders({ orders }: { orders: any[] }) {

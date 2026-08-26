@@ -15,7 +15,7 @@ const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
  * modal as authentication.
  */
 export default function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess?: () => void }) {
-  const [mode, setMode] = useState<'in' | 'up'>('in');
+  const [mode, setMode] = useState<'in' | 'up' | 'forgot'>('in');
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -81,11 +81,11 @@ export default function AuthModal({ open, onClose, onSuccess }: { open: boolean;
 
             {/* form column */}
             <div className="auth__form">
-              <h3 className="auth__title">{mode === 'in' ? 'Welcome back' : 'Join the box'}</h3>
+              <h3 className="auth__title">{mode === 'in' ? 'Welcome back' : mode === 'forgot' ? 'Reset password' : 'Join the box'}</h3>
               <p className="auth__sub">
                 {mode === 'in'
                   ? 'Sign in to reorder your favourites and track custom orders.'
-                  : 'Create an account to save your builds and speed through checkout.'}
+                  : mode === 'forgot' ? 'Enter your email and we will send a secure reset link.' : 'Create an account to save your builds and speed through checkout.'}
               </p>
 
               <form
@@ -93,9 +93,9 @@ export default function AuthModal({ open, onClose, onSuccess }: { open: boolean;
                   e.preventDefault();
                   setBusy(true); setError('');
                   try {
-                    const response = await fetch(mode === 'in' ? '/api/house/auth/login' : '/api/house/storefront/register', {
+                    const response = await fetch(mode === 'in' ? '/api/house/auth/login' : mode === 'forgot' ? '/api/house/auth/forgot-password' : '/api/house/storefront/register', {
                       method: 'POST', headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(mode === 'in' ? { email, password, tenant: 'amazing-donuts' } : { email, password, firstName, lastName, phone, tenantSlug: 'amazing-donuts' })
+                      body: JSON.stringify(mode === 'in' ? { email, password, tenant: 'amazing-donuts' } : mode === 'forgot' ? { email, tenantSlug: 'amazing-donuts' } : { email, password, firstName, lastName, phone, tenantSlug: 'amazing-donuts' })
                     });
                     const rawBody = await response.text();
                     let body: any = null;
@@ -106,6 +106,7 @@ export default function AuthModal({ open, onClose, onSuccess }: { open: boolean;
                         : 'Account creation is temporarily unavailable. Please try again.';
                       throw new Error(body?.error?.message || fallback);
                     }
+                    if(mode === 'forgot'){setError(body?.message||'If an account exists for that email, a reset link has been sent.');return;}
                     if (!body?.user) throw new Error('The account service returned an invalid response. Please try again.');
                     window.dispatchEvent(new CustomEvent('amazing:auth-changed', { detail: body.user }));
                     onSuccess?.(); onClose();
@@ -128,7 +129,7 @@ export default function AuthModal({ open, onClose, onSuccess }: { open: boolean;
                   onChange={(e) => setEmail(e.target.value)}
                 />
 
-                <label className="auth__label" htmlFor="auth-password">
+                {mode !== 'forgot' && <><label className="auth__label" htmlFor="auth-password">
                   Password
                 </label>
                 <div className="auth__pw">
@@ -151,18 +152,20 @@ export default function AuthModal({ open, onClose, onSuccess }: { open: boolean;
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
-                </div>
+                </div></>}
                 {mode === 'up' && <><label className="auth__label" htmlFor="auth-phone">Phone</label><input id="auth-phone" className="auth__input" type="tel" required autoComplete="tel" value={phone} onChange={e=>setPhone(e.target.value)}/></>}
                 {error && <p className="auth__error" role="alert">{error}</p>}
 
                 <button type="submit" className="auth__submit brand-press" disabled={busy}>
-                  {busy ? 'Please wait...' : mode === 'in' ? 'Sign in' : 'Create account'}
+                  {busy ? 'Please wait...' : mode === 'in' ? 'Sign in' : mode === 'forgot' ? 'Send reset link' : 'Create account'}
                 </button>
               </form>
 
+              {mode === 'in' && <p className="auth__swap"><button type="button" onClick={()=>{setMode('forgot');setError('');}}>Forgot password?</button></p>}
+
               <p className="auth__swap">
-                {mode === 'in' ? "Don't have an account?" : 'Already have one?'}{' '}
-                <button type="button" onClick={() => setMode(mode === 'in' ? 'up' : 'in')}>
+                {mode === 'in' ? "Don't have an account?" : mode === 'forgot' ? 'Remembered your password?' : 'Already have one?'}{' '}
+                <button type="button" onClick={() => {setMode(mode === 'in' ? 'up' : 'in');setError('');}}>
                   {mode === 'in' ? 'Create one' : 'Sign in'}
                 </button>
               </p>
