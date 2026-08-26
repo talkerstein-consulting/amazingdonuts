@@ -120,6 +120,8 @@ CREATE TABLE IF NOT EXISTS house_account_applications (
   email TEXT NOT NULL,
   phone TEXT,
   notes TEXT,
+  requested_credit_limit BIGINT,
+  estimated_order_total BIGINT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
   review_notes TEXT,
   reviewed_at TIMESTAMPTZ,
@@ -135,6 +137,7 @@ CREATE TABLE IF NOT EXISTS account_users (
   account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('account_admin','purchaser','viewer')),
+  organization_role TEXT NOT NULL DEFAULT 'staff' CHECK (organization_role IN ('principal','manager','staff')),
   purchase_limit BIGINT,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
   PRIMARY KEY (account_id,user_id)
@@ -156,6 +159,13 @@ CREATE TABLE IF NOT EXISTS account_cards (
   UNIQUE (tenant_id,square_card_id)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS account_cards_default_idx ON account_cards(account_id) WHERE status='active';
+
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS billing_frequency TEXT NOT NULL DEFAULT 'manual';
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS auto_charge_statements BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS next_statement_at DATE;
+ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS requested_credit_limit BIGINT;
+ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS estimated_order_total BIGINT;
+ALTER TABLE account_users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'staff';
 
 CREATE TABLE IF NOT EXISTS customer_profiles (
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -360,6 +370,11 @@ CREATE TABLE IF NOT EXISTS audit_log (
   user_agent TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE statements ADD COLUMN IF NOT EXISTS payment_token TEXT;
+ALTER TABLE statements ADD COLUMN IF NOT EXISTS scheduled_charge_at TIMESTAMPTZ;
+ALTER TABLE statements ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;
+CREATE UNIQUE INDEX IF NOT EXISTS statements_payment_token_idx ON statements(payment_token) WHERE payment_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS audit_tenant_date_idx ON audit_log(tenant_id,created_at DESC);
 
 CREATE OR REPLACE FUNCTION prevent_ledger_mutation() RETURNS trigger AS $$

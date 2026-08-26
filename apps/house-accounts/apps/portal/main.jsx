@@ -4,100 +4,1227 @@ import { Building2, ClipboardList, Download, FileText, LayoutDashboard, LogOut, 
 import "./portal.css";
 import "./portal-workspaces.css";
 
-const cash=(amount,currency="CAD")=>new Intl.NumberFormat("en-CA",{style:"currency",currency}).format(Number(amount||0)/100);
-const day=(value)=>value?new Date(value).toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}):"-";
-const demoAccount={id:"demo",organization_name:"Eitz Chaim Schools",account_code_hint:"AD-1048",billing_email:"billing@eitzchaim.com",billing_contact:"Raviv Talkar",status:"active",currency:"CAD",payment_terms_days:30,credit:{creditLimit:250000,postedBalance:122490,balance:122490,reserved:18500,available:109010},orders:[],ledger:[],statements:[],payments:[],purchasers:[]};
-const navItems=[{id:"overview",label:"Overview",Icon:LayoutDashboard},{id:"requests",label:"House applications",Icon:Building2},{id:"bulk-requests",label:"Bulk requests",Icon:ClipboardList},{id:"accounts",label:"Accounts",Icon:Building2},{id:"statements",label:"Statements",Icon:ReceiptText},{id:"orders",label:"Orders",Icon:Package},{id:"purchasers",label:"Purchasers",Icon:Users}];
-const viewFromHash=()=>{const candidate=location.hash.slice(1);return navItems.some(item=>item.id===candidate)?candidate:"overview";};
-async function request(path,options){const response=await fetch(`/api/house${path}`,{headers:{"Content-Type":"application/json",...(options?.headers||{})},...options});const body=response.status===204?null:await response.json();if(!response.ok)throw new Error(body?.error?.message||"Request failed.");return body;}
-async function downloadStatement(statement){
-  const response=await fetch(`/api/house/statements/${statement.id}.pdf`);
-  if(!response.ok){
-    const body=await response.json().catch(()=>null);
-    throw new Error(body?.error?.message||"The statement PDF could not be downloaded.");
+const cash = (amount, currency = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(Number(amount || 0) / 100);
+const day = (value) =>
+  value
+    ? new Date(value).toLocaleDateString("en-CA", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "-";
+const demoAccount = {
+  id: "demo",
+  organization_name: "Eitz Chaim Schools",
+  account_code_hint: "AD-1048",
+  billing_email: "billing@eitzchaim.com",
+  billing_contact: "Raviv Talkar",
+  status: "active",
+  currency: "CAD",
+  payment_terms_days: 30,
+  credit: {
+    creditLimit: 250000,
+    postedBalance: 122490,
+    balance: 122490,
+    reserved: 18500,
+    available: 109010,
+  },
+  orders: [],
+  ledger: [],
+  statements: [],
+  payments: [],
+  purchasers: [],
+};
+const navItems = [
+  { id: "overview", label: "Overview", Icon: LayoutDashboard },
+  { id: "requests", label: "House applications", Icon: Building2 },
+  { id: "bulk-requests", label: "Bulk requests", Icon: ClipboardList },
+  { id: "accounts", label: "Accounts", Icon: Building2 },
+  { id: "statements", label: "Statements", Icon: ReceiptText },
+  { id: "orders", label: "Orders", Icon: Package },
+  { id: "purchasers", label: "Purchasers", Icon: Users },
+];
+const viewFromHash = () => {
+  const candidate = location.hash.slice(1);
+  return navItems.some((item) => item.id === candidate) ? candidate : "overview";
+};
+async function request(path, options) {
+  const response = await fetch(`/api/house${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options?.headers || {}),
+    },
+    ...options,
+  });
+  const body = response.status === 204 ? null : await response.json();
+  if (!response.ok) throw new Error(body?.error?.message || "Request failed.");
+  return body;
+}
+async function downloadStatement(statement) {
+  const response = await fetch(`/api/house/statements/${statement.id}.pdf`);
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.error?.message || "The statement PDF could not be downloaded.");
   }
-  const url=URL.createObjectURL(await response.blob()),link=document.createElement("a");
-  link.href=url;
-  link.download=`${statement.statement_number||"account-statement"}.pdf`;
+  const url = URL.createObjectURL(await response.blob()),
+    link = document.createElement("a");
+  link.href = url;
+  link.download = `${statement.statement_number || "account-statement"}.pdf`;
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
 }
 
-function App(){
-  const demo=new URLSearchParams(location.search).has("demo"),[user,setUser]=useState(demo?{firstName:"Raviv",lastName:"Talkar",role:"owner",tenantName:"Amazing Donuts"}:undefined);
-  const [accounts,setAccounts]=useState(demo?[demoAccount]:null),[account,setAccount]=useState(demo?demoAccount:null),[applications,setApplications]=useState([]),[bulkRequests,setBulkRequests]=useState([]),[customOrders,setCustomOrders]=useState([]),[view,setView]=useState(viewFromHash),[error,setError]=useState("");
-  const staff=["owner","staff"].includes(user?.role);
-  const load=async()=>{if(!user||demo)return;try{if(staff){const [a,r,b,o]=await Promise.all([request("/admin/accounts"),request("/admin/applications"),request("/admin/bulk-requests"),request("/admin/custom-orders")]);setAccounts(a.accounts);setApplications(r.applications);setBulkRequests(b.requests);setCustomOrders(o.orders);}else setAccount((await request("/portal/account")).account);setError("");}catch(cause){setError(cause.message);}};
-  useEffect(()=>{if(demo)return;request("/auth/session").then(({user})=>setUser(user)).catch(()=>setUser(null));},[demo]);
-  useEffect(()=>{if(user&&!staff&&!demo)location.replace("/account/");},[user,staff,demo]);
-  useEffect(()=>{load();},[user,staff,demo]);
-  useEffect(()=>{const syncView=()=>setView(viewFromHash());window.addEventListener("hashchange",syncView);return()=>window.removeEventListener("hashchange",syncView);},[]);
-  useEffect(()=>{if(user&&!staff&&!['overview','statements','orders'].includes(view))location.hash='overview';},[user,staff,view]);
-  if(user===undefined)return <div className="boot">Loading account service...</div>;
-  if(!user)return <Login onUser={setUser}/>;
-  if(!staff&&!demo)return <div className="boot">Opening your storefront account...</div>;
-  return <Shell user={user} view={view} onView={setView} pending={{requests:applications.filter(x=>x.status==="pending").length,"bulk-requests":bulkRequests.filter(x=>x.status==="pending").length}} onRefresh={load} onLogout={async()=>{if(!demo)await request("/auth/logout",{method:"POST"});setUser(null);}}>{error?<p className="global-error">{error}</p>:null}{staff?<Admin view={view} accounts={accounts||[]} setAccounts={setAccounts} applications={applications} setApplications={setApplications} bulkRequests={bulkRequests} setBulkRequests={setBulkRequests} customOrders={customOrders} demo={demo}/>:<Customer account={account} view={view}/>}</Shell>;
+function App() {
+  const demo = new URLSearchParams(location.search).has("demo"),
+    [user, setUser] = useState(
+      demo
+        ? {
+            firstName: "Raviv",
+            lastName: "Talkar",
+            role: "owner",
+            tenantName: "Amazing Donuts",
+          }
+        : undefined,
+    );
+  const [accounts, setAccounts] = useState(demo ? [demoAccount] : null),
+    [account, setAccount] = useState(demo ? demoAccount : null),
+    [applications, setApplications] = useState([]),
+    [bulkRequests, setBulkRequests] = useState([]),
+    [customOrders, setCustomOrders] = useState([]),
+    [view, setView] = useState(viewFromHash),
+    [error, setError] = useState("");
+  const staff = ["owner", "staff"].includes(user?.role);
+  const load = async () => {
+    if (!user || demo) return;
+    try {
+      if (staff) {
+        const [a, r, b, o] = await Promise.all([request("/admin/accounts"), request("/admin/applications"), request("/admin/bulk-requests"), request("/admin/custom-orders")]);
+        setAccounts(a.accounts);
+        setApplications(r.applications);
+        setBulkRequests(b.requests);
+        setCustomOrders(o.orders);
+      } else setAccount((await request("/portal/account")).account);
+      setError("");
+    } catch (cause) {
+      setError(cause.message);
+    }
+  };
+  useEffect(() => {
+    if (demo) return;
+    request("/auth/session")
+      .then(({ user }) => setUser(user))
+      .catch(() => setUser(null));
+  }, [demo]);
+  useEffect(() => {
+    if (user && !staff && !demo) location.replace("/account/");
+  }, [user, staff, demo]);
+  useEffect(() => {
+    load();
+  }, [user, staff, demo]);
+  useEffect(() => {
+    const syncView = () => setView(viewFromHash());
+    window.addEventListener("hashchange", syncView);
+    return () => window.removeEventListener("hashchange", syncView);
+  }, []);
+  useEffect(() => {
+    if (user && !staff && !["overview", "statements", "orders"].includes(view)) location.hash = "overview";
+  }, [user, staff, view]);
+  if (user === undefined) return <div className="boot">Loading account service...</div>;
+  if (!user) return <Login onUser={setUser} />;
+  if (!staff && !demo) return <div className="boot">Opening your storefront account...</div>;
+  return (
+    <Shell
+      user={user}
+      view={view}
+      onView={setView}
+      pending={{
+        requests: applications.filter((x) => x.status === "pending").length,
+        "bulk-requests": bulkRequests.filter((x) => x.status === "pending").length,
+      }}
+      onRefresh={load}
+      onLogout={async () => {
+        if (!demo) await request("/auth/logout", { method: "POST" });
+        setUser(null);
+      }}
+    >
+      {error ? <p className="global-error">{error}</p> : null}
+      {staff ? <Admin view={view} accounts={accounts || []} setAccounts={setAccounts} applications={applications} setApplications={setApplications} bulkRequests={bulkRequests} setBulkRequests={setBulkRequests} customOrders={customOrders} demo={demo} /> : <Customer account={account} view={view} />}
+    </Shell>
+  );
 }
 
-function Login({onUser}){const [error,setError]=useState("");return <main className="login"><section className="login-brand"><div className="brand-mark">AD</div><p>Institutional ordering</p><h1>House accounts,<br/>without the paperwork pile.</h1><span>Secure account access for approved organizations.</span></section><section className="login-panel"><form onSubmit={async e=>{e.preventDefault();setError("");const data=Object.fromEntries(new FormData(e.currentTarget));try{onUser((await request("/auth/login",{method:"POST",body:JSON.stringify({...data,tenant:"amazing-donuts"})})).user);}catch(cause){setError(cause.message);}}}><ShieldCheck/><h2>Sign in</h2><label><span>Email address</span><input name="email" type="email" autoComplete="email" required/></label><label><span>Password</span><input name="password" type="password" autoComplete="current-password" minLength="8" required/></label>{error?<p className="error">{error}</p>:null}<button>Continue</button></form></section></main>}
-
-function Shell({user,view,onView,pending,onRefresh,onLogout,children}){const staff=["owner","staff"].includes(user.role),customerViews=["overview","statements","orders"],title=staff?navItems.find(x=>x.id===view)?.label:(view==="overview"?"Your account":navItems.find(x=>x.id===view)?.label);return <div className="shell"><aside><div className="side-brand"><div className="brand-mark">AD</div><div><strong>{user.tenantName||"Amazing Donuts"}</strong><span>House Accounts</span></div></div><nav>{navItems.filter(x=>staff||customerViews.includes(x.id)).map(({id,label,Icon})=><a key={id} href={`#${id}`} className={view===id?"active":""} aria-current={view===id?"page":undefined} onClick={()=>onView(id)}><Icon/><span>{label}</span>{pending?.[id]?<b>{pending[id]}</b>:null}</a>)}</nav><div className="side-user"><div>{user.firstName?.[0]}{user.lastName?.[0]}</div><span><strong>{user.firstName} {user.lastName}</strong><small>{user.role}</small></span><button title="Sign out" onClick={onLogout}><LogOut/></button></div></aside><div className="workspace"><header><div><p>{new Date().toLocaleDateString("en-CA",{weekday:"long",month:"long",day:"numeric"})}</p><h1>{title}</h1></div><button className="icon-button" title="Refresh" onClick={onRefresh}><RefreshCw/></button></header>{children}</div></div>}
-
-function Admin({view,accounts,setAccounts,applications,setApplications,bulkRequests,setBulkRequests,customOrders,demo}){
-  const [selected,setSelected]=useState(accounts[0]?.id),[query,setQuery]=useState("");useEffect(()=>{if(accounts.length&&!selected)setSelected(accounts[0].id)},[accounts,selected]);
-  const visible=accounts.filter(a=>a.organization_name.toLowerCase().includes(query.toLowerCase())),account=accounts.find(a=>a.id===selected)||visible[0],totals=accounts.reduce((s,a)=>({owed:s.owed+Number(a.credit?.balance||a.credit?.postedBalance||0),available:s.available+Number(a.credit?.available||0),reserved:s.reserved+Number(a.credit?.reserved||0)}),{owed:0,available:0,reserved:0});
-  const statements=accounts.flatMap(a=>(a.statements||[]).map(x=>({...x,organization_name:a.organization_name}))),orders=[...customOrders,...accounts.flatMap(a=>(a.orders||[]).filter(order=>!customOrders.some(custom=>custom.square_order_id===order.square_order_id)).map(x=>({...x,organization_name:a.organization_name})))],purchasers=accounts.flatMap(a=>(a.purchasers||[]).map(x=>({...x,organization_name:a.organization_name})));
-  if(view==="requests")return <Applications applications={applications} setApplications={setApplications} setAccounts={setAccounts} accounts={accounts} demo={demo}/>;
-  if(view==="bulk-requests")return <BulkRequests requests={bulkRequests} setRequests={setBulkRequests} demo={demo}/>;
-  if(view==="statements")return <Listing eyebrow="Billing" title="Statements"><StatementTable statements={statements}/></Listing>;
-  if(view==="orders")return <Listing eyebrow="House account activity" title="Orders"><OrderTable orders={orders}/></Listing>;
-  if(view==="purchasers")return <Listing eyebrow="Authorized buyers" title="Purchasers"><PurchaserTable purchasers={purchasers}/></Listing>;
-  return <main className="dashboard">{view==="overview"?<section className="metrics"><Metric label="Receivables" value={cash(totals.owed)} note={`${accounts.length} organizations`} tone="magenta"/><Metric label="Available credit" value={cash(totals.available)} note="Across active accounts" tone="green"/><Metric label="Reserved" value={cash(totals.reserved)} note="Pending online orders" tone="yellow"/></section>:null}<section className="admin-grid"><AccountList accounts={visible} account={account} query={query} setQuery={setQuery} setSelected={setSelected}/>{account?<AccountDetail account={account} staff demo={demo}/>:<div className="empty">No account selected.</div>}</section></main>;
+function Login({ onUser }) {
+  const [error, setError] = useState("");
+  return (
+    <main className="login">
+      <section className="login-brand">
+        <div className="brand-mark">AD</div>
+        <p>Institutional ordering</p>
+        <h1>
+          House accounts,
+          <br />
+          without the paperwork pile.
+        </h1>
+        <span>Secure account access for approved organizations.</span>
+      </section>
+      <section className="login-panel">
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setError("");
+            const data = Object.fromEntries(new FormData(e.currentTarget));
+            try {
+              onUser(
+                (
+                  await request("/auth/login", {
+                    method: "POST",
+                    body: JSON.stringify({ ...data, tenant: "amazing-donuts" }),
+                  })
+                ).user,
+              );
+            } catch (cause) {
+              setError(cause.message);
+            }
+          }}
+        >
+          <ShieldCheck />
+          <h2>Sign in</h2>
+          <label>
+            <span>Email address</span>
+            <input name="email" type="email" autoComplete="email" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input name="password" type="password" autoComplete="current-password" minLength="8" required />
+          </label>
+          {error ? <p className="error">{error}</p> : null}
+          <button>Continue</button>
+        </form>
+      </section>
+    </main>
+  );
 }
 
-function Listing({eyebrow,title,children}){return <main className="dashboard"><section className="page-panel"><div className="section-head"><p>{eyebrow}</p><h2>{title}</h2></div>{children}</section></main>}
-function AccountList({accounts,account,query,setQuery,setSelected}){return <div className="account-list"><div className="section-head"><div><p>Portfolio</p><h2>Organizations</h2></div><label className="search"><Search/><input placeholder="Search" value={query} onChange={e=>setQuery(e.target.value)}/></label></div>{accounts.map(x=><button key={x.id} className={x.id===account?.id?"selected":""} onClick={()=>setSelected(x.id)}><span className="avatar">{x.organization_name.slice(0,2).toUpperCase()}</span><span><strong>{x.organization_name}</strong><small>{x.account_code_hint||x.billing_email}</small></span><b>{cash(x.credit?.balance||x.credit?.postedBalance,x.currency)}</b></button>)}{!accounts.length?<div className="empty-row">No organizations found.</div>:null}</div>}
-
-function Applications({applications,setApplications,setAccounts,accounts,demo}){const [selected,setSelected]=useState(applications.find(x=>x.status==="pending")?.id||applications[0]?.id),application=applications.find(x=>x.id===selected)||applications[0];return <main className="dashboard"><section className="request-layout"><div className="request-list"><div className="section-head"><p>Credit review</p><h2>House-account applications</h2></div>{applications.map(x=><button key={x.id} className={x.id===application?.id?"selected":""} onClick={()=>setSelected(x.id)}><span><strong>{x.organization_name}</strong><small>{x.contact_name} · {day(x.created_at)}</small></span><em className={`status ${x.status}`}>{x.status}</em></button>)}{!applications.length?<div className="empty-row">No house-account applications yet.</div>:null}</div>{application?<HouseApplicationDetail application={application} demo={demo} onReviewed={({application:next,account,accountCode})=>{setApplications(applications.map(x=>x.id===next.id?next:x));if(account)setAccounts([account,...accounts]);if(accountCode)alert(`Approved. House account code: ${accountCode}\n\nRecord this code now; it is only shown once.`);}}/>:<div className="empty">Select an application to review it.</div>}</section></main>}
-
-function HouseApplicationDetail({application,demo,onReviewed}){
-  const [error,setError]=useState(""),[busy,setBusy]=useState(false);
-  const review=async(status,form)=>{if(demo)return;setBusy(true);setError("");const data=new FormData(form);try{onReviewed(await request(`/admin/applications/${application.id}`,{method:"PATCH",body:JSON.stringify({status,reviewNotes:data.get("reviewNotes"),creditLimit:Math.round(Number(data.get("creditLimit")||0)*100),paymentTermsDays:Number(data.get("terms")||30)})}));}catch(cause){setError(cause.message);}finally{setBusy(false);}};
-  return <article className="application-detail"><div className="account-title"><div><p>{application.organization_type}</p><h2>{application.organization_name}</h2><span>{application.contact_name} · <a href={`mailto:${application.email}`}>{application.email}</a>{application.phone?` · ${application.phone}`:""}</span></div><span className={`status ${application.status}`}>{application.status}</span></div><div className="request-notes"><strong>Applicant notes</strong><p>{application.notes||"No additional notes."}</p></div>{application.status==="pending"?<form className="review-form" onSubmit={event=>{event.preventDefault();review("approved",event.currentTarget)}}><label><span>Credit limit</span><input name="creditLimit" type="number" min="0" step=".01" defaultValue="1000" required/></label><label><span>Terms</span><select name="terms" defaultValue="30"><option value="0">Due now</option><option value="15">Net 15</option><option value="30">Net 30</option><option value="45">Net 45</option><option value="60">Net 60</option></select></label><label className="review-notes"><span>Internal review note</span><textarea name="reviewNotes" rows="3" placeholder="Reason, conditions, or follow-up details"/></label>{error?<p className="error review-error">{error}</p>:null}<div className="review-actions"><button type="button" className="reject" disabled={busy} onClick={event=>review("rejected",event.currentTarget.form)}>{busy?"Working...":"Reject"}</button><button disabled={busy}>{busy?"Working...":"Approve account"}</button></div></form>:<div className="reviewed"><strong>{application.status}</strong><p>{application.review_notes||"No internal review note."}</p></div>}</article>;
+function Shell({ user, view, onView, pending, onRefresh, onLogout, children }) {
+  const staff = ["owner", "staff"].includes(user.role),
+    customerViews = ["overview", "statements", "orders"],
+    title = staff ? navItems.find((x) => x.id === view)?.label : view === "overview" ? "Your account" : navItems.find((x) => x.id === view)?.label;
+  return (
+    <div className="shell">
+      <aside>
+        <div className="side-brand">
+          <div className="brand-mark">AD</div>
+          <div>
+            <strong>{user.tenantName || "Amazing Donuts"}</strong>
+            <span>House Accounts</span>
+          </div>
+        </div>
+        <nav>
+          {navItems
+            .filter((x) => staff || customerViews.includes(x.id))
+            .map(({ id, label, Icon }) => (
+              <a key={id} href={`#${id}`} className={view === id ? "active" : ""} aria-current={view === id ? "page" : undefined} onClick={() => onView(id)}>
+                <Icon />
+                <span>{label}</span>
+                {pending?.[id] ? <b>{pending[id]}</b> : null}
+              </a>
+            ))}
+        </nav>
+        <div className="side-user">
+          <div>
+            {user.firstName?.[0]}
+            {user.lastName?.[0]}
+          </div>
+          <span>
+            <strong>
+              {user.firstName} {user.lastName}
+            </strong>
+            <small>{user.role}</small>
+          </span>
+          <button title="Sign out" onClick={onLogout}>
+            <LogOut />
+          </button>
+        </div>
+      </aside>
+      <div className="workspace">
+        <header>
+          <div>
+            <p>
+              {new Date().toLocaleDateString("en-CA", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+            </p>
+            <h1>{title}</h1>
+          </div>
+          <button className="icon-button" title="Refresh" onClick={onRefresh}>
+            <RefreshCw />
+          </button>
+        </header>
+        {children}
+      </div>
+    </div>
+  );
 }
 
-function BulkRequests({requests,setRequests,demo}){const [selected,setSelected]=useState(requests.find(x=>x.status==="pending")?.id||requests[0]?.id),item=requests.find(x=>x.id===selected)||requests[0];return <main className="dashboard"><section className="request-layout"><div className="request-list"><div className="section-head"><p>Production inquiries</p><h2>Bulk-order requests</h2></div>{requests.map(x=><button key={x.id} className={x.id===item?.id?"selected":""} onClick={()=>setSelected(x.id)}><span><strong>{x.organization_name}</strong><small>{x.contact_name} · {day(x.needed_for)}</small></span><em className={`status ${x.status}`}>{x.status}</em></button>)}{!requests.length?<div className="empty-row">No bulk-order requests yet.</div>:null}</div>{item?<BulkRequestDetail item={item} demo={demo} onReviewed={next=>setRequests(requests.map(x=>x.id===next.id?next:x))}/>:<div className="empty">Select a bulk request to review it.</div>}</section></main>}
+function Admin({ view, accounts, setAccounts, applications, setApplications, bulkRequests, setBulkRequests, customOrders, demo }) {
+  const [selected, setSelected] = useState(accounts[0]?.id),
+    [query, setQuery] = useState("");
+  useEffect(() => {
+    if (accounts.length && !selected) setSelected(accounts[0].id);
+  }, [accounts, selected]);
+  const visible = accounts.filter((a) => a.organization_name.toLowerCase().includes(query.toLowerCase())),
+    account = accounts.find((a) => a.id === selected) || visible[0],
+    totals = accounts.reduce(
+      (s, a) => ({
+        owed: s.owed + Number(a.credit?.balance || a.credit?.postedBalance || 0),
+        available: s.available + Number(a.credit?.available || 0),
+        reserved: s.reserved + Number(a.credit?.reserved || 0),
+      }),
+      { owed: 0, available: 0, reserved: 0 },
+    );
+  const statements = accounts.flatMap((a) =>
+      (a.statements || []).map((x) => ({
+        ...x,
+        organization_name: a.organization_name,
+      })),
+    ),
+    orders = [...customOrders, ...accounts.flatMap((a) => (a.orders || []).filter((order) => !customOrders.some((custom) => custom.square_order_id === order.square_order_id)).map((x) => ({ ...x, organization_name: a.organization_name })))],
+    purchasers = accounts.flatMap((a) =>
+      (a.purchasers || []).map((x) => ({
+        ...x,
+        organization_name: a.organization_name,
+      })),
+    );
+  if (view === "requests") return <Applications applications={applications} setApplications={setApplications} setAccounts={setAccounts} accounts={accounts} demo={demo} />;
+  if (view === "bulk-requests") return <BulkRequests requests={bulkRequests} setRequests={setBulkRequests} demo={demo} />;
+  if (view === "statements")
+    return (
+      <Listing eyebrow="Billing" title="Statements">
+        <StatementTable statements={statements} />
+      </Listing>
+    );
+  if (view === "orders")
+    return (
+      <Listing eyebrow="House account activity" title="Orders">
+        <OrderTable orders={orders} />
+      </Listing>
+    );
+  if (view === "purchasers")
+    return (
+      <Listing eyebrow="Authorized buyers" title="Purchasers">
+        <PurchaserTable purchasers={purchasers} />
+      </Listing>
+    );
+  return (
+    <main className="dashboard">
+      {view === "overview" ? (
+        <section className="metrics">
+          <Metric label="Receivables" value={cash(totals.owed)} note={`${accounts.length} organizations`} tone="magenta" />
+          <Metric label="Available credit" value={cash(totals.available)} note="Across active accounts" tone="green" />
+          <Metric label="Reserved" value={cash(totals.reserved)} note="Pending online orders" tone="yellow" />
+        </section>
+      ) : null}
+      <section className="admin-grid">
+        <AccountList accounts={visible} account={account} query={query} setQuery={setQuery} setSelected={setSelected} />
+        {account ? <AccountDetail account={account} staff demo={demo} /> : <div className="empty">No account selected.</div>}
+      </section>
+    </main>
+  );
+}
 
-function BulkRequestDetail({item,demo,onReviewed}){const [error,setError]=useState(""),[busy,setBusy]=useState(false);const review=async(status,form)=>{if(demo)return;setBusy(true);setError("");const data=new FormData(form);try{onReviewed((await request(`/admin/bulk-requests/${item.id}`,{method:"PATCH",body:JSON.stringify({status,reviewNotes:data.get("reviewNotes")})})).request);}catch(cause){setError(cause.message);}finally{setBusy(false);}};return <article className="application-detail"><div className="account-title"><div><p>{item.organization_type}</p><h2>{item.organization_name}</h2><span>{item.contact_name} · <a href={`mailto:${item.email}`}>{item.email}</a>{item.phone?` · ${item.phone}`:""}</span></div><span className={`status ${item.status}`}>{item.status}</span></div><dl className="request-facts"><div><dt>Needed for</dt><dd>{day(item.needed_for)}</dd></div><div><dt>Size</dt><dd>{item.head_count||"Not specified"}</dd></div><div><dt>Fulfillment</dt><dd>{item.fulfillment}</dd></div><div><dt>Products</dt><dd>{(item.products||[]).join(", ")}</dd></div></dl><div className="request-notes"><strong>Customer notes</strong><p>{item.notes||"No additional notes."}</p></div>{item.status==="pending"?<form className="review-form" onSubmit={event=>{event.preventDefault();review("approved",event.currentTarget)}}><label className="review-notes"><span>Internal review note</span><textarea name="reviewNotes" rows="3" placeholder="Availability, quote status, or follow-up details"/></label>{error?<p className="error review-error">{error}</p>:null}<div className="review-actions"><button type="button" className="reject" disabled={busy} onClick={event=>review("rejected",event.currentTarget.form)}>{busy?"Working...":"Reject"}</button><button disabled={busy}>{busy?"Working...":"Approve request"}</button></div></form>:<div className="reviewed"><strong>{item.status}</strong><p>{item.review_notes||"No internal review note."}</p></div>}</article>}
+function Listing({ eyebrow, title, children }) {
+  return (
+    <main className="dashboard">
+      <section className="page-panel">
+        <div className="section-head">
+          <p>{eyebrow}</p>
+          <h2>{title}</h2>
+        </div>
+        {children}
+      </section>
+    </main>
+  );
+}
+function AccountList({ accounts, account, query, setQuery, setSelected }) {
+  return (
+    <div className="account-list">
+      <div className="section-head">
+        <div>
+          <p>Portfolio</p>
+          <h2>Organizations</h2>
+        </div>
+        <label className="search">
+          <Search />
+          <input placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </label>
+      </div>
+      {accounts.map((x) => (
+        <button key={x.id} className={x.id === account?.id ? "selected" : ""} onClick={() => setSelected(x.id)}>
+          <span className="avatar">{x.organization_name.slice(0, 2).toUpperCase()}</span>
+          <span>
+            <strong>{x.organization_name}</strong>
+            <small>{x.account_code_hint || x.billing_email}</small>
+          </span>
+          <b>{cash(x.credit?.balance || x.credit?.postedBalance, x.currency)}</b>
+        </button>
+      ))}
+      {!accounts.length ? <div className="empty-row">No organizations found.</div> : null}
+    </div>
+  );
+}
 
-function ApplicationDetail({application,demo,onReviewed}){const [error,setError]=useState(""),[busy,setBusy]=useState(false);const review=async(status,form)=>{if(demo)return;setBusy(true);setError("");const data=new FormData(form);try{onReviewed(await request(`/admin/applications/${application.id}`,{method:"PATCH",body:JSON.stringify({status,reviewNotes:data.get("reviewNotes"),creditLimit:Math.round(Number(data.get("creditLimit")||0)*100),paymentTermsDays:Number(data.get("terms")||30)})}));}catch(cause){setError(cause.message);}finally{setBusy(false);}};return <article className="application-detail"><div className="account-title"><div><p>{application.organization_type}</p><h2>{application.organization_name}</h2><span>{application.contact_name} · <a href={`mailto:${application.email}`}>{application.email}</a>{application.phone?` · ${application.phone}`:""}</span></div><span className={`status ${application.status}`}>{application.status}</span></div><dl className="request-facts"><div><dt>Needed for</dt><dd>{day(application.needed_for)}</dd></div><div><dt>Size</dt><dd>{application.head_count||"Not specified"}</dd></div><div><dt>Fulfillment</dt><dd>{application.fulfillment}</dd></div><div><dt>Products</dt><dd>{(application.products||[]).join(", ")}</dd></div></dl><div className="request-notes"><strong>Customer notes</strong><p>{application.notes||"No additional notes."}</p></div>{application.status==="pending"?<form className="review-form" onSubmit={e=>{e.preventDefault();review("approved",e.currentTarget)}}><label><span>Credit limit</span><input name="creditLimit" type="number" min="0" step=".01" defaultValue="1000" required/></label><label><span>Terms</span><select name="terms" defaultValue="30"><option value="0">Due now</option><option value="15">Net 15</option><option value="30">Net 30</option><option value="45">Net 45</option><option value="60">Net 60</option></select></label><label className="review-notes"><span>Internal review note</span><textarea name="reviewNotes" rows="3" placeholder="Reason, conditions, or follow-up details"/></label>{error?<p className="error review-error">{error}</p>:null}<div className="review-actions"><button type="button" className="reject" disabled={busy} onClick={e=>review("rejected",e.currentTarget.form)}>{busy?"Working...":"Reject"}</button><button disabled={busy}>{busy?"Working...":"Approve account"}</button></div></form>:<div className="reviewed"><strong>{application.status}</strong><p>{application.review_notes||"No internal review note."}</p></div>}</article>}
+function Applications({ applications, setApplications, setAccounts, accounts, demo }) {
+  const [selected, setSelected] = useState(applications.find((x) => x.status === "pending")?.id || applications[0]?.id),
+    application = applications.find((x) => x.id === selected) || applications[0];
+  return (
+    <main className="dashboard">
+      <section className="request-layout">
+        <div className="request-list">
+          <div className="section-head">
+            <p>Credit review</p>
+            <h2>House-account applications</h2>
+          </div>
+          {applications.map((x) => (
+            <button key={x.id} className={x.id === application?.id ? "selected" : ""} onClick={() => setSelected(x.id)}>
+              <span>
+                <strong>{x.organization_name}</strong>
+                <small>
+                  {x.contact_name} · {day(x.created_at)}
+                </small>
+              </span>
+              <em className={`status ${x.status}`}>{x.status}</em>
+            </button>
+          ))}
+          {!applications.length ? <div className="empty-row">No house-account applications yet.</div> : null}
+        </div>
+        {application ? (
+          <HouseApplicationDetail
+            application={application}
+            demo={demo}
+            onReviewed={({ application: next, account, accountCode }) => {
+              setApplications(applications.map((x) => (x.id === next.id ? next : x)));
+              if (account) setAccounts([account, ...accounts]);
+              if (accountCode) alert(`Approved. House account code: ${accountCode}\n\nRecord this code now; it is only shown once.`);
+            }}
+          />
+        ) : (
+          <div className="empty">Select an application to review it.</div>
+        )}
+      </section>
+    </main>
+  );
+}
 
-function Customer({account,view}){if(!account)return <main className="dashboard"><div className="empty">No house account is linked to this login.</div></main>;if(view==="statements")return <Listing eyebrow="Billing" title="Your statements"><StatementTable statements={account.statements}/></Listing>;if(view==="orders")return <Listing eyebrow="Order history" title="Your orders"><OrderTable orders={account.orders}/></Listing>;return <main className="dashboard"><section className="metrics"><Metric label="Balance due" value={cash(account.credit.balance||account.credit.postedBalance,account.currency)} note={`Net ${account.payment_terms_days}`} tone="magenta"/><Metric label="Available credit" value={cash(account.credit.available,account.currency)} note={`Limit ${cash(account.credit.creditLimit,account.currency)}`} tone="green"/><Metric label="Reserved" value={cash(account.credit.reserved,account.currency)} note="Pending orders" tone="yellow"/></section><AccountDetail account={account}/></main>}
-function Metric({label,value,note,tone}){return <article className={`metric ${tone}`}><span>{label}</span><strong>{value}</strong><small>{note}</small></article>}
-function AccountDetail({account,staff,demo}){const [tab,setTab]=useState("activity"),used=Number(account.credit.balance||account.credit.postedBalance||0),limit=Number(account.credit.creditLimit||0),percent=limit?Math.min(100,used/limit*100):0;return <article className="account-detail"><div className="account-title"><div><p>{account.account_code_hint||"House account"}</p><h2>{account.organization_name}</h2><span>{account.billing_contact} · {account.billing_email}</span></div><span className={`status ${account.status}`}>{account.status}</span></div><div className="credit-track"><div><span>Credit used</span><strong>{cash(used,account.currency)} <small>of {cash(limit,account.currency)}</small></strong></div><div className="track"><i style={{width:`${percent}%`}}/></div><p>{cash(account.credit.available,account.currency)} available · {cash(account.credit.reserved,account.currency)} reserved</p></div>{staff?<form className="controls" onSubmit={async e=>{e.preventDefault();if(demo)return;const d=new FormData(e.currentTarget);await request(`/admin/accounts/${account.id}`,{method:"PATCH",body:JSON.stringify({status:d.get("status"),creditLimit:Math.round(Number(d.get("limit"))*100),paymentTermsDays:Number(d.get("terms"))})});}}><label><span>Status</span><select name="status" defaultValue={account.status}><option>active</option><option>pending</option><option>suspended</option><option>closed</option></select></label><label><span>Credit limit</span><input name="limit" type="number" min="0" step=".01" defaultValue={limit/100}/></label><label><span>Terms</span><select name="terms" defaultValue={account.payment_terms_days}><option value="0">Due now</option><option value="15">Net 15</option><option value="30">Net 30</option><option value="45">Net 45</option><option value="60">Net 60</option></select></label><button>Save account</button></form>:null}<nav className="detail-tabs"><button className={tab==="activity"?"active":""} onClick={()=>setTab("activity")}>Activity</button><button className={tab==="statements"?"active":""} onClick={()=>setTab("statements")}>Statements</button><button className={tab==="orders"?"active":""} onClick={()=>setTab("orders")}>Orders</button></nav>{tab==="activity"?<Activity entries={account.ledger} account={account} staff={staff} demo={demo}/>:tab==="statements"?<Statements account={account} staff={staff} demo={demo}/>:<OrderTable orders={account.orders}/>}</article>}
-function Activity({entries=[],account,staff,demo}){return <>{staff?<form className="controls" onSubmit={async e=>{e.preventDefault();if(demo)return;const form=e.currentTarget,d=new FormData(form);await request(`/admin/accounts/${account.id}/ledger`,{method:"POST",body:JSON.stringify({type:d.get("type"),amount:Math.round(Number(d.get("amount"))*100),description:d.get("description"),direction:d.get("direction")})});location.reload()}}><label><span>Entry type</span><select name="type"><option value="payment">Payment</option><option value="credit">Credit</option><option value="adjustment">Adjustment</option><option value="refund">Refund</option><option value="write_off">Write-off</option></select></label><label><span>Direction</span><select name="direction"><option value="credit">Reduce balance</option><option value="debit">Increase balance</option></select></label><label><span>Amount</span><input name="amount" type="number" min="0.01" step="0.01" required/></label><label><span>Description</span><input name="description" required/></label><button>Post entry</button></form>:null}<div className="table"><div className="table-head"><span>Date</span><span>Description</span><span>Type</span><span>Amount</span></div>{entries.length?entries.map(x=><div className="table-row" key={x.id}><span>{day(x.effective_at)}</span><strong>{x.description}</strong><em>{x.transaction_type}</em><b className={Number(x.amount)<0?"credit":""}>{cash(x.amount,x.currency)}{staff&&x.transaction_type!=="reversal"?<button type="button" onClick={async()=>{const reason=prompt("Reason for reversal");if(!reason)return;await request(`/admin/accounts/${account.id}/reversals`,{method:"POST",body:JSON.stringify({transactionId:x.id,reason})});location.reload()}}>Reverse</button>:null}</b></div>):<div className="empty-row">No account activity yet.</div>}</div></>}
-function OrderTable({orders=[]}){return <div className="table"><div className="table-head"><span>Date</span><span>Order</span><span>Channel</span><span>Total</span></div>{orders.length?orders.map(x=><div className={`table-row${x.assets?.length?" custom-order-row":""}`} key={x.id}><span>{day(x.ordered_at)}</span><strong>{x.organization_name||x.email||`#${x.receipt_number||String(x.square_order_id||x.id).slice(-8)}`}{x.assets?.length?<small>{x.assets.map(asset=><a key={asset.id} href={`/api/house/custom-assets/${asset.id}`}>Download {asset.fileName}</a>)}</small>:null}</strong><em>{x.source}</em><b>{cash(x.total,x.currency)}</b></div>):<div className="empty-row">No orders yet.</div>}</div>}
-function StatementTable({statements=[]}){return <div className="table"><div className="table-head"><span>Period</span><span>Statement</span><span>Status</span><span>Amount</span></div>{statements.length?statements.map(x=><a className="table-row" key={x.id} href={`/api/house/statements/${x.id}.pdf`} target="_blank" rel="noreferrer"><span>{day(x.period_end)}</span><strong><FileText/> {x.organization_name||x.statement_number}</strong><em>{x.status}</em><b>{cash(x.closing_balance,x.currency)} <Download/></b></a>):<div className="empty-row">No statements issued yet.</div>}</div>}
-function PurchaserTable({purchasers=[]}){return <div className="table"><div className="table-head"><span>Organization</span><span>Purchaser</span><span>Role</span><span>Limit</span></div>{purchasers.length?purchasers.map(x=><div className="table-row" key={`${x.organization_name}-${x.id}`}><span>{x.organization_name}</span><strong>{x.first_name} {x.last_name}</strong><em>{x.role.replaceAll("_"," ")}</em><b>{x.purchase_limit==null?"No limit":cash(x.purchase_limit)}</b></div>):<div className="empty-row">No purchasers have been added yet.</div>}</div>}
-function Statements({account,staff,demo}){
-  const [busy,setBusy]=useState(false),[error,setError]=useState("");
-  const issue=async event=>{
-    event.preventDefault();
-    if(demo)return;
-    const data=new FormData(event.currentTarget);
+function HouseApplicationDetail({ application, demo, onReviewed }) {
+  const [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const review = async (status, form) => {
+    if (demo) return;
     setBusy(true);
     setError("");
-    try{
-      const {statement}=await request(`/admin/accounts/${account.id}/statements`,{method:"POST",body:JSON.stringify({periodStart:data.get("from"),periodEnd:data.get("through")})});
+    const data = new FormData(form);
+    try {
+      onReviewed(
+        await request(`/admin/applications/${application.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            status,
+            reviewNotes: data.get("reviewNotes"),
+            creditLimit: Math.round(Number(data.get("creditLimit") || 0) * 100),
+            paymentTermsDays: Number(data.get("terms") || 30),
+          }),
+        }),
+      );
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <article className="application-detail">
+      <div className="account-title">
+        <div>
+          <p>{application.organization_type}</p>
+          <h2>{application.organization_name}</h2>
+          <span>
+            {application.contact_name} · <a href={`mailto:${application.email}`}>{application.email}</a>
+            {application.phone ? ` · ${application.phone}` : ""}
+          </span>
+        </div>
+        <span className={`status ${application.status}`}>{application.status}</span>
+      </div>
+      <dl className="request-facts">
+        <div>
+          <dt>Requested credit</dt>
+          <dd>{cash(application.requested_credit_limit || 0)}</dd>
+        </div>
+        <div>
+          <dt>Expected order</dt>
+          <dd>{cash(application.estimated_order_total || 0)}</dd>
+        </div>
+      </dl>
+      <div className="request-notes">
+        <strong>Applicant notes</strong>
+        <p>{application.notes || "No additional notes."}</p>
+      </div>
+      {application.status === "pending" ? (
+        <form
+          className="review-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            review("approved", event.currentTarget);
+          }}
+        >
+          <label>
+            <span>Credit limit</span>
+            <input name="creditLimit" type="number" min="0" step=".01" defaultValue={Number(application.requested_credit_limit || 100000) / 100} required />
+          </label>
+          <label>
+            <span>Terms</span>
+            <select name="terms" defaultValue="30">
+              <option value="0">Due now</option>
+              <option value="15">Net 15</option>
+              <option value="30">Net 30</option>
+              <option value="45">Net 45</option>
+              <option value="60">Net 60</option>
+            </select>
+          </label>
+          <label className="review-notes">
+            <span>Internal review note</span>
+            <textarea name="reviewNotes" rows="3" placeholder="Reason, conditions, or follow-up details" />
+          </label>
+          {error ? <p className="error review-error">{error}</p> : null}
+          <div className="review-actions">
+            <button type="button" className="reject" disabled={busy} onClick={(event) => review("rejected", event.currentTarget.form)}>
+              {busy ? "Working..." : "Reject"}
+            </button>
+            <button disabled={busy}>{busy ? "Working..." : "Approve account"}</button>
+          </div>
+        </form>
+      ) : (
+        <div className="reviewed">
+          <strong>{application.status}</strong>
+          <p>{application.review_notes || "No internal review note."}</p>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function BulkRequests({ requests, setRequests, demo }) {
+  const [selected, setSelected] = useState(requests.find((x) => x.status === "pending")?.id || requests[0]?.id),
+    item = requests.find((x) => x.id === selected) || requests[0];
+  return (
+    <main className="dashboard">
+      <section className="request-layout">
+        <div className="request-list">
+          <div className="section-head">
+            <p>Production inquiries</p>
+            <h2>Bulk-order requests</h2>
+          </div>
+          {requests.map((x) => (
+            <button key={x.id} className={x.id === item?.id ? "selected" : ""} onClick={() => setSelected(x.id)}>
+              <span>
+                <strong>{x.organization_name}</strong>
+                <small>
+                  {x.contact_name} · {day(x.needed_for)}
+                </small>
+              </span>
+              <em className={`status ${x.status}`}>{x.status}</em>
+            </button>
+          ))}
+          {!requests.length ? <div className="empty-row">No bulk-order requests yet.</div> : null}
+        </div>
+        {item ? <BulkRequestDetail item={item} demo={demo} onReviewed={(next) => setRequests(requests.map((x) => (x.id === next.id ? next : x)))} /> : <div className="empty">Select a bulk request to review it.</div>}
+      </section>
+    </main>
+  );
+}
+
+function BulkRequestDetail({ item, demo, onReviewed }) {
+  const [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const review = async (status, form) => {
+    if (demo) return;
+    setBusy(true);
+    setError("");
+    const data = new FormData(form);
+    try {
+      onReviewed(
+        (
+          await request(`/admin/bulk-requests/${item.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              status,
+              reviewNotes: data.get("reviewNotes"),
+            }),
+          })
+        ).request,
+      );
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <article className="application-detail">
+      <div className="account-title">
+        <div>
+          <p>{item.organization_type}</p>
+          <h2>{item.organization_name}</h2>
+          <span>
+            {item.contact_name} · <a href={`mailto:${item.email}`}>{item.email}</a>
+            {item.phone ? ` · ${item.phone}` : ""}
+          </span>
+        </div>
+        <span className={`status ${item.status}`}>{item.status}</span>
+      </div>
+      <dl className="request-facts">
+        <div>
+          <dt>Needed for</dt>
+          <dd>{day(item.needed_for)}</dd>
+        </div>
+        <div>
+          <dt>Size</dt>
+          <dd>{item.head_count || "Not specified"}</dd>
+        </div>
+        <div>
+          <dt>Fulfillment</dt>
+          <dd>{item.fulfillment}</dd>
+        </div>
+        <div>
+          <dt>Products</dt>
+          <dd>{(item.products || []).join(", ")}</dd>
+        </div>
+      </dl>
+      <div className="request-notes">
+        <strong>Customer notes</strong>
+        <p>{item.notes || "No additional notes."}</p>
+      </div>
+      {item.status === "pending" ? (
+        <form
+          className="review-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            review("approved", event.currentTarget);
+          }}
+        >
+          <label className="review-notes">
+            <span>Internal review note</span>
+            <textarea name="reviewNotes" rows="3" placeholder="Availability, quote status, or follow-up details" />
+          </label>
+          {error ? <p className="error review-error">{error}</p> : null}
+          <div className="review-actions">
+            <button type="button" className="reject" disabled={busy} onClick={(event) => review("rejected", event.currentTarget.form)}>
+              {busy ? "Working..." : "Reject"}
+            </button>
+            <button disabled={busy}>{busy ? "Working..." : "Approve request"}</button>
+          </div>
+        </form>
+      ) : (
+        <div className="reviewed">
+          <strong>{item.status}</strong>
+          <p>{item.review_notes || "No internal review note."}</p>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function ApplicationDetail({ application, demo, onReviewed }) {
+  const [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const review = async (status, form) => {
+    if (demo) return;
+    setBusy(true);
+    setError("");
+    const data = new FormData(form);
+    try {
+      onReviewed(
+        await request(`/admin/applications/${application.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            status,
+            reviewNotes: data.get("reviewNotes"),
+            creditLimit: Math.round(Number(data.get("creditLimit") || 0) * 100),
+            paymentTermsDays: Number(data.get("terms") || 30),
+          }),
+        }),
+      );
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <article className="application-detail">
+      <div className="account-title">
+        <div>
+          <p>{application.organization_type}</p>
+          <h2>{application.organization_name}</h2>
+          <span>
+            {application.contact_name} · <a href={`mailto:${application.email}`}>{application.email}</a>
+            {application.phone ? ` · ${application.phone}` : ""}
+          </span>
+        </div>
+        <span className={`status ${application.status}`}>{application.status}</span>
+      </div>
+      <dl className="request-facts">
+        <div>
+          <dt>Needed for</dt>
+          <dd>{day(application.needed_for)}</dd>
+        </div>
+        <div>
+          <dt>Size</dt>
+          <dd>{application.head_count || "Not specified"}</dd>
+        </div>
+        <div>
+          <dt>Fulfillment</dt>
+          <dd>{application.fulfillment}</dd>
+        </div>
+        <div>
+          <dt>Products</dt>
+          <dd>{(application.products || []).join(", ")}</dd>
+        </div>
+      </dl>
+      <div className="request-notes">
+        <strong>Customer notes</strong>
+        <p>{application.notes || "No additional notes."}</p>
+      </div>
+      {application.status === "pending" ? (
+        <form
+          className="review-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            review("approved", e.currentTarget);
+          }}
+        >
+          <label>
+            <span>Credit limit</span>
+            <input name="creditLimit" type="number" min="0" step=".01" defaultValue="1000" required />
+          </label>
+          <label>
+            <span>Terms</span>
+            <select name="terms" defaultValue="30">
+              <option value="0">Due now</option>
+              <option value="15">Net 15</option>
+              <option value="30">Net 30</option>
+              <option value="45">Net 45</option>
+              <option value="60">Net 60</option>
+            </select>
+          </label>
+          <label className="review-notes">
+            <span>Internal review note</span>
+            <textarea name="reviewNotes" rows="3" placeholder="Reason, conditions, or follow-up details" />
+          </label>
+          {error ? <p className="error review-error">{error}</p> : null}
+          <div className="review-actions">
+            <button type="button" className="reject" disabled={busy} onClick={(e) => review("rejected", e.currentTarget.form)}>
+              {busy ? "Working..." : "Reject"}
+            </button>
+            <button disabled={busy}>{busy ? "Working..." : "Approve account"}</button>
+          </div>
+        </form>
+      ) : (
+        <div className="reviewed">
+          <strong>{application.status}</strong>
+          <p>{application.review_notes || "No internal review note."}</p>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function Customer({ account, view }) {
+  if (!account)
+    return (
+      <main className="dashboard">
+        <div className="empty">No house account is linked to this login.</div>
+      </main>
+    );
+  if (view === "statements")
+    return (
+      <Listing eyebrow="Billing" title="Your statements">
+        <StatementTable statements={account.statements} />
+      </Listing>
+    );
+  if (view === "orders")
+    return (
+      <Listing eyebrow="Order history" title="Your orders">
+        <OrderTable orders={account.orders} />
+      </Listing>
+    );
+  return (
+    <main className="dashboard">
+      <section className="metrics">
+        <Metric label="Balance due" value={cash(account.credit.balance || account.credit.postedBalance, account.currency)} note={`Net ${account.payment_terms_days}`} tone="magenta" />
+        <Metric label="Available credit" value={cash(account.credit.available, account.currency)} note={`Limit ${cash(account.credit.creditLimit, account.currency)}`} tone="green" />
+        <Metric label="Reserved" value={cash(account.credit.reserved, account.currency)} note="Pending orders" tone="yellow" />
+      </section>
+      <AccountDetail account={account} />
+    </main>
+  );
+}
+function Metric({ label, value, note, tone }) {
+  return (
+    <article className={`metric ${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{note}</small>
+    </article>
+  );
+}
+function AccountDetail({ account, staff, demo }) {
+  const [tab, setTab] = useState("activity"),
+    used = Number(account.credit.balance || account.credit.postedBalance || 0),
+    limit = Number(account.credit.creditLimit || 0),
+    percent = limit ? Math.min(100, (used / limit) * 100) : 0;
+  return (
+    <article className="account-detail">
+      <div className="account-title">
+        <div>
+          <p>{account.account_code_hint || "House account"}</p>
+          <h2>{account.organization_name}</h2>
+          <span>
+            {account.billing_contact} · {account.billing_email}
+          </span>
+        </div>
+        <span className={`status ${account.status}`}>{account.status}</span>
+      </div>
+      <div className="credit-track">
+        <div>
+          <span>Credit used</span>
+          <strong>
+            {cash(used, account.currency)} <small>of {cash(limit, account.currency)}</small>
+          </strong>
+        </div>
+        <div className="track">
+          <i style={{ width: `${percent}%` }} />
+        </div>
+        <p>
+          {cash(account.credit.available, account.currency)} available · {cash(account.credit.reserved, account.currency)} reserved
+        </p>
+      </div>
+      {staff ? (
+        <form
+          className="controls"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (demo) return;
+            const d = new FormData(e.currentTarget);
+            await request(`/admin/accounts/${account.id}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                status: d.get("status"),
+                creditLimit: Math.round(Number(d.get("limit")) * 100),
+                paymentTermsDays: Number(d.get("terms")),
+                billingFrequency: d.get("billingFrequency"),
+                autoChargeStatements: d.get("autoChargeStatements") === "on",
+              }),
+            });
+          }}
+        >
+          <label>
+            <span>Status</span>
+            <select name="status" defaultValue={account.status}>
+              <option>active</option>
+              <option>pending</option>
+              <option>suspended</option>
+              <option>closed</option>
+            </select>
+          </label>
+          <label>
+            <span>Credit limit</span>
+            <input name="limit" type="number" min="0" step=".01" defaultValue={limit / 100} />
+          </label>
+          <label>
+            <span>Terms</span>
+            <select name="terms" defaultValue={account.payment_terms_days}>
+              <option value="0">Due now</option>
+              <option value="15">Net 15</option>
+              <option value="30">Net 30</option>
+              <option value="45">Net 45</option>
+              <option value="60">Net 60</option>
+            </select>
+          </label>
+          <label>
+            <span>Recurring invoice</span>
+            <select name="billingFrequency" defaultValue={account.billing_frequency || "manual"}>
+              <option value="manual">Manual</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </label>
+          <label>
+            <span>Collection</span>
+            <span>
+              <input type="checkbox" name="autoChargeStatements" defaultChecked={account.auto_charge_statements} /> Charge saved card when due
+            </span>
+          </label>
+          <button>Save account</button>
+        </form>
+      ) : null}
+      {staff ? (
+        <div className="controls">
+          <strong>{account.cards?.find((card) => card.status === "active") ? `${account.cards.find((card) => card.status === "active").card_brand || "Card"} ending ${account.cards.find((card) => card.status === "active").last_4}` : "No active card"}</strong>
+          <button
+            type="button"
+            onClick={async () => {
+              await request(`/admin/accounts/${account.id}/card/replacement`, {
+                method: "POST",
+              });
+              alert("Secure card-update email sent.");
+            }}
+          >
+            Request card update
+          </button>
+          <button
+            type="button"
+            disabled={!account.cards?.some((card) => card.status === "active")}
+            onClick={async () => {
+              if (confirm("Disable the active card?")) {
+                await request(`/admin/accounts/${account.id}/card/disable`, {
+                  method: "POST",
+                });
+                location.reload();
+              }
+            }}
+          >
+            Disable card
+          </button>
+        </div>
+      ) : null}
+      {staff ? (
+        <form
+          className="controls"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            await request(`/admin/accounts/${account.id}/purchasers`, {
+              method: "POST",
+              body: JSON.stringify({
+                email: data.get("email"),
+                organizationRole: data.get("organizationRole"),
+                role: data.get("role"),
+                purchaseLimit: data.get("purchaseLimit") ? Math.round(Number(data.get("purchaseLimit")) * 100) : null,
+              }),
+            });
+            location.reload();
+          }}
+        >
+          <label>
+            <span>Member email</span>
+            <input name="email" type="email" required />
+          </label>
+          <label>
+            <span>Organization role</span>
+            <select name="organizationRole">
+              <option value="principal">Principal</option>
+              <option value="manager">Manager</option>
+              <option value="staff">Staff</option>
+            </select>
+          </label>
+          <label>
+            <span>Permissions</span>
+            <select name="role">
+              <option value="account_admin">Administrator</option>
+              <option value="purchaser">Purchaser</option>
+              <option value="viewer">Viewer</option>
+            </select>
+          </label>
+          <label>
+            <span>Purchase limit</span>
+            <input name="purchaseLimit" type="number" min="0" step="1" />
+          </label>
+          <button>Add member</button>
+        </form>
+      ) : null}
+      <nav className="detail-tabs">
+        <button className={tab === "activity" ? "active" : ""} onClick={() => setTab("activity")}>
+          Activity
+        </button>
+        <button className={tab === "statements" ? "active" : ""} onClick={() => setTab("statements")}>
+          Statements
+        </button>
+        <button className={tab === "orders" ? "active" : ""} onClick={() => setTab("orders")}>
+          Orders
+        </button>
+      </nav>
+      {tab === "activity" ? <Activity entries={account.ledger} account={account} staff={staff} demo={demo} /> : tab === "statements" ? <Statements account={account} staff={staff} demo={demo} /> : <OrderTable orders={account.orders} />}
+    </article>
+  );
+}
+function Activity({ entries = [], account, staff, demo }) {
+  return (
+    <>
+      {staff ? (
+        <form
+          className="controls"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (demo) return;
+            const form = e.currentTarget,
+              d = new FormData(form);
+            await request(`/admin/accounts/${account.id}/ledger`, {
+              method: "POST",
+              body: JSON.stringify({
+                type: d.get("type"),
+                amount: Math.round(Number(d.get("amount")) * 100),
+                description: d.get("description"),
+                direction: d.get("direction"),
+              }),
+            });
+            location.reload();
+          }}
+        >
+          <label>
+            <span>Entry type</span>
+            <select name="type">
+              <option value="payment">Payment</option>
+              <option value="credit">Credit</option>
+              <option value="adjustment">Adjustment</option>
+              <option value="refund">Refund</option>
+              <option value="write_off">Write-off</option>
+            </select>
+          </label>
+          <label>
+            <span>Direction</span>
+            <select name="direction">
+              <option value="credit">Reduce balance</option>
+              <option value="debit">Increase balance</option>
+            </select>
+          </label>
+          <label>
+            <span>Amount</span>
+            <input name="amount" type="number" min="0.01" step="0.01" required />
+          </label>
+          <label>
+            <span>Description</span>
+            <input name="description" required />
+          </label>
+          <button>Post entry</button>
+        </form>
+      ) : null}
+      <div className="table">
+        <div className="table-head">
+          <span>Date</span>
+          <span>Description</span>
+          <span>Type</span>
+          <span>Amount</span>
+        </div>
+        {entries.length ? (
+          entries.map((x) => (
+            <div className="table-row" key={x.id}>
+              <span>{day(x.effective_at)}</span>
+              <strong>{x.description}</strong>
+              <em>{x.transaction_type}</em>
+              <b className={Number(x.amount) < 0 ? "credit" : ""}>
+                {cash(x.amount, x.currency)}
+                {staff && x.transaction_type !== "reversal" ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const reason = prompt("Reason for reversal");
+                      if (!reason) return;
+                      await request(`/admin/accounts/${account.id}/reversals`, {
+                        method: "POST",
+                        body: JSON.stringify({ transactionId: x.id, reason }),
+                      });
+                      location.reload();
+                    }}
+                  >
+                    Reverse
+                  </button>
+                ) : null}
+              </b>
+            </div>
+          ))
+        ) : (
+          <div className="empty-row">No account activity yet.</div>
+        )}
+      </div>
+    </>
+  );
+}
+function OrderTable({ orders = [] }) {
+  return (
+    <div className="table">
+      <div className="table-head">
+        <span>Date</span>
+        <span>Order</span>
+        <span>Channel</span>
+        <span>Total</span>
+      </div>
+      {orders.length ? (
+        orders.map((x) => (
+          <div className={`table-row${x.assets?.length ? " custom-order-row" : ""}`} key={x.id}>
+            <span>{day(x.ordered_at)}</span>
+            <strong>
+              {x.organization_name || x.email || `#${x.receipt_number || String(x.square_order_id || x.id).slice(-8)}`}
+              {x.assets?.length ? (
+                <small>
+                  {x.assets.map((asset) => (
+                    <a key={asset.id} href={`/api/house/custom-assets/${asset.id}`}>
+                      Download {asset.fileName}
+                    </a>
+                  ))}
+                </small>
+              ) : null}
+            </strong>
+            <em>{x.source}</em>
+            <b>{cash(x.total, x.currency)}</b>
+          </div>
+        ))
+      ) : (
+        <div className="empty-row">No orders yet.</div>
+      )}
+    </div>
+  );
+}
+function StatementTable({ statements = [] }) {
+  return (
+    <div className="table">
+      <div className="table-head">
+        <span>Period</span>
+        <span>Statement</span>
+        <span>Status</span>
+        <span>Amount</span>
+      </div>
+      {statements.length ? (
+        statements.map((x) => (
+          <a className="table-row" key={x.id} href={`/api/house/statements/${x.id}.pdf`} target="_blank" rel="noreferrer">
+            <span>{day(x.period_end)}</span>
+            <strong>
+              <FileText /> {x.organization_name || x.statement_number}
+            </strong>
+            <em>{x.status}</em>
+            <b>
+              {cash(x.closing_balance, x.currency)} <Download />
+            </b>
+          </a>
+        ))
+      ) : (
+        <div className="empty-row">No statements issued yet.</div>
+      )}
+    </div>
+  );
+}
+function PurchaserTable({ purchasers = [] }) {
+  return (
+    <div className="table">
+      <div className="table-head">
+        <span>Organization</span>
+        <span>Purchaser</span>
+        <span>Role</span>
+        <span>Limit</span>
+      </div>
+      {purchasers.length ? (
+        purchasers.map((x) => (
+          <div className="table-row" key={`${x.organization_name}-${x.id}`}>
+            <span>{x.organization_name}</span>
+            <strong>
+              {x.first_name} {x.last_name}
+            </strong>
+            <em>{x.role.replaceAll("_", " ")}</em>
+            <b>{x.purchase_limit == null ? "No limit" : cash(x.purchase_limit)}</b>
+          </div>
+        ))
+      ) : (
+        <div className="empty-row">No purchasers have been added yet.</div>
+      )}
+    </div>
+  );
+}
+function Statements({ account, staff, demo }) {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const openStatement = account.statements.find((statement) => !["paid", "void"].includes(statement.status));
+  const paymentLink = openStatement?.payment_token ? `${location.origin}/account/?statement=${openStatement.payment_token}` : "";
+  const issue = async (event) => {
+    event.preventDefault();
+    if (demo) return;
+    const data = new FormData(event.currentTarget);
+    setBusy(true);
+    setError("");
+    try {
+      const scheduled = data.get("scheduledChargeAt");
+      const { statement } = await request(`/admin/accounts/${account.id}/statements`, {
+        method: "POST",
+        body: JSON.stringify({
+          periodStart: data.get("from"),
+          periodEnd: data.get("through"),
+          ...(scheduled ? { scheduledChargeAt: new Date(String(scheduled)).toISOString() } : {}),
+        }),
+      });
       await downloadStatement(statement);
       location.reload();
-    }catch(cause){
+    } catch (cause) {
       setError(cause.message);
       setBusy(false);
     }
   };
-  return <div className="statements"><StatementTable statements={account.statements}/>{staff?<form className="issue" onSubmit={issue}><div><ReceiptText/><span><strong>Close a billing period</strong><small>Create an immutable statement snapshot and customer PDF.</small></span></div><label><span>From</span><input type="date" name="from" required disabled={busy}/></label><label><span>Through</span><input type="date" name="through" required disabled={busy}/></label>{error?<p className="error review-error">{error}</p>:null}<button disabled={busy}>{busy?"Creating PDF...":"Issue statement"}</button></form>:null}</div>
+  return (
+    <div className="statements">
+      <StatementTable statements={account.statements} />
+      {staff && openStatement ? (
+        <div className="controls">
+          <button
+            type="button"
+            onClick={async () => {
+              await request(`/admin/statements/${openStatement.id}/charge`, {
+                method: "POST",
+                body: JSON.stringify({ idempotencyKey: crypto.randomUUID() }),
+              });
+              location.reload();
+            }}
+          >
+            Charge saved card
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              await navigator.clipboard.writeText(paymentLink);
+              alert("Payment link copied.");
+            }}
+            disabled={!paymentLink}
+          >
+            Copy payment link
+          </button>
+        </div>
+      ) : null}
+      {staff ? (
+        <form className="issue" onSubmit={issue}>
+          <div>
+            <ReceiptText />
+            <span>
+              <strong>Create an invoice</strong>
+              <small>Issue a statement now, or schedule its saved-card collection.</small>
+            </span>
+          </div>
+          <label>
+            <span>From</span>
+            <input type="date" name="from" required disabled={busy} />
+          </label>
+          <label>
+            <span>Through</span>
+            <input type="date" name="through" required disabled={busy} />
+          </label>
+          <label>
+            <span>Scheduled payment</span>
+            <input type="datetime-local" name="scheduledChargeAt" disabled={busy} />
+          </label>
+          {error ? <p className="error review-error">{error}</p> : null}
+          <button disabled={busy}>{busy ? "Creating PDF..." : "Issue invoice"}</button>
+        </form>
+      ) : null}
+    </div>
+  );
 }
-createRoot(document.getElementById("root")).render(<App/>);
+createRoot(document.getElementById("root")).render(<App />);
