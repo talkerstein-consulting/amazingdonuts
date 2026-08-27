@@ -319,20 +319,10 @@
   gap: 8px;
 }
 
-@media (min-width: 900px) {
-  /* From tablet up the close button owns the panel's top-right corner, so the
-     tools sit inboard of it. */
-  .cabinet__mediaTools { right: 72px; }
-}
-
 @media (max-width: 899px) {
-  /* Save and share sit in the corner the back button used to hold. They were
-     pinned to `right: 16px` with no 900px override, which put them directly
-     underneath the close button. */
-  .cabinet__mediaTools {
-    left: 16px;
-    right: auto;
-  }
+  /* The save/share tools own the media's top-right corner on phones. Keep the
+     panel close control in the opposite corner so all three remain usable. */
+  .cabinet__close { left: 16px; right: auto; }
 }
 
 .cabinet__iconBtn {
@@ -598,7 +588,7 @@
 .cart-glyph { min-height:68px; resize:vertical; font-size:16px; font-weight:700; line-height:1.35; }
 .cart-custom__ready { color:#18704f!important; font-weight:800; }
 .cart__checkout.is-disabled { opacity:.48; cursor:not-allowed; }
-.cart__continue { width:100%; min-height:44px; border:1.5px solid var(--navy); border-radius:var(--radius-pill); background:transparent; color:var(--navy); font-family:var(--font-cta); font-weight:800; letter-spacing:.03em; cursor:pointer; }
+.cart__continue { width:100%; min-height:44px; margin-top:10px; border:1.5px solid var(--navy); border-radius:var(--radius-pill); background:transparent; color:var(--navy); font-family:var(--font-cta); font-weight:800; letter-spacing:.03em; cursor:pointer; }
 .cart__continue:hover,.cart__continue:focus-visible { background:rgba(14,62,105,.08); color:var(--navy); }
 
 .cart__thumb {
@@ -1073,7 +1063,8 @@
   display: flex;
   gap: 8px;
   max-width: 1400px;
-  margin: 0 auto;
+  justify-content: center;
+  margin: clamp(48px, 6vw, 82px) auto 0;
   padding: 0 var(--shop-gutter);
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -1330,8 +1321,12 @@
    the page it also needs the page's gutter and centring. */
 .shop-page .shop-grid {
   max-width: 1400px;
-  margin: clamp(16px, 2vw, 24px) auto 0;
+  margin: 12px auto 0;
   padding: 0 var(--shop-gutter);
+}
+
+@media (max-width: 760px) {
+  .shop-chips { justify-content: flex-start; }
 }
 
 .shop-page .shop-grid > * {

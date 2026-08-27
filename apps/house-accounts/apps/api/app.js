@@ -37,6 +37,7 @@ const chargeSchema=z.object({idempotencyKey:z.uuid(),scheduledAt:z.iso.datetime(
 const purchaserSchema=z.object({email:z.string().email(),organizationType:z.string().trim().min(2).max(80),organizationRole:z.string().regex(/^[a-z][a-z0-9_]{1,39}$/),role:z.enum(["account_admin","purchaser","viewer"]),purchaseLimit:z.number().int().min(0).nullable().default(null)});
 const careerSettingsSchema=z.object({pageEnabled:z.boolean()});
 const careerRoleSchema=z.object({title:z.string().trim().min(2).max(120),employmentType:z.string().trim().min(2).max(60),shift:z.string().trim().min(2).max(120),blurb:z.string().trim().min(2).max(600),responsibilities:z.array(z.string().trim().min(2).max(240)).min(1).max(12),sortOrder:z.number().int().min(0).max(10000),enabled:z.boolean()});
+const wishlistProductSchema=z.string().regex(/^[a-z0-9][a-z0-9-]{0,119}$/);
 const organizationRoles={School:["principal","office_manager","teacher","staff"],Shul:["rabbi","president","administrator","staff"],Caterer:["owner","operations_manager","sales_coordinator","staff"],"Event planner":["owner","lead_planner","coordinator","staff"],"Corporate or office":["owner_executive","office_manager","department_manager","employee"],"Other business":["owner","manager","staff"]};
 
 export function createApp({ pool, square, config }) {
@@ -96,6 +97,9 @@ export function createApp({ pool, square, config }) {
     await transaction(pool,async client=>{await client.query("UPDATE users SET first_name=$3,last_name=$4,phone=$5 WHERE id=$1 AND EXISTS(SELECT 1 FROM tenant_memberships WHERE tenant_id=$2 AND user_id=$1)",[user.id,user.tenant_id,input.firstName,input.lastName,input.phone||null]);await client.query("UPDATE customer_profiles SET default_phone=$3,default_address=$4,updated_at=now() WHERE tenant_id=$1 AND user_id=$2",[user.tenant_id,user.id,input.phone||null,JSON.stringify(input.address)]);});
     response.json({ok:true});
   }catch(error){next(error);}});
+  app.get("/api/storefront/wishlist",async(request,response,next)=>{try{const user=requireUser(request),result=await pool.query("SELECT product_id FROM user_wishlist WHERE tenant_id=$1 AND user_id=$2 ORDER BY created_at DESC",[user.tenant_id,user.id]);response.json({productIds:result.rows.map(row=>row.product_id)});}catch(error){next(error);}});
+  app.put("/api/storefront/wishlist/:productId",async(request,response,next)=>{try{const user=requireUser(request),productId=wishlistProductSchema.parse(request.params.productId);await pool.query("INSERT INTO user_wishlist(tenant_id,user_id,product_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",[user.tenant_id,user.id,productId]);response.json({saved:true,productId});}catch(error){next(error);}});
+  app.delete("/api/storefront/wishlist/:productId",async(request,response,next)=>{try{const user=requireUser(request),productId=wishlistProductSchema.parse(request.params.productId);await pool.query("DELETE FROM user_wishlist WHERE tenant_id=$1 AND user_id=$2 AND product_id=$3",[user.tenant_id,user.id,productId]);response.status(204).end();}catch(error){next(error);}});
   app.get("/api/storefront/house-application",async(request,response,next)=>{try{const user=requireUser(request),result=await pool.query("SELECT * FROM house_account_applications WHERE tenant_id=$1 AND user_id=$2 LIMIT 1",[user.tenant_id,user.id]);response.json({application:result.rows[0]||null});}catch(error){next(error);}});
   app.post("/api/storefront/house-application",async(request,response,next)=>{try{
     const user=requireUser(request),input=houseApplicationSchema.parse(request.body);

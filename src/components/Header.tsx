@@ -4,7 +4,7 @@ import { Menu, Plus, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useNavTheme } from '../lib/nav-theme';
 import { useShop } from '../lib/shop';
-import { PRODUCTS } from '../data/products';
+import { CATEGORIES, PRODUCTS } from '../data/products';
 import { LAB_HREF } from '../lib/lab-href';
 import { HOME_HREF, onHomeClick } from '../lib/home-href';
 import { SHOP_HREF, shopHref } from '../lib/shop-href';
@@ -66,6 +66,9 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
      the active section the moment it leaves. One shared `layoutId` means it
      slides between the two rather than blinking out and in. */
   const marked = hovered ?? activeLabel;
+  const searchTerm = query.trim().toLowerCase();
+  const productSuggestions = searchTerm ? PRODUCTS.filter((product) => `${product.name} ${product.category}`.toLowerCase().includes(searchTerm)).slice(0, 4) : [];
+  const categorySuggestions = searchTerm ? CATEGORIES.filter((category) => category.toLowerCase().includes(searchTerm)).slice(0, 2) : [];
 
   const closeSearch = () => setSearchOpen(false);
 
@@ -297,6 +300,21 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                 transition: 'opacity .2s ease'
               }}
             />
+            {searchOpen && searchTerm && (productSuggestions.length > 0 || categorySuggestions.length > 0) && (
+              <div className="nav-search__suggestions" role="listbox" aria-label="Search suggestions">
+                {categorySuggestions.map((category) => (
+                  <a key={category} href={shopHref({ category })}>
+                    <Search size={16} /> <span>Shop all <strong>{category}</strong></span>
+                  </a>
+                ))}
+                {productSuggestions.map((product) => (
+                  <a key={product.id} href={`/shop/#product/${product.id}`}>
+                    <img src={product.img} alt="" /> <span><strong>{product.name}</strong><small>{product.category}</small></span>
+                  </a>
+                ))}
+                <button type="submit"><Search size={16} /> See all results for “{query.trim()}”</button>
+              </div>
+            )}
             {searchOpen && (
               <button
                 type="button"

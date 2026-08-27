@@ -36,7 +36,7 @@ const MAP_SRC =
 const HOURS = [
   { label: 'Sunday', hours: '8:00am – 1:00pm' },
   { label: 'Mon – Thu', hours: '7:30am – 4:00pm' },
-  { label: 'Friday', hours: '7:30am – 1:00pm' },
+  { label: 'Friday', hours: '7:30am – 2:00pm' },
   { label: 'Saturday', hours: 'Closed' }
 ];
 

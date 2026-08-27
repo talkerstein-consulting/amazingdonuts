@@ -48,12 +48,12 @@ const REASSURANCE = [
  * more use than five angles of the same donut would be.
  */
 export default function ProductPanel({ product }: { product: Product }) {
-  const { closeProduct, openProduct, add } = useShop();
+  const { closeProduct, openProduct, add, wishlist, toggleWishlist } = useShop();
   const [qty, setQty] = useState(1);
   const [pack, setPack] = useState<(typeof PACKS)[number]['id']>('single');
   const [openSection, setOpenSection] = useState<'details' | 'allergens' | 'delivery' | ''>('details');
   const [view, setView] = useState(0);
-  const [saved, setSaved] = useState(false);
+  const saved = wishlist.includes(product.id);
   const [copied, setCopied] = useState(false);
   const [added, setAdded] = useState(false);
 
@@ -143,7 +143,7 @@ export default function ProductPanel({ product }: { product: Product }) {
   const total = unit * pieces * qty;
 
   const copyLink = async () => {
-    await navigator.clipboard.writeText(`${window.location.origin}/#product/${product.id}`);
+    await navigator.clipboard.writeText(`${window.location.origin}/shop/#product/${product.id}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   };
@@ -180,7 +180,7 @@ export default function ProductPanel({ product }: { product: Product }) {
           <div className="cabinet__mediaTools">
             <button
               type="button"
-              onClick={() => setSaved((s) => !s)}
+              onClick={() => void toggleWishlist(product.id)}
               aria-pressed={saved}
               aria-label={saved ? 'Saved to favourites' : 'Save to favourites'}
               className={`cabinet__iconBtn${saved ? ' is-on' : ''}`}
@@ -370,7 +370,7 @@ export default function ProductPanel({ product }: { product: Product }) {
                 title: 'Pickup & delivery',
                 body: requiresPrintLeadTime
                   ? "Custom-printed orders require a minimum of one week's notice. Choose pickup or local delivery during checkout."
-                  : 'Same-day pickup from the store when ordered before 4pm. Next-day local delivery across the city.'
+                  : 'Pickup and local delivery are available during the store hours shown at checkout.'
               }
             ] as const
           ).map((section) => (

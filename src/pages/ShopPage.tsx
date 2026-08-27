@@ -42,6 +42,11 @@ function ShopBody() {
 export default function ShopPage() {
   const [authOpen, setAuthOpen] = useState(false);
   useEffect(initSmoothScroll, []);
+  useEffect(() => {
+    const requestSignIn = () => setAuthOpen(true);
+    window.addEventListener('amazing:sign-in-requested', requestSignIn);
+    return () => window.removeEventListener('amazing:sign-in-requested', requestSignIn);
+  }, []);
 
   return (
     <NavThemeProvider>

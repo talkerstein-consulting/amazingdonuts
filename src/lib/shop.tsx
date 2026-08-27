@@ -23,6 +23,8 @@ type Store = {
   lines: CartLine[];
   count: number;
   subtotal: number;
+  wishlist: string[];
+  signedIn: boolean;
   openProduct: (id: string) => void;
   closeProduct: () => void;
   openCart: () => void;
@@ -32,6 +34,7 @@ type Store = {
   customize: (id: string, customization: Customization) => void;
   remove: (id: string) => void;
   clear: () => void;
+  toggleWishlist: (id: string) => Promise<void>;
 };
 
 const ShopContext = createContext<Store | null>(null);
@@ -49,6 +52,8 @@ const readHash = () => {
 export function ShopProvider({ children }: { children: ReactNode }) {
   const [route, setRoute] = useState(readHash);
   const [cartOpen, setCartOpen] = useState(false);
+  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [signedIn, setSignedIn] = useState(false);
   const [lines, setLines] = useState<CartLine[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('amazing-cart') || '[]') as { id: string; qty: number; customization?: Customization }[];
@@ -62,6 +67,24 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem('amazing-cart', JSON.stringify(lines.map(({ product, qty, customization }) => ({ id: product.id, qty, customization }))));
   }, [lines]);
+
+  const loadWishlist = useCallback(async () => {
+    try {
+      const session = await fetch('/api/house/storefront/session').then((response) => response.json());
+      const authenticated = Boolean(session.user);
+      setSignedIn(authenticated);
+      if (!authenticated) return setWishlist([]);
+      const body = await fetch('/api/house/storefront/wishlist').then((response) => response.json());
+      setWishlist(body.productIds || []);
+    } catch { setSignedIn(false); }
+  }, []);
+
+  useEffect(() => {
+    void loadWishlist();
+    const changed = () => void loadWishlist();
+    window.addEventListener('amazing:auth-changed', changed);
+    return () => window.removeEventListener('amazing:auth-changed', changed);
+  }, [loadWishlist]);
 
   useEffect(() => {
     const sync = () => setRoute(readHash());
@@ -104,6 +127,16 @@ export function ShopProvider({ children }: { children: ReactNode }) {
 
   const remove = useCallback((id: string) => setLines((prev) => prev.filter((l) => l.product.id !== id)), []);
   const customize = useCallback((id: string, customization: Customization) => setLines(prev=>prev.map(line=>line.product.id===id?{...line,customization}:line)), []);
+  const toggleWishlist = useCallback(async (id: string) => {
+    if (!signedIn) {
+      window.dispatchEvent(new CustomEvent('amazing:sign-in-requested'));
+      return;
+    }
+    const removing = wishlist.includes(id);
+    const response = await fetch(`/api/house/storefront/wishlist/${encodeURIComponent(id)}`, { method: removing ? 'DELETE' : 'PUT' });
+    if (!response.ok) throw new Error('Wishlist could not be updated.');
+    setWishlist((current) => removing ? current.filter((item) => item !== id) : [id, ...current.filter((item) => item !== id)]);
+  }, [signedIn, wishlist]);
 
   const value = useMemo<Store>(() => {
     const count = lines.reduce((n, l) => n + l.qty, 0);
@@ -114,6 +147,8 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       lines,
       count,
       subtotal,
+      wishlist,
+      signedIn,
       openProduct: (id: string) => go(`#product/${id}`),
       /* Always back to the page underneath: there is no catalogue route to
          return to any more, and on /shop/ clearing the hash leaves you on the
@@ -125,9 +160,10 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       setQty,
       customize,
       remove,
-      clear: () => setLines([])
+      clear: () => setLines([]),
+      toggleWishlist
     };
-  }, [product, cartOpen, lines, go, clearHash, add, setQty, customize, remove]);
+  }, [product, cartOpen, lines, wishlist, signedIn, go, clearHash, add, setQty, customize, remove, toggleWishlist]);
 
   return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>;
 }

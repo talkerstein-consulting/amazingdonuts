@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Building2, CreditCard, LogOut, Package, ReceiptText, UserRound } from "lucide-react";
+import { ArrowLeft, Building2, CreditCard, Heart, LogOut, Package, ReceiptText, UserRound } from "lucide-react";
+import { PRODUCTS } from "../data/products";
 import AuthModal from "../shop/AuthModal";
 import CommerceLogo from "./CommerceLogo";
 import "../index.css";
@@ -64,7 +65,7 @@ async function api(path: string, options?: RequestInit) {
   return body;
 }
 
-type View = "orders" | "profile" | "house";
+type View = "orders" | "wishlist" | "profile" | "house";
 type SquareCard = {
   attach: (selector: string) => Promise<void>;
   tokenize: (details: unknown) => Promise<{
@@ -88,6 +89,7 @@ export default function AccountPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [creditAccount, setCreditAccount] = useState<any>();
   const [application, setApplication] = useState<any>();
+  const [wishlist, setWishlist] = useState<string[]>([]);
   const [authOpen, setAuthOpen] = useState(false);
   const [view, setView] = useState<View>(new URLSearchParams(location.search).has("statement") ? "house" : "orders");
   const [message, setMessage] = useState("");
@@ -96,10 +98,11 @@ export default function AccountPage() {
       .then(async (next) => {
         setSession(next);
         if (next.user) {
-          const [orderBody, applicationBody, creditBody] = await Promise.all([api("/storefront/orders"), api("/storefront/house-application"), next.houseAccount ? api("/portal/account") : Promise.resolve({ account: null })]);
+          const [orderBody, applicationBody, creditBody, wishlistBody] = await Promise.all([api("/storefront/orders"), api("/storefront/house-application"), next.houseAccount ? api("/portal/account") : Promise.resolve({ account: null }), api("/storefront/wishlist")]);
           setOrders(orderBody.orders);
           setApplication(applicationBody.application);
           setCreditAccount(creditBody.account);
+          setWishlist(wishlistBody.productIds || []);
         } else setAuthOpen(true);
       })
       .catch((error) => setMessage(error.message));
@@ -153,6 +156,9 @@ export default function AccountPage() {
           <button className={view === "orders" ? "active" : ""} onClick={() => setView("orders")}>
             <Package /> Orders
           </button>
+          <button className={view === "wishlist" ? "active" : ""} onClick={() => setView("wishlist")}>
+            <Heart /> Wishlist
+          </button>
           <button className={view === "profile" ? "active" : ""} onClick={() => setView("profile")}>
             <UserRound /> Profile
           </button>
@@ -170,6 +176,8 @@ export default function AccountPage() {
         <section className="account-content">
           {view === "orders" ? (
             <Orders orders={orders} />
+          ) : view === "wishlist" ? (
+            <Wishlist productIds={wishlist} onRemoved={(id) => setWishlist((current) => current.filter((item) => item !== id))} />
           ) : view === "profile" ? (
             <Profile
               session={session}
@@ -194,6 +202,11 @@ export default function AccountPage() {
       </div>
     </main>
   );
+}
+
+function Wishlist({productIds,onRemoved}:{productIds:string[];onRemoved:(id:string)=>void}) {
+  const products=productIds.flatMap(id=>{const product=PRODUCTS.find(item=>item.id===id);return product?[product]:[]});
+  return <><div className="commerce-heading"><p>Saved for later</p><h1>Your wishlist</h1></div>{products.length?<div className="wishlist-grid">{products.map(product=><article key={product.id}><a href={`/shop/#product/${product.id}`}><img src={product.img} alt=""/><span><strong>{product.name}</strong><small>{product.price}</small></span></a><button type="button" onClick={async()=>{await api(`/storefront/wishlist/${product.id}`,{method:"DELETE"});onRemoved(product.id);}} aria-label={`Remove ${product.name} from wishlist`}><Heart fill="currentColor"/></button></article>)}</div>:<div className="no-orders"><Heart/><h2>No saved favourites yet</h2><p>Tap the heart on any product to keep it here.</p><a href="/shop/">Browse products</a></div>}</>;
 }
 
 function PasswordReset({token}:{token:string}){

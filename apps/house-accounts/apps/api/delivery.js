@@ -39,6 +39,7 @@ export function validateFulfillmentSchedule(fulfillment, now = new Date()) {
   }
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Toronto",
+    weekday: "short",
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
@@ -48,8 +49,11 @@ export function validateFulfillmentSchedule(fulfillment, now = new Date()) {
   if (minute % 15 !== 0) {
     throw checkoutError("Choose a fulfillment time in a 15-minute interval.", "INVALID_FULFILLMENT_INTERVAL");
   }
-  if (hour < 6 || hour > 18 || (hour === 18 && minute !== 0)) {
-    throw checkoutError("Fulfillment is available from 6:00 AM to 6:00 PM.", "OUTSIDE_FULFILLMENT_HOURS");
+  const windows = { Sun: [8 * 60, 13 * 60], Mon: [7 * 60 + 30, 16 * 60], Tue: [7 * 60 + 30, 16 * 60], Wed: [7 * 60 + 30, 16 * 60], Thu: [7 * 60 + 30, 16 * 60], Fri: [7 * 60 + 30, 14 * 60] };
+  const window = windows[parts.weekday];
+  const minutes = hour * 60 + minute;
+  if (!window || minutes < window[0] || minutes > window[1]) {
+    throw checkoutError("Choose a time during our published pickup and delivery hours.", "OUTSIDE_FULFILLMENT_HOURS");
   }
 }
 

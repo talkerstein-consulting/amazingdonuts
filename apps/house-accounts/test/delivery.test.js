@@ -36,14 +36,16 @@ test("uses Square's taxable service-charge phase", () => {
 
 test("accepts 15-minute fulfillment slots during Toronto business hours", () => {
   const now = new Date("2026-09-01T00:00:00Z");
-  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T10:00:00Z" }, now));
-  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T22:00:00Z" }, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T11:30:00Z" }, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T20:00:00Z" }, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-10-02T18:00:00Z" }, now));
 });
 
 test("rejects fulfillment outside Toronto business hours", () => {
   const now = new Date("2026-09-01T00:00:00Z");
-  assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T09:45:00Z" }, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
-  assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T22:15:00Z" }, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
+  assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T11:15:00Z" }, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
+  assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T20:15:00Z" }, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
+  assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-10-03T15:00:00Z" }, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
 });
 
 test("rejects fulfillment times outside 15-minute intervals", () => {

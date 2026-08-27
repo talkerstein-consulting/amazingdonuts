@@ -34,13 +34,13 @@ const COMPANY_LINKS = [
 
 /**
  * Opening hours as published on amazingdonuts.com
- * ("Sun: 8:00am-1:00pm  Mon-Thu: 7:30am - 4:00pm  Fri: 7:30am - 1:00pm").
+ * ("Sun: 8:00am-1:00pm  Mon-Thu: 7:30am - 4:00pm  Fri: 7:30am - 2:00pm").
  * Saturday is closed for Shabbat.
  */
 const SCHEDULE = [
   { label: 'Sunday', hours: '8:00am – 1:00pm', days: [0] },
   { label: 'Mon – Thu', hours: '7:30am – 4:00pm', days: [1, 2, 3, 4] },
-  { label: 'Friday', hours: '7:30am – 1:00pm', days: [5] },
+  { label: 'Friday', hours: '7:30am – 2:00pm', days: [5] },
   { label: 'Saturday', hours: 'Closed', days: [6] }
 ];
 

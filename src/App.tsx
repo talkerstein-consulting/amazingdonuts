@@ -24,6 +24,11 @@ import Footer from './components/Footer';
 function Site({ ready, slideIn }: { ready: boolean; slideIn: boolean }) {
   const { product } = useShop();
   const [authOpen, setAuthOpen] = useState(false);
+  useEffect(() => {
+    const requestSignIn = () => setAuthOpen(true);
+    window.addEventListener('amazing:sign-in-requested', requestSignIn);
+    return () => window.removeEventListener('amazing:sign-in-requested', requestSignIn);
+  }, []);
 
   return (
     <>

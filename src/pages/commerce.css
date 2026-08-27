@@ -641,6 +641,7 @@
 }
 
 .account-person {
+  margin-bottom: 14px;
   padding: 10px 8px 22px;
   border-bottom: 1px solid rgba(251, 247, 239, 0.22);
 }
@@ -763,7 +764,21 @@
 .customer-orders article p {
   display: flex;
   justify-content: space-between;
+  gap: 16px;
+  margin: 6px 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-chip);
+  background: var(--cream);
 }
+
+.wishlist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:16px; margin-top:30px; }
+.wishlist-grid article { position:relative; min-width:0; padding:14px; border-radius:var(--radius-panel); background:var(--sand); }
+.wishlist-grid article>a { display:grid; gap:10px; color:var(--navy); }
+.wishlist-grid img { width:100%; aspect-ratio:1; object-fit:contain; border-radius:var(--radius-chip); background:var(--cream); }
+.wishlist-grid strong,.wishlist-grid small { display:block; }
+.wishlist-grid small { margin-top:4px; color:var(--price); }
+.wishlist-grid button { position:absolute; top:22px; right:22px; width:40px; height:40px; display:grid; place-items:center; border:0; border-radius:99px; background:var(--cream); color:var(--orange); }
+.wishlist-grid button svg { width:18px; }
 
 .no-orders {
   margin-top: 30px;
