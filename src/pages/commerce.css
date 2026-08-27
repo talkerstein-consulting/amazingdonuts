@@ -189,6 +189,7 @@
 /* Fields match the contact and bulk forms: 16px radius, a 2px inset ring
    rather than a border, on Canvas so they read as insets in a Shortbread card. */
 .checkout-form input,
+.checkout-form select,
 .profile-form input {
   width: 100%;
   min-height: 52px;
@@ -199,6 +200,21 @@
   background: var(--cream);
   color: var(--navy);
   font: inherit;
+}
+
+.fulfillment-schedule {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 14px;
+}
+
+.fulfillment-schedule > small {
+  grid-column: 1 / -1;
+  margin-top: 7px;
+}
+
+.fulfillment-schedule .schedule-hours {
+  color: var(--navy);
 }
 
 .checkout-form small,
@@ -911,12 +927,14 @@
   }
 
   .address-fields,
+  .fulfillment-schedule,
   .profile-form,
   .auth__nameRow {
     grid-template-columns: 1fr;
   }
 
   .address-fields label:first-child,
+  .fulfillment-schedule > small,
   .profile-form .wide,
   .profile-form button {
     grid-column: auto;

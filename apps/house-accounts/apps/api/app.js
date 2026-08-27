@@ -8,7 +8,7 @@ import { accountCredit, postPayment, postSale, reserveCredit } from "./ledger.js
 import { processNextSquareEvent } from "../worker/process-square.js";
 import { statementPdf } from "./statements.js";
 import { transaction } from "./db.js";
-import { deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery } from "./delivery.js";
+import { deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery, validateFulfillmentSchedule } from "./delivery.js";
 
 const loginSchema = z.object({ email:z.string().email(), password:z.string().min(8), tenant:z.string().min(2) });
 const forgotPasswordSchema=z.object({email:z.string().email(),tenantSlug:z.string().min(2).default("amazing-donuts")});
@@ -419,6 +419,7 @@ async function buildSquareOrder(square,locationId,input,user){
   return {location_id:locationId,line_items:lineItems,fulfillments:[fulfillment],taxes:taxes.map((tax,index)=>({uid:`catalog-tax-${index}`,catalog_object_id:tax.id,scope:"ORDER"})),pricing_options:{auto_apply_taxes:true,auto_apply_discounts:true},source:{name:"Amazing Donuts Website"},reference_id:`web-${user.id.slice(0,8)}-${Date.now()}`};
 }
 async function prepareSquareOrder(square,config,input,user){
+  validateFulfillmentSchedule(input.fulfillment);
   validateDelivery(input.fulfillment,config.delivery);
   validatePrintedItems(input);
   const orderDraft=await buildSquareOrder(square,config.squareLocationId,input,user);

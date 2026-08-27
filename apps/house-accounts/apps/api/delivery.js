@@ -32,6 +32,27 @@ export function validateDelivery(fulfillment, policy) {
   }
 }
 
+export function validateFulfillmentSchedule(fulfillment, now = new Date()) {
+  const scheduled = new Date(fulfillment.scheduledAt);
+  if (Number.isNaN(scheduled.getTime()) || scheduled <= now) {
+    throw checkoutError("Choose a future fulfillment time.", "INVALID_FULFILLMENT_TIME");
+  }
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(scheduled).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  const hour = Number(parts.hour);
+  const minute = Number(parts.minute);
+  if (minute % 15 !== 0) {
+    throw checkoutError("Choose a fulfillment time in a 15-minute interval.", "INVALID_FULFILLMENT_INTERVAL");
+  }
+  if (hour < 6 || hour > 18 || (hour === 18 && minute !== 0)) {
+    throw checkoutError("Fulfillment is available from 6:00 AM to 6:00 PM.", "OUTSIDE_FULFILLMENT_HOURS");
+  }
+}
+
 export function deliveryFee(subtotal, fulfillment, policy) {
   if (fulfillment.type !== "delivery" || subtotal >= policy.freeThreshold) return 0;
   if (subtotal < policy.minimumAmount) {

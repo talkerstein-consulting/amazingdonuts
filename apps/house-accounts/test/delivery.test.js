@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { deliveryConfig, deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery } from "../apps/api/delivery.js";
+import { deliveryConfig, deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery, validateFulfillmentSchedule } from "../apps/api/delivery.js";
 
 const address = { postalCode: "M6A 2T9" };
 const policy = deliveryConfig({});
@@ -32,4 +32,20 @@ test("sums Square line items when subtotal_money is absent", () => {
 test("uses Square's taxable service-charge phase", () => {
   assert.equal(deliveryServiceCharge(500)[0].calculation_phase, "SUBTOTAL_PHASE");
   assert.equal(deliveryServiceCharge(500)[0].taxable, true);
+});
+
+test("accepts 15-minute fulfillment slots during Toronto business hours", () => {
+  const now = new Date("2026-09-01T00:00:00Z");
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T10:00:00Z" }, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T22:00:00Z" }, now));
+});
+
+test("rejects fulfillment outside Toronto business hours", () => {
+  const now = new Date("2026-09-01T00:00:00Z");
+  assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T09:45:00Z" }, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
+  assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T22:15:00Z" }, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
+});
+
+test("rejects fulfillment times outside 15-minute intervals", () => {
+  assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T15:07:00Z" }, new Date("2026-09-01T00:00:00Z")), { code: "INVALID_FULFILLMENT_INTERVAL" });
 });
