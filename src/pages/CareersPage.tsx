@@ -41,6 +41,8 @@ type Role = {
   doing: string[];
 };
 
+type CareersConfig = { pageEnabled: boolean; roles: Role[] };
+
 /** PLACEHOLDER — see the note above. Not real vacancies. */
 const ROLES: Role[] = [
   {
@@ -177,7 +179,29 @@ function RoleCard({ role }: { role: Role }) {
 
 export default function CareersPage() {
   const [authOpen, setAuthOpen] = useState(false);
+  const [careers, setCareers] = useState<CareersConfig>({ pageEnabled: true, roles: ROLES });
   useEffect(initSmoothScroll, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/house/public/careers?tenantSlug=amazing-donuts', { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error('Careers are unavailable.');
+        return response.json();
+      })
+      .then(body => setCareers({
+        pageEnabled: body.pageEnabled !== false,
+        roles: (body.roles || []).map((role: any) => ({
+          id: role.id,
+          title: role.title,
+          type: role.employment_type,
+          shift: role.shift,
+          blurb: role.blurb,
+          doing: role.responsibilities || []
+        }))
+      }))
+      .catch(error => { if (error.name !== 'AbortError') console.error(error); });
+    return () => controller.abort();
+  }, []);
 
   return (
     <NavThemeProvider>
@@ -218,7 +242,7 @@ export default function CareersPage() {
               {SHOP_ADDRESS.street}, {SHOP_ADDRESS.city} — every role is on site
             </p>
 
-            <div
+            {careers.pageEnabled ? <div
               style={{
                 display: 'grid',
                 gap: 'clamp(16px,2vw,24px)',
@@ -226,14 +250,14 @@ export default function CareersPage() {
                 alignItems: 'start'
               }}
             >
-              {ROLES.map((role) => (
+              {careers.roles.map((role) => (
                 <RoleCard key={role.id} role={role} />
               ))}
-            </div>
+            </div> : <div style={{ padding: 'clamp(24px,3vw,40px)', background: 'var(--sand)', borderRadius: 28 }}><h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 30 }}>No openings right now.</h2><p style={{ margin: '10px 0 0', fontFamily: F.text, color: 'rgba(14,62,105,.72)' }}>Please check back another time.</p></div>}
 
             {/* The catch-all, for the far more common case of someone good
                 turning up when nothing is posted. */}
-            <div
+            {careers.pageEnabled && careers.roles.length > 0 && <div
               style={{
                 marginTop: 'clamp(28px,3.4vw,48px)',
                 padding: 'clamp(22px,2.6vw,36px)',
@@ -274,7 +298,7 @@ export default function CareersPage() {
                 </p>
               </div>
               <BrandButton href={CONTACT_HREF}>Get in touch</BrandButton>
-            </div>
+            </div>}
           </main>
 
           <Footer ready />

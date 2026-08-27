@@ -598,6 +598,8 @@
 .cart-glyph { min-height:68px; resize:vertical; font-size:16px; font-weight:700; line-height:1.35; }
 .cart-custom__ready { color:#18704f!important; font-weight:800; }
 .cart__checkout.is-disabled { opacity:.48; cursor:not-allowed; }
+.cart__continue { width:100%; min-height:44px; border:1.5px solid var(--navy); border-radius:var(--radius-pill); background:transparent; color:var(--navy); font-family:var(--font-cta); font-weight:800; letter-spacing:.03em; cursor:pointer; }
+.cart__continue:hover,.cart__continue:focus-visible { background:rgba(14,62,105,.08); color:var(--navy); }
 
 .cart__thumb {
   flex: none;
@@ -963,6 +965,9 @@
   --shop-gutter: clamp(20px, 4vw, 40px);
 
   background: var(--sand);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
   padding-bottom: clamp(48px, 6vw, 80px);
 }
 
@@ -1327,6 +1332,11 @@
   max-width: 1400px;
   margin: clamp(16px, 2vw, 24px) auto 0;
   padding: 0 var(--shop-gutter);
+}
+
+.shop-page .shop-grid > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* --- Product cabinet: sticky buy bar -------------------------------------

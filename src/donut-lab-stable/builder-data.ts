@@ -68,7 +68,6 @@ export const ICINGS: Icing[] = [
   { id: 'red',       name: 'Vanilla · Red',        key: 'vanilla_red',       swatch: '#DE4B57' },
   { id: 'white',     name: 'Vanilla · White',      key: 'vanilla_white',     swatch: '#FBF7F0' },
   { id: 'yellow',    name: 'Vanilla · Yellow',     key: 'vanilla_yellow',    swatch: '#F4CE4A' },
-  { id: 'red-glaze', name: 'Red Glaze',            key: 'red_glaze',         swatch: '#C0223F' },
   { id: 'chocolate', name: 'Chocolate',            key: 'chocolate_glaze',   swatch: '#7B4A2D' },
   { id: 'none',      name: 'No Icing',             key: null,                swatch: null, bare: true }
 ];

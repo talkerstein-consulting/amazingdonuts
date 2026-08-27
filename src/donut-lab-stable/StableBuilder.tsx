@@ -41,7 +41,7 @@ type State = {
   baseId: string;
   icingId: string;
   fillingId: string;
-  sprinkleId: string;
+  sprinkleIds: string[];
   /** Session-only: an uploaded artwork is never persisted. */
   print: Print | null;
   /** Current step index. Clamped on read, because the list can shrink. */
@@ -64,7 +64,7 @@ const INITIAL: State = {
   baseId: 'round',
   icingId: 'pink',
   fillingId: 'none',
-  sprinkleId: 'rainbow',
+  sprinkleIds: ['rainbow'],
   print: null,
   i: 0,
   added: false,
@@ -93,9 +93,11 @@ function hydrate(): State {
     return {
       ...INITIAL,
       baseId: saved.baseId,
-      icingId: saved.icingId ?? INITIAL.icingId,
+      icingId: saved.icingId === 'red-glaze' ? 'red' : (saved.icingId ?? INITIAL.icingId),
       fillingId: saved.fillingId ?? INITIAL.fillingId,
-      sprinkleId: saved.sprinkleId ?? INITIAL.sprinkleId
+      sprinkleIds: Array.isArray(saved.sprinkleIds)
+        ? saved.sprinkleIds
+        : [saved.sprinkleId ?? INITIAL.sprinkleIds[0]]
     };
   } catch {
     /* Private mode, or a shape we no longer understand. Start fresh. */
@@ -132,13 +134,19 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         icingId: action.id,
-        sprinkleId: RULES.takesSprinkles(action.id) ? state.sprinkleId : 'none',
+        sprinkleIds: RULES.takesSprinkles(action.id) ? state.sprinkleIds : ['none'],
         added: false, qty: 1
       };
     case 'filling':
       return { ...state, fillingId: action.id, added: false, qty: 1 };
-    case 'sprinkle':
-      return { ...state, sprinkleId: action.id, added: false, qty: 1 };
+    case 'sprinkle': {
+      if (action.id === 'none') return { ...state, sprinkleIds: ['none'], added: false, qty: 1 };
+      const current = state.sprinkleIds.filter((id) => id !== 'none');
+      const sprinkleIds = current.includes(action.id)
+        ? current.filter((id) => id !== action.id)
+        : [...current, action.id];
+      return { ...state, sprinkleIds: sprinkleIds.length ? sprinkleIds : ['none'], added: false, qty: 1 };
+    }
     case 'print':
       return { ...state, print: action.print, added: false, qty: 1 };
     case 'goto':
@@ -354,14 +362,21 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
     if (!printOrder) return;
     dispatch({
       type: 'surprise',
-      next: { baseId: 'round', icingId: 'pink', fillingId: 'none', sprinkleId: 'rainbow', i: 4 }
+      next: { baseId: 'round', icingId: 'pink', fillingId: 'none', sprinkleIds: ['rainbow'], i: 4 }
     });
   }, [printOrder]);
 
   const base = byId(BASES, s.baseId);
   const icing = byId(ICINGS, s.icingId);
   const filling = byId(FILLINGS, s.fillingId);
-  const sprinkle = byId(SPRINKLES, s.sprinkleId);
+  const selectedSprinkles = s.sprinkleIds.map((id) => byId(SPRINKLES, id));
+  const sprinkle: Sprinkle = selectedSprinkles.some((item) => item.bare)
+    ? byId(SPRINKLES, 'none')
+    : {
+        id: selectedSprinkles.map((item) => item.id).join('-'),
+        name: selectedSprinkles.map((item) => item.name).join(', '),
+        colors: selectedSprinkles.flatMap((item) => item.colors)
+      };
 
   const shapeItems = useMemo(() => buildShapeItems(BASES), []);
   const activeItem = itemForBase(s.baseId);
@@ -392,13 +407,13 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
           baseId: s.baseId,
           icingId: s.icingId,
           fillingId: s.fillingId,
-          sprinkleId: s.sprinkleId
+          sprinkleIds: s.sprinkleIds
         })
       );
     } catch {
       /* Persistence is a nicety, never a requirement. */
     }
-  }, [s.baseId, s.icingId, s.fillingId, s.sprinkleId]);
+  }, [s.baseId, s.icingId, s.fillingId, s.sprinkleIds]);
 
   /* The claw rig is fixed, so it is positioned against the viewport and has to
      be told where the stage is. Re-measured on anything that could move the
@@ -437,7 +452,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
 
   const pick = (kind: 'base' | 'icing' | 'filling' | 'sprinkle', id: string) => {
     dispatch({ type: kind, id });
-    if (autoAdvance) dispatch({ type: 'goto', i: i + 1 });
+    if (autoAdvance && kind !== 'sprinkle') dispatch({ type: 'goto', i: i + 1 });
   };
 
   const surprise = () => {
@@ -448,7 +463,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
       next: {
         baseId: b.id,
         icingId: pickOne(ICINGS.filter((x) => !x.bare)).id,
-        sprinkleId: pickOne(SPRINKLES.filter((x) => !x.bare)).id,
+        sprinkleIds: [pickOne(SPRINKLES.filter((x) => !x.bare)).id],
         fillingId: RULES.takesFilling(b.id) ? pickOne(FILLINGS.filter((x) => !x.bare)).id : 'none'
       }
     });
@@ -561,7 +576,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
       return SPRINKLES.map((o) => ({
         id: o.id,
         name: o.name,
-        active: o.id === s.sprinkleId,
+        active: s.sprinkleIds.includes(o.id),
         /* The tile now shows the actual sprinkles, recoloured, on the donut
            being built — and costs nothing to do so: the mask is one SVG file
            per shape, already fetched for the stage and cached in
@@ -580,7 +595,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
     }
     return [];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, s.baseId, s.icingId, s.fillingId, s.sprinkleId, i]);
+  }, [step, s.baseId, s.icingId, s.fillingId, s.sprinkleIds, i]);
 
   const nextLabel = s.added
     ? 'Build another'

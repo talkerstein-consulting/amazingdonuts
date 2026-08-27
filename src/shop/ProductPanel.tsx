@@ -33,7 +33,7 @@ const VIEWS = [
 ] as const;
 
 const REASSURANCE = [
-  { Icon: Sunrise, title: 'Baked this morning', body: 'Every order is made the day you collect it.' },
+  { Icon: Sunrise, title: 'Prepared this morning', body: 'Every order is prepared the day you collect it.' },
   { Icon: Truck, title: 'Pickup or delivery', body: 'Same-day pickup, next-day local delivery.' }
 ];
 

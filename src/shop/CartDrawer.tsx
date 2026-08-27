@@ -138,6 +138,7 @@ export default function CartDrawer() {
                   <span>{money(subtotal)}</span>
                 </div>
                 <p className="cart__note">Tax and pickup details are settled at checkout.</p>
+                <button type="button" className="cart__continue" onClick={closeCart}>Continue shopping</button>
                 <a href={customReady?"/checkout/":"#"} aria-disabled={!customReady} className={`cart__checkout brand-press${customReady?'':' is-disabled'}`} onClick={event=>{if(!customReady)event.preventDefault();else closeCart()}}>
                   {customReady?`Checkout — ${money(subtotal)}`:'Finish custom items'}
                 </a>

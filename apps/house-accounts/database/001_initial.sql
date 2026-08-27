@@ -398,6 +398,45 @@ CREATE TABLE IF NOT EXISTS audit_log (
 ALTER TABLE statements ADD COLUMN IF NOT EXISTS payment_token TEXT;
 ALTER TABLE statements ADD COLUMN IF NOT EXISTS scheduled_charge_at TIMESTAMPTZ;
 ALTER TABLE statements ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS career_settings (
+  tenant_id UUID PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+  page_enabled BOOLEAN NOT NULL DEFAULT true,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by UUID REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS career_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  slug TEXT NOT NULL,
+  title TEXT NOT NULL,
+  employment_type TEXT NOT NULL,
+  shift TEXT NOT NULL,
+  blurb TEXT NOT NULL,
+  responsibilities JSONB NOT NULL DEFAULT '[]',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by UUID REFERENCES users(id),
+  UNIQUE (tenant_id,slug)
+);
+CREATE INDEX IF NOT EXISTS career_roles_tenant_order_idx ON career_roles(tenant_id,sort_order,created_at);
+
+INSERT INTO career_settings(tenant_id,page_enabled)
+SELECT id,true FROM tenants ON CONFLICT(tenant_id) DO NOTHING;
+
+INSERT INTO career_roles(tenant_id,slug,title,employment_type,shift,blurb,responsibilities,sort_order)
+SELECT t.id,r.slug,r.title,r.employment_type,r.shift,r.blurb,r.responsibilities::jsonb,r.sort_order
+FROM tenants t
+CROSS JOIN (VALUES
+  ('baker','Overnight Baker','Full time','Sun – Thu, 11pm – 7am','The first shift of the day, and the reason the cases are full at opening. You mix, proof, fry and glaze.','["Run the fryer and the proofer through the overnight production list","Mix doughs and batters to the shop recipes","Hand the morning over to the decorating team, stocked and on time"]',10),
+  ('decorator','Decorator','Full time','Mon – Fri, 6am – 2pm','Icing, sprinkles, printed toppers and the custom orders. Steady hands and an eye for a straight line.','["Ice and finish the daily run across donuts, cupcakes and cookies","Build custom and printed orders against the order sheet","Keep the cases looking like the photographs"]',20),
+  ('counter','Counter & Orders','Part time','Flexible, weekday mornings','The person customers actually meet. Serving, boxing, taking online orders and knowing what is left.','["Serve walk-ins and box orders for pickup","Manage online and email orders on the day sheet","Keep the counter and the cases tidy through the rush"]',30),
+  ('driver','Delivery Driver','Part time','Early mornings, own vehicle','Bulk and corporate orders across the city, arriving intact and when they were promised.','["Run the morning delivery list across Toronto","Check each order against its sheet before it leaves","Be the face of the bakery at the door"]',40)
+) AS r(slug,title,employment_type,shift,blurb,responsibilities,sort_order)
+ON CONFLICT(tenant_id,slug) DO NOTHING;
 CREATE UNIQUE INDEX IF NOT EXISTS statements_payment_token_idx ON statements(payment_token) WHERE payment_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS audit_tenant_date_idx ON audit_log(tenant_id,created_at DESC);
 

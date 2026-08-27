@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Building2, ClipboardList, CreditCard, Download, FileText, LayoutDashboard, LogOut, Package, ReceiptText, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
+import { BriefcaseBusiness, Building2, ClipboardList, CreditCard, Download, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, Users } from "lucide-react";
 import "./portal.css";
 import "./portal-workspaces.css";
 
@@ -72,6 +72,15 @@ const demoAccount = {
   payments: [],
   purchasers: [],
 };
+const demoCareers = {
+  pageEnabled: true,
+  roles: [
+    { id: "demo-baker", slug: "baker", title: "Overnight Baker", employment_type: "Full time", shift: "Sun - Thu, 11pm - 7am", blurb: "The first shift of the day, and the reason the cases are full at opening. You mix, proof, fry and glaze.", responsibilities: ["Run the fryer and the proofer through the overnight production list", "Mix doughs and batters to the shop recipes", "Hand the morning over to the decorating team, stocked and on time"], sort_order: 10, enabled: true },
+    { id: "demo-decorator", slug: "decorator", title: "Decorator", employment_type: "Full time", shift: "Mon - Fri, 6am - 2pm", blurb: "Icing, sprinkles, printed toppers and the custom orders. Steady hands and an eye for a straight line.", responsibilities: ["Ice and finish the daily run across donuts, cupcakes and cookies", "Build custom and printed orders against the order sheet", "Keep the cases looking like the photographs"], sort_order: 20, enabled: true },
+    { id: "demo-counter", slug: "counter", title: "Counter & Orders", employment_type: "Part time", shift: "Flexible, weekday mornings", blurb: "The person customers actually meet. Serving, boxing, taking online orders and knowing what is left.", responsibilities: ["Serve walk-ins and box orders for pickup", "Manage online and email orders on the day sheet", "Keep the counter and the cases tidy through the rush"], sort_order: 30, enabled: true },
+    { id: "demo-driver", slug: "driver", title: "Delivery Driver", employment_type: "Part time", shift: "Early mornings, own vehicle", blurb: "Bulk and corporate orders across the city, arriving intact and when they were promised.", responsibilities: ["Run the morning delivery list across Toronto", "Check each order against its sheet before it leaves", "Be the face of the bakery at the door"], sort_order: 40, enabled: true },
+  ],
+};
 const navItems = [
   { id: "overview", label: "Overview", Icon: LayoutDashboard },
   { id: "requests", label: "House applications", Icon: Building2 },
@@ -80,6 +89,7 @@ const navItems = [
   { id: "statements", label: "Statements", Icon: ReceiptText },
   { id: "orders", label: "Orders", Icon: Package },
   { id: "purchasers", label: "Purchasers", Icon: Users },
+  { id: "careers", label: "Careers", Icon: BriefcaseBusiness },
 ];
 const viewFromHash = () => {
   const candidate = location.hash.slice(1);
@@ -130,6 +140,7 @@ function App() {
     [applications, setApplications] = useState([]),
     [bulkRequests, setBulkRequests] = useState([]),
     [customOrders, setCustomOrders] = useState([]),
+    [careers, setCareers] = useState(demo ? demoCareers : { pageEnabled: true, roles: [] }),
     [view, setView] = useState(viewFromHash),
     [error, setError] = useState("");
   const staff = ["owner", "staff"].includes(user?.role);
@@ -137,11 +148,12 @@ function App() {
     if (!user || demo) return;
     try {
       if (staff) {
-        const [a, r, b, o] = await Promise.all([request("/admin/accounts"), request("/admin/applications"), request("/admin/bulk-requests"), request("/admin/custom-orders")]);
+        const [a, r, b, o, c] = await Promise.all([request("/admin/accounts"), request("/admin/applications"), request("/admin/bulk-requests"), request("/admin/custom-orders"), request("/admin/careers")]);
         setAccounts(a.accounts);
         setApplications(r.applications);
         setBulkRequests(b.requests);
         setCustomOrders(o.orders);
+        setCareers(c);
       } else setAccount((await request("/portal/account")).account);
       setError("");
     } catch (cause) {
@@ -187,7 +199,7 @@ function App() {
       }}
     >
       {error ? <p className="global-error">{error}</p> : null}
-      {staff ? <Admin view={view} accounts={accounts || []} setAccounts={setAccounts} applications={applications} setApplications={setApplications} bulkRequests={bulkRequests} setBulkRequests={setBulkRequests} customOrders={customOrders} demo={demo} /> : <Customer account={account} view={view} />}
+      {staff ? <Admin view={view} accounts={accounts || []} setAccounts={setAccounts} applications={applications} setApplications={setApplications} bulkRequests={bulkRequests} setBulkRequests={setBulkRequests} customOrders={customOrders} careers={careers} setCareers={setCareers} demo={demo} /> : <Customer account={account} view={view} />}
     </Shell>
   );
 }
@@ -307,7 +319,7 @@ function Shell({ user, view, onView, pending, onRefresh, onLogout, children }) {
   );
 }
 
-function Admin({ view, accounts, setAccounts, applications, setApplications, bulkRequests, setBulkRequests, customOrders, demo }) {
+function Admin({ view, accounts, setAccounts, applications, setApplications, bulkRequests, setBulkRequests, customOrders, careers, setCareers, demo }) {
   const [selected, setSelected] = useState(accounts[0]?.id),
     [query, setQuery] = useState("");
   useEffect(() => {
@@ -356,6 +368,7 @@ function Admin({ view, accounts, setAccounts, applications, setApplications, bul
         <PurchaserTable purchasers={purchasers} />
       </Listing>
     );
+  if (view === "careers") return <CareersManager careers={careers} setCareers={setCareers} demo={demo} />;
   return (
     <main className="dashboard">
       {view === "overview" ? (
@@ -371,6 +384,59 @@ function Admin({ view, accounts, setAccounts, applications, setApplications, bul
       </section>
     </main>
   );
+}
+
+function CareersManager({ careers, setCareers, demo }) {
+  const [message, setMessage] = useState("");
+  const savePage = async (pageEnabled) => {
+    setMessage("");
+    try {
+      if (!demo) await request("/admin/careers/settings", { method: "PUT", body: JSON.stringify({ pageEnabled }) });
+      setCareers((current) => ({ ...current, pageEnabled }));
+      setMessage(pageEnabled ? "Careers page is published." : "Careers page is hidden.");
+    } catch (cause) { setMessage(cause.message); }
+  };
+  const addRole = async () => {
+    const input = { title: "New position", employmentType: "Full time", shift: "Schedule to be confirmed", blurb: "Add a short description of this position.", responsibilities: ["Add the first responsibility"], sortOrder: (careers.roles.at(-1)?.sort_order || 0) + 10, enabled: false };
+    try {
+      const role = demo ? { ...input, id: crypto.randomUUID(), employment_type: input.employmentType, sort_order: input.sortOrder } : (await request("/admin/careers/roles", { method: "POST", body: JSON.stringify(input) })).role;
+      setCareers((current) => ({ ...current, roles: [...current.roles, role] }));
+      setMessage("Position added. Edit it below before publishing.");
+    } catch (cause) { setMessage(cause.message); }
+  };
+  const saveRole = async (event, role) => {
+    event.preventDefault(); setMessage("");
+    const data = new FormData(event.currentTarget), input = {
+      title: data.get("title"), employmentType: data.get("employmentType"), shift: data.get("shift"), blurb: data.get("blurb"),
+      responsibilities: String(data.get("responsibilities") || "").split("\n").map((line) => line.trim()).filter(Boolean),
+      sortOrder: Number(data.get("sortOrder")), enabled: data.get("enabled") === "on",
+    };
+    try {
+      const updated = demo ? { ...role, ...input, employment_type: input.employmentType } : (await request(`/admin/careers/roles/${role.id}`, { method: "PUT", body: JSON.stringify(input) })).role;
+      setCareers((current) => ({ ...current, roles: current.roles.map((item) => item.id === role.id ? updated : item).sort((a,b) => a.sort_order - b.sort_order) }));
+      setMessage(`${updated.title} saved.`);
+    } catch (cause) { setMessage(cause.message); }
+  };
+  const removeRole = async (role) => {
+    if (!confirm(`Delete ${role.title}? This cannot be undone.`)) return;
+    try {
+      if (!demo) await request(`/admin/careers/roles/${role.id}`, { method: "DELETE" });
+      setCareers((current) => ({ ...current, roles: current.roles.filter((item) => item.id !== role.id) }));
+      setMessage(`${role.title} deleted.`);
+    } catch (cause) { setMessage(cause.message); }
+  };
+  return <main className="dashboard careers-manager">
+    <section className="page-panel">
+      <div className="section-head careers-heading"><div><span><p>Website content</p><h2>Careers</h2></span><button type="button" onClick={addRole}><Plus/> Add position</button></div></div>
+      <div className="careers-master"><div><strong>Careers page</strong><span>Hide every opening at once without deleting any positions.</span></div><label className="toggle-field"><input type="checkbox" checked={careers.pageEnabled} onChange={(event) => savePage(event.target.checked)}/><i/><b>{careers.pageEnabled ? "Published" : "Hidden"}</b></label></div>
+      {message && <p className="careers-message" role="status">{message}</p>}
+      <div className="career-role-list">{careers.roles.map((role) => <form className="career-role-editor" key={role.id} onSubmit={(event) => saveRole(event, role)}>
+        <header><div><span>Position</span><h3>{role.title}</h3></div><label className="toggle-field"><input name="enabled" type="checkbox" defaultChecked={role.enabled}/><i/><b>Show on site</b></label></header>
+        <div className="career-fields"><label><span>Job title</span><input name="title" defaultValue={role.title} required/></label><label><span>Employment type</span><input name="employmentType" defaultValue={role.employment_type} required/></label><label><span>Shift</span><input name="shift" defaultValue={role.shift} required/></label><label><span>Display order</span><input name="sortOrder" type="number" min="0" step="1" defaultValue={role.sort_order} required/></label><label className="wide"><span>Short description</span><textarea name="blurb" rows="3" defaultValue={role.blurb} required/></label><label className="wide"><span>Responsibilities <small>One per line</small></span><textarea name="responsibilities" rows="5" defaultValue={(role.responsibilities || []).join("\n")} required/></label></div>
+        <footer><button className="career-delete" type="button" onClick={() => removeRole(role)}><Trash2/> Delete</button><button type="submit">Save position</button></footer>
+      </form>)}</div>
+    </section>
+  </main>;
 }
 
 function Listing({ eyebrow, title, children }) {

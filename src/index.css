@@ -959,6 +959,19 @@ html.lenis,
   overflow: hidden;
 }
 
+/* Safari can retain two 420px auto-fit tracks from the inline Features grid
+   at narrow widths. Force one definite track before the cards can overflow. */
+@media (max-width: 900px) {
+  .features-band {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .features-band > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
 .bulk-banner__copy {
   display: flex;
   flex-direction: column;

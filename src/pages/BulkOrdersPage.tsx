@@ -55,8 +55,8 @@ const LenticularCarousel = lazy(() => import('../components/lenticular-carousel'
 const FEATURES = [
   {
     Icon: CalendarClock,
-    title: 'Three days is plenty',
-    body: 'Most bulk orders need 72 hours. Tell us the date and we will say yes or say so straight away — no quote that arrives after you needed it.'
+    title: 'Two business days for most orders',
+    body: "Most bulk orders need two business days' notice. Custom-printed items need at least one week. Tell us your date and we will confirm availability right away."
   },
   {
     Icon: BadgeCheck,

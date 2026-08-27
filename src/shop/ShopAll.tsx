@@ -149,7 +149,7 @@ const TIERS: { id: Tier; label: string; test: (p: Product) => boolean }[] = [
 const COLLECTION_COPY: Record<'all' | Category, { title: string; seo: string }> = {
   all: {
     title: 'Shop all',
-    seo: 'Every donut, muffin, cupcake, cookie and bread we bake — hand-cut and decorated every morning in our own kosher kitchen in Toronto, and never yesterday’s.'
+    seo: 'Every donut, muffin, cupcake, cookie and bread we prepare is hand-cut, decorated and made fresh daily in our own kosher kitchen in Toronto.'
   },
   Donuts: {
     title: 'Donuts',
