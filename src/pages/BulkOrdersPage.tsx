@@ -1,7 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
   AlertTriangle,
-  BadgeCheck,
   Building2,
   Cake,
   CalendarClock,
@@ -32,6 +31,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import AuthModal from '../shop/AuthModal';
 import CartDrawer from '../shop/CartDrawer';
+import KosherBadge from '../components/KosherBadge';
 
 /* The same carousel the homepage uses, and deferred the same way: it pulls in
    @react-three/fiber and the whole of `three`, and it sits well below the fold
@@ -59,7 +59,8 @@ const FEATURES = [
     body: "Most bulk orders need two business days' notice. Custom-printed items need at least one week. Tell us your date and we will confirm availability right away."
   },
   {
-    Icon: BadgeCheck,
+    Icon: null,
+    corBadge: true,
     title: 'Kosher, COR 483',
     body: 'Pareve and Yoshon, certified, every day. The one question that usually decides whether a caterer is even an option is already answered.'
   },
@@ -526,7 +527,7 @@ export default function BulkOrdersPage() {
                 gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))'
               }}
             >
-              {FEATURES.map(({ Icon, title, body }) => (
+              {FEATURES.map(({ Icon, title, body, corBadge }) => (
                 <article
                   key={title}
                   style={{
@@ -538,20 +539,24 @@ export default function BulkOrdersPage() {
                     background: 'var(--sand)'
                   }}
                 >
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 99,
-                      display: 'grid',
-                      placeItems: 'center',
-                      background: 'var(--cream)',
-                      color: C.navy
-                    }}
-                  >
-                    <Icon size={22} strokeWidth={2.2} />
-                  </span>
+                  {corBadge ? (
+                    <KosherBadge badge="cor" style={{ alignSelf: 'flex-start', background: C.navy, color: 'var(--cream)' }} />
+                  ) : Icon ? (
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 46,
+                        height: 46,
+                        borderRadius: 99,
+                        display: 'grid',
+                        placeItems: 'center',
+                        background: 'var(--cream)',
+                        color: C.navy
+                      }}
+                    >
+                      <Icon size={22} strokeWidth={2.2} />
+                    </span>
+                  ) : null}
                   <h2
                     style={{
                       margin: 0,

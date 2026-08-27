@@ -331,7 +331,6 @@ export const stepsFor = (b: Base, ic: Icing): StepId[] => {
   list.push('icing');
   if (RULES.takesFilling(b.id)) list.push('filling');
   if (RULES.takesSprinkles(ic.id)) list.push('sprinkle');
-  if (RULES.takesPrint(b.id)) list.push('print');
   return list;
 };
 
