@@ -202,7 +202,7 @@ export default function ContactPage() {
                 color: 'rgba(14,62,105,.72)'
               }}
             >
-              We are on Bathurst, north of Lawrence. Call for same-day orders, email for anything that needs
+              We are on Bathurst, north of Lawrence. Order online for same-day orders, email us for anything that needs
               planning, or walk in and point at whatever looks good.
             </p>
 
