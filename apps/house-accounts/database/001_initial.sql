@@ -144,6 +144,7 @@ CREATE TABLE IF NOT EXISTS house_account_applications (
   billing_frequency TEXT NOT NULL DEFAULT 'monthly' CHECK (billing_frequency IN ('weekly','monthly')),
   invoice_email TEXT,
   authorized_purchasers JSONB NOT NULL DEFAULT '[]',
+  organization_pin_hash TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
   review_notes TEXT,
   reviewed_at TIMESTAMPTZ,
@@ -161,6 +162,7 @@ CREATE TABLE IF NOT EXISTS account_users (
   role TEXT NOT NULL CHECK (role IN ('account_admin','purchaser','viewer')),
   organization_role TEXT NOT NULL DEFAULT 'staff',
   purchase_limit BIGINT,
+  purchaser_pin_hash TEXT,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
   PRIMARY KEY (account_id,user_id)
 );
@@ -185,12 +187,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS account_cards_default_idx ON account_cards(acc
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS billing_frequency TEXT NOT NULL DEFAULT 'manual';
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS auto_charge_statements BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS next_statement_at DATE;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS period_spend_limit BIGINT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS period_spend_frequency TEXT NOT NULL DEFAULT 'monthly';
 ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS requested_credit_limit BIGINT;
 ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS estimated_order_total BIGINT;
 ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS billing_frequency TEXT NOT NULL DEFAULT 'monthly';
 ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS invoice_email TEXT;
 ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS authorized_purchasers JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS organization_pin_hash TEXT;
 ALTER TABLE account_users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'staff';
+ALTER TABLE account_users ADD COLUMN IF NOT EXISTS purchaser_pin_hash TEXT;
 ALTER TABLE account_users DROP CONSTRAINT IF EXISTS account_users_organization_role_check;
 UPDATE account_users au SET organization_role=CASE
   WHEN au.organization_role='principal' AND COALESCE(a.metadata->>'organizationType','Other business')='Shul' THEN 'rabbi'

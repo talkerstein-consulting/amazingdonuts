@@ -336,7 +336,7 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
 function HouseAccount({ session, account, application, onApplied }: { session: any; account: any; application: any; onApplied: (application: any) => void }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [purchasers, setPurchasers] = useState([{ name: "", email: "", organizationRole: "Purchaser" }]);
+  const [purchasers, setPurchasers] = useState([{ name: "", email: "", organizationRole: "Purchaser", pin: "" }]);
   if (session.houseAccount)
     return (
       <>
@@ -491,7 +491,11 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
           <span>Invoice email</span>
           <input name="invoiceEmail" type="email" defaultValue={session.user.email} required />
         </label>
-        <fieldset className="wide authorized-purchasers"><legend>Additional authorized purchasers</legend><p>The applicant is automatically the account administrator. Add anyone else who should be approved to order.</p>{purchasers.map((person, index) => <div className="authorized-purchaser-row" key={index}><label><span>Name</span><input value={person.name} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name:event.target.value } : item))}/></label><label><span>Email</span><input type="email" value={person.email} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, email:event.target.value } : item))}/></label><label><span>Role</span><input value={person.organizationRole} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, organizationRole:event.target.value } : item))}/></label>{purchasers.length > 1 ? <button type="button" onClick={() => setPurchasers((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</button> : null}</div>)}<button type="button" onClick={() => setPurchasers((current) => [...current,{ name:"",email:"",organizationRole:"Purchaser" }])}>Add another purchaser</button></fieldset>
+        <label>
+          <span>Organization authorization PIN</span>
+          <input name="organizationPin" type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} autoComplete="new-password" required />
+        </label>
+        <fieldset className="wide authorized-purchasers"><legend>Additional authorized purchasers</legend><p>The applicant is automatically the account administrator. Give each additional purchaser their own 4 to 8 digit PIN.</p>{purchasers.map((person, index) => <div className="authorized-purchaser-row" key={index}><label><span>Name</span><input value={person.name} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name:event.target.value } : item))}/></label><label><span>Email</span><input type="email" value={person.email} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, email:event.target.value } : item))}/></label><label><span>Role</span><input value={person.organizationRole} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, organizationRole:event.target.value } : item))}/></label><label><span>Personal PIN</span><input type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} value={person.pin} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, pin:event.target.value } : item))}/></label>{purchasers.length > 1 ? <button type="button" onClick={() => setPurchasers((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</button> : null}</div>)}<button type="button" onClick={() => setPurchasers((current) => [...current,{ name:"",email:"",organizationRole:"Purchaser",pin:"" }])}>Add another purchaser</button></fieldset>
         <label className="wide">
           <span>About your ordering needs</span>
           <textarea name="notes" rows={5} maxLength={3000} placeholder="Typical order size, frequency, and billing contact details" />
@@ -525,7 +529,7 @@ function CustomerMemberManager({ session, account }: { session: any; account: an
           setMessage("");
           const data = new FormData(event.currentTarget);
           try {
-            await api("/storefront/house-members", { method: "POST", body: JSON.stringify({ email: data.get("email"), organizationType, organizationRole: data.get("organizationRole"), role: data.get("role"), purchaseLimit: data.get("purchaseLimit") ? Math.round(Number(data.get("purchaseLimit")) * 100) : null }) });
+            await api("/storefront/house-members", { method: "POST", body: JSON.stringify({ email: data.get("email"), organizationType, organizationRole: data.get("organizationRole"), role: data.get("role"), purchaseLimit: data.get("purchaseLimit") ? Math.round(Number(data.get("purchaseLimit")) * 100) : null, pin:data.get("pin") }) });
             setMessage("Member added.");
             event.currentTarget.reset();
           } catch (cause) {
@@ -566,6 +570,10 @@ function CustomerMemberManager({ session, account }: { session: any; account: an
         <label>
           <span>Purchase limit</span>
           <input name="purchaseLimit" type="number" min="0" step="1" />
+        </label>
+        <label>
+          <span>Personal authorization PIN</span>
+          <input name="pin" type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} required />
         </label>
         <button>Add member</button>
         {message ? <p className="wide">{message}</p> : null}

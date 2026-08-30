@@ -382,12 +382,12 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
   return (
     <main className="dashboard">
       {view === "overview" ? (
-        <section className="metrics">
+        <><section className="metrics">
           <Metric label="Receivables" value={cash(totals.owed)} note={`${accounts.length} organizations`} tone="magenta" />
           <Metric label="Available credit" value={cash(totals.available)} note="Across active accounts" tone="green" />
           <Metric label="Reserved" value={cash(totals.reserved)} note="Pending online orders" tone="yellow" />
           <Metric label="Approved credit" value={cash(totals.approved)} note="Across active accounts" tone="green" />
-        </section>
+        </section><EmailHealth demo={demo}/></>
       ) : null}
       <section className="admin-grid">
         <AccountList accounts={visible} account={account} query={query} setQuery={setQuery} setSelected={setSelected} />
@@ -395,6 +395,12 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
       </section>
     </main>
   );
+}
+
+function EmailHealth({demo}) {
+  const [status,setStatus]=useState(demo?{configured:true,ownersConfigured:true,from:"Amazing Donuts <accounts@amazingdonuts.com>"}:null),[message,setMessage]=useState("");
+  useEffect(()=>{if(!demo)request("/admin/email-status").then(setStatus).catch((error)=>setMessage(error.message));},[demo]);
+  return <section className="email-health"><div><strong>Email delivery</strong><span>{status?.configured&&status?.ownersConfigured?"Configured for customer and owner notifications":"Configuration needs attention"}</span>{status?.from?<small>{status.from}</small>:null}</div><button type="button" disabled={!status?.configured} onClick={async()=>{setMessage("Sending test...");try{if(demo){setMessage("Test email accepted.");return;}const result=await request("/admin/email-test",{method:"POST"});setMessage(result.accepted?"Test email accepted by the mail server.":"Mail server accepted the request.");}catch(error){setMessage(error.message);}}}>Send test email</button>{message?<p>{message}</p>:null}</section>;
 }
 
 function PasswordInput({ name = "password", autoComplete = "new-password", minLength = 10, required = true }) {
@@ -995,6 +1001,8 @@ function AccountDetail({ account, staff, demo }) {
                 paymentTermsDays: Number(d.get("terms")),
                 billingFrequency: d.get("billingFrequency"),
                 autoChargeStatements: d.get("autoChargeStatements") === "on",
+                periodSpendLimit: d.get("periodSpendLimit") ? Math.round(Number(d.get("periodSpendLimit")) * 100) : null,
+                periodSpendFrequency: d.get("periodSpendFrequency"),
               }),
             });
           }}
@@ -1033,6 +1041,14 @@ function AccountDetail({ account, staff, demo }) {
           <label>
             <span>Automatic collection</span>
             <span className="toggle-field"><input type="checkbox" name="autoChargeStatements" defaultChecked={account.auto_charge_statements} /><i/><b>Charge saved card when due</b></span>
+          </label>
+          <label>
+            <span>Period spending cap <small>Optional</small></span>
+            <input name="periodSpendLimit" type="number" min="0.01" step=".01" placeholder="No limit" defaultValue={account.period_spend_limit ? Number(account.period_spend_limit) / 100 : ""} />
+          </label>
+          <label>
+            <span>Cap period</span>
+            <select name="periodSpendFrequency" defaultValue={account.period_spend_frequency || "monthly"}><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select>
           </label>
           <div className="form-actions"><button>Save billing settings</button></div>
         </form>
@@ -1108,7 +1124,7 @@ function AccountMemberForm({ account }) {
       onSubmit={async (event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
-        await request(`/admin/accounts/${account.id}/purchasers`, { method: "POST", body: JSON.stringify({ email: data.get("email"), organizationType, organizationRole: data.get("organizationRole"), role: data.get("role"), purchaseLimit: data.get("purchaseLimit") ? Math.round(Number(data.get("purchaseLimit")) * 100) : null }) });
+        await request(`/admin/accounts/${account.id}/purchasers`, { method: "POST", body: JSON.stringify({ email: data.get("email"), organizationType, organizationRole: data.get("organizationRole"), role: data.get("role"), purchaseLimit: data.get("purchaseLimit") ? Math.round(Number(data.get("purchaseLimit")) * 100) : null, pin:data.get("pin") }) });
         location.reload();
       }}
     >
@@ -1145,6 +1161,10 @@ function AccountMemberForm({ account }) {
       <label>
         <span>Per-order limit <small>Optional</small></span>
         <input name="purchaseLimit" type="number" min="0" step="1" placeholder="No limit" />
+      </label>
+      <label>
+        <span>Personal PIN</span>
+        <input name="pin" type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength="4" maxLength="8" required />
       </label>
       <div className="form-actions"><button>Add team member</button></div>
     </form>
