@@ -1,0 +1,18 @@
+.notification-heading > div { align-items: center; }
+.notification-heading button { min-height: 40px; padding: 0 14px; border: 0; display: flex; align-items: center; gap: 7px; background: #17394a; color: white; font-weight: 800; }
+.notification-heading button svg { width: 16px; }
+.notification-list article { min-height: 94px; padding: 18px 20px; display: grid; grid-template-columns: 34px minmax(0,1fr) auto; gap: 14px; align-items: start; border-bottom: 1px solid #e5e9ea; }
+.notification-list article.unread { background: #eef7f9; border-left: 4px solid #d20a8c; }
+.notification-list article > svg { width: 22px; color: #d20a8c; }
+.notification-list h3 { margin: 3px 0 5px; font-family: Georgia,serif; font-size: 18px; }
+.notification-list p,.notification-list small { margin: 0; color: #71828a; font-size: 11px; }
+.notification-list article > div:last-child { display: flex; align-items: center; gap: 8px; }
+.notification-list a,.notification-list button { min-height: 36px; padding: 0 12px; border: 1px solid #17394a; display: inline-flex; align-items: center; background: white; color: #17394a; font-size: 11px; font-weight: 800; text-decoration: none; }
+.notification-list article > div:last-child span { color: #71828a; font-size: 11px; }
+.authorized-review { margin-top: 14px; }
+.authorized-review ul { margin: 12px 0 0; padding: 0; display: grid; gap: 8px; list-style: none; }
+.authorized-review li { padding: 10px 12px; display: flex; justify-content: space-between; gap: 12px; background: white; }
+.authorized-review li span { color: #71828a; font-size: 12px; }
+.purchaser-attribution { display: block!important; margin-top: 4px!important; color: #71828a!important; font-size: 10px!important; font-weight: 600!important; }
+@media(max-width:1050px) { .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:760px) { .notification-list article { grid-template-columns: 28px minmax(0,1fr); } .notification-list article > div:last-child { grid-column: 2; flex-wrap: wrap; } .authorized-review li { display: grid; } }

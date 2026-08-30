@@ -141,6 +141,9 @@ CREATE TABLE IF NOT EXISTS house_account_applications (
   notes TEXT,
   requested_credit_limit BIGINT,
   estimated_order_total BIGINT,
+  billing_frequency TEXT NOT NULL DEFAULT 'monthly' CHECK (billing_frequency IN ('weekly','monthly')),
+  invoice_email TEXT,
+  authorized_purchasers JSONB NOT NULL DEFAULT '[]',
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
   review_notes TEXT,
   reviewed_at TIMESTAMPTZ,
@@ -184,6 +187,9 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS auto_charge_statements BOOLEAN NOT
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS next_statement_at DATE;
 ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS requested_credit_limit BIGINT;
 ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS estimated_order_total BIGINT;
+ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS billing_frequency TEXT NOT NULL DEFAULT 'monthly';
+ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS invoice_email TEXT;
+ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS authorized_purchasers JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE account_users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'staff';
 ALTER TABLE account_users DROP CONSTRAINT IF EXISTS account_users_organization_role_check;
 UPDATE account_users au SET organization_role=CASE
@@ -432,6 +438,18 @@ CREATE TABLE IF NOT EXISTS career_roles (
   UNIQUE (tenant_id,slug)
 );
 CREATE INDEX IF NOT EXISTS career_roles_tenant_order_idx ON career_roles(tenant_id,sort_order,created_at);
+
+CREATE TABLE IF NOT EXISTS admin_notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  notification_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  link TEXT,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS admin_notifications_tenant_date_idx ON admin_notifications(tenant_id,created_at DESC);
 
 INSERT INTO career_settings(tenant_id,page_enabled)
 SELECT id,true FROM tenants ON CONFLICT(tenant_id) DO NOTHING;

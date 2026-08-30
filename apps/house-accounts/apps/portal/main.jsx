@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BriefcaseBusiness, Building2, ClipboardList, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
+import { Bell, BriefcaseBusiness, Building2, Check, ClipboardList, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
 import "./portal.css";
 import "./portal-workspaces.css";
+import "./portal-notifications.css";
 
 const cash = (amount, currency = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(Number(amount || 0) / 100);
 const organizationRoles = {
@@ -87,6 +88,7 @@ const demoManagers = [
 ];
 const navItems = [
   { id: "overview", label: "Overview", Icon: LayoutDashboard },
+  { id: "notifications", label: "Notifications", Icon: Bell },
   { id: "requests", label: "House applications", Icon: Building2 },
   { id: "bulk-requests", label: "Bulk requests", Icon: ClipboardList },
   { id: "accounts", label: "Accounts", Icon: Building2 },
@@ -146,6 +148,7 @@ function App() {
     [customOrders, setCustomOrders] = useState([]),
     [careers, setCareers] = useState(demo ? demoCareers : { pageEnabled: true, roles: [] }),
     [managers, setManagers] = useState(demo ? demoManagers : []),
+    [notifications, setNotifications] = useState(demo ? [{id:"demo-notice",title:"New application: North Toronto School",body:"A new house-account application is ready for review.",link:"#requests",created_at:new Date().toISOString(),read_at:null}] : []),
     [view, setView] = useState(viewFromHash),
     [error, setError] = useState("");
   const staff = ["owner", "staff"].includes(user?.role);
@@ -154,13 +157,14 @@ function App() {
     try {
       if (staff) {
         const managerRequest = user.role === "owner" ? request("/admin/managers") : Promise.resolve({ managers: [] });
-        const [a, r, b, o, c, m] = await Promise.all([request("/admin/accounts"), request("/admin/applications"), request("/admin/bulk-requests"), request("/admin/custom-orders"), request("/admin/careers"), managerRequest]);
+        const [a, r, b, o, c, m, n] = await Promise.all([request("/admin/accounts"), request("/admin/applications"), request("/admin/bulk-requests"), request("/admin/custom-orders"), request("/admin/careers"), managerRequest, request("/admin/notifications")]);
         setAccounts(a.accounts);
         setApplications(r.applications);
         setBulkRequests(b.requests);
         setCustomOrders(o.orders);
         setCareers(c);
         setManagers(m.managers);
+        setNotifications(n.notifications);
       }
       setError("");
     } catch (cause) {
@@ -192,6 +196,7 @@ function App() {
       pending={{
         requests: applications.filter((x) => x.status === "pending").length,
         "bulk-requests": bulkRequests.filter((x) => x.status === "pending").length,
+        notifications: notifications.filter((x) => !x.read_at).length,
       }}
       onRefresh={load}
       onLogout={async () => {
@@ -200,7 +205,7 @@ function App() {
       }}
     >
       {error ? <p className="global-error">{error}</p> : null}
-      <Admin user={user} view={view} accounts={accounts || []} setAccounts={setAccounts} applications={applications} setApplications={setApplications} bulkRequests={bulkRequests} setBulkRequests={setBulkRequests} customOrders={customOrders} careers={careers} setCareers={setCareers} managers={managers} setManagers={setManagers} demo={demo} />
+      <Admin user={user} view={view} accounts={accounts || []} setAccounts={setAccounts} applications={applications} setApplications={setApplications} bulkRequests={bulkRequests} setBulkRequests={setBulkRequests} customOrders={customOrders} careers={careers} setCareers={setCareers} managers={managers} setManagers={setManagers} notifications={notifications} setNotifications={setNotifications} demo={demo} />
     </Shell>
   );
 }
@@ -320,7 +325,7 @@ function Shell({ user, view, onView, pending, onRefresh, onLogout, children }) {
   );
 }
 
-function Admin({ user, view, accounts, setAccounts, applications, setApplications, bulkRequests, setBulkRequests, customOrders, careers, setCareers, managers, setManagers, demo }) {
+function Admin({ user, view, accounts, setAccounts, applications, setApplications, bulkRequests, setBulkRequests, customOrders, careers, setCareers, managers, setManagers, notifications, setNotifications, demo }) {
   const [selected, setSelected] = useState(accounts[0]?.id),
     [query, setQuery] = useState("");
   useEffect(() => {
@@ -333,8 +338,9 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
         owed: s.owed + Number(a.credit?.balance || a.credit?.postedBalance || 0),
         available: s.available + Number(a.credit?.available || 0),
         reserved: s.reserved + Number(a.credit?.reserved || 0),
+        approved: s.approved + (a.status === "active" ? Number(a.credit?.creditLimit || a.credit_limit || 0) : 0),
       }),
-      { owed: 0, available: 0, reserved: 0 },
+      { owed: 0, available: 0, reserved: 0, approved: 0 },
     );
   const statements = accounts.flatMap((a) =>
       (a.statements || []).map((x) => ({
@@ -371,6 +377,7 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
     );
   if (view === "careers") return <CareersManager careers={careers} setCareers={setCareers} demo={demo} />;
   if (view === "managers" && user.role === "owner") return <ManagerAdmin managers={managers} setManagers={setManagers} demo={demo} />;
+  if (view === "notifications") return <NotificationCenter notifications={notifications} setNotifications={setNotifications} demo={demo}/>;
   return (
     <main className="dashboard">
       {view === "overview" ? (
@@ -378,6 +385,7 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
           <Metric label="Receivables" value={cash(totals.owed)} note={`${accounts.length} organizations`} tone="magenta" />
           <Metric label="Available credit" value={cash(totals.available)} note="Across active accounts" tone="green" />
           <Metric label="Reserved" value={cash(totals.reserved)} note="Pending online orders" tone="yellow" />
+          <Metric label="Approved credit" value={cash(totals.approved)} note="Across active accounts" tone="green" />
         </section>
       ) : null}
       <section className="admin-grid">
@@ -391,6 +399,12 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
 function PasswordInput({ name = "password", autoComplete = "new-password", minLength = 10, required = true }) {
   const [visible, setVisible] = useState(false);
   return <span className="password-field"><input name={name} type={visible ? "text" : "password"} autoComplete={autoComplete} minLength={minLength} required={required}/><button type="button" title={visible ? "Hide password" : "Show password"} aria-label={visible ? "Hide password" : "Show password"} onClick={() => setVisible((value) => !value)}>{visible ? <EyeOff/> : <Eye/>}</button></span>;
+}
+
+function NotificationCenter({ notifications, setNotifications, demo }) {
+  const markRead = async (notification) => { if (!demo) await request(`/admin/notifications/${notification.id}/read`,{method:"PATCH"}); setNotifications((current) => current.map((item) => item.id === notification.id ? {...item,read_at:new Date().toISOString()} : item)); };
+  const readAll = async () => { if (!demo) await request("/admin/notifications/read-all",{method:"POST"}); setNotifications((current) => current.map((item) => ({...item,read_at:item.read_at||new Date().toISOString()}))); };
+  return <main className="dashboard"><section className="page-panel"><div className="section-head notification-heading"><div><span><p>Management inbox</p><h2>Notifications</h2></span>{notifications.some((item) => !item.read_at) ? <button type="button" onClick={readAll}><Check/> Mark all read</button> : null}</div></div><div className="notification-list">{notifications.length ? notifications.map((notification) => <article className={notification.read_at ? "read" : "unread"} key={notification.id}><Bell/><div><small>{day(notification.created_at)}</small><h3>{notification.title}</h3><p>{notification.body}</p></div><div>{notification.link ? <a href={notification.link} onClick={() => markRead(notification)}>Open</a> : null}{!notification.read_at ? <button type="button" onClick={() => markRead(notification)}>Mark read</button> : <span>Read</span>}</div></article>) : <div className="empty-row">No notifications yet.</div>}</div></section></main>;
 }
 
 function ManagerAdmin({ managers, setManagers, demo }) {
@@ -615,7 +629,10 @@ function HouseApplicationDetail({ application, demo, onReviewed }) {
           <dt>Expected order</dt>
           <dd>{cash(application.estimated_order_total || 0)}</dd>
         </div>
+        <div><dt>Billing frequency</dt><dd>{application.billing_frequency || "Monthly"}</dd></div>
+        <div><dt>Invoice email</dt><dd><a href={`mailto:${application.invoice_email || application.email}`}>{application.invoice_email || application.email}</a></dd></div>
       </dl>
+      <div className="request-notes authorized-review"><strong>Authorized purchasers</strong>{application.authorized_purchasers?.length ? <ul>{application.authorized_purchasers.map((person,index) => <li key={`${person.email}-${index}`}><b>{person.name}</b><span>{person.organizationRole} · {person.email}</span></li>)}</ul> : <p>No additional purchasers requested.</p>}</div>
       <div className="request-notes">
         <strong>Applicant notes</strong>
         <p>{application.notes || "No additional notes."}</p>
@@ -1198,7 +1215,7 @@ function Activity({ entries = [], account, staff, demo }) {
           entries.map((x) => (
             <div className="table-row" key={x.id}>
               <span>{day(x.effective_at)}</span>
-              <strong>{x.description}</strong>
+              <strong>{x.description}{x.purchaser_first_name || x.purchaser_email ? <small className="purchaser-attribution">Purchased by {x.purchaser_first_name ? `${x.purchaser_first_name} ${x.purchaser_last_name || ""}`.trim() : x.purchaser_email}</small> : null}</strong>
               <em>{x.transaction_type}</em>
               <b className={Number(x.amount) < 0 ? "credit" : ""}>
                 {cash(x.amount, x.currency)}
@@ -1243,6 +1260,7 @@ function OrderTable({ orders = [] }) {
             <span>{day(x.ordered_at)}</span>
             <strong>
               {x.organization_name || x.email || `#${x.receipt_number || String(x.square_order_id || x.id).slice(-8)}`}
+              {x.purchaser_first_name || x.purchaser_email || x.email ? <small className="purchaser-attribution">Purchased by {x.purchaser_first_name ? `${x.purchaser_first_name} ${x.purchaser_last_name || ""}`.trim() : x.purchaser_email || x.email}</small> : null}
               {x.assets?.length ? (
                 <small>
                   {x.assets.map((asset) => (

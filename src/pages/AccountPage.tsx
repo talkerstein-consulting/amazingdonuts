@@ -311,14 +311,6 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
           <span>Phone</span>
           <input name="phone" defaultValue={profile.default_phone || profile.phone || ""} />
         </label>
-        <label>
-          <span>Requested credit limit</span>
-          <input name="requestedCreditLimit" type="number" min="0" step="100" required />
-        </label>
-        <label>
-          <span>Expected order total</span>
-          <input name="estimatedOrderTotal" type="number" min="0" step="25" required />
-        </label>
         <label className="wide">
           <span>Street address</span>
           <input name="addressLine1" defaultValue={profile.default_address?.addressLine1 || ""} />
@@ -344,6 +336,7 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
 function HouseAccount({ session, account, application, onApplied }: { session: any; account: any; application: any; onApplied: (application: any) => void }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [purchasers, setPurchasers] = useState([{ name: "", email: "", organizationRole: "Purchaser" }]);
   if (session.houseAccount)
     return (
       <>
@@ -450,7 +443,7 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
           try {
             const body = await api("/storefront/house-application", {
               method: "POST",
-              body: JSON.stringify(data),
+              body: JSON.stringify({ ...data, authorizedPurchasers: purchasers.filter((person) => person.name.trim() && person.email.trim()) }),
             });
             onApplied(body.application);
           } catch (cause) {
@@ -482,6 +475,23 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
           <span>Phone</span>
           <input name="phone" type="tel" defaultValue={session.profile?.default_phone || session.profile?.phone || ""} />
         </label>
+        <label>
+          <span>Requested credit limit</span>
+          <input name="requestedCreditLimit" type="number" min="0" step="100" required />
+        </label>
+        <label>
+          <span>Typical order total</span>
+          <input name="estimatedOrderTotal" type="number" min="0" step="25" defaultValue="0" required />
+        </label>
+        <label>
+          <span>Billing frequency</span>
+          <select name="billingFrequency" defaultValue="monthly" required><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select>
+        </label>
+        <label>
+          <span>Invoice email</span>
+          <input name="invoiceEmail" type="email" defaultValue={session.user.email} required />
+        </label>
+        <fieldset className="wide authorized-purchasers"><legend>Additional authorized purchasers</legend><p>The applicant is automatically the account administrator. Add anyone else who should be approved to order.</p>{purchasers.map((person, index) => <div className="authorized-purchaser-row" key={index}><label><span>Name</span><input value={person.name} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name:event.target.value } : item))}/></label><label><span>Email</span><input type="email" value={person.email} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, email:event.target.value } : item))}/></label><label><span>Role</span><input value={person.organizationRole} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, organizationRole:event.target.value } : item))}/></label>{purchasers.length > 1 ? <button type="button" onClick={() => setPurchasers((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</button> : null}</div>)}<button type="button" onClick={() => setPurchasers((current) => [...current,{ name:"",email:"",organizationRole:"Purchaser" }])}>Add another purchaser</button></fieldset>
         <label className="wide">
           <span>About your ordering needs</span>
           <textarea name="notes" rows={5} maxLength={3000} placeholder="Typical order size, frequency, and billing contact details" />
