@@ -52,8 +52,8 @@ textarea {
 .settings-section > header h3,
 .career-role-editor h3,
 .manager-invite h3 {
-  font-size: 35px;
-  line-height: 1.05;
+  font-size: 44px;
+  line-height: 1;
 }
 
 .settings-section > header span,
@@ -66,15 +66,15 @@ textarea {
 .login-panel label span,
 .controls label span,
 .issue label span {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   line-height: 1.2;
   letter-spacing: 0;
 }
 
 .settings-section > header p,
 .manager-invite header p {
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -84,7 +84,7 @@ textarea {
 .career-fields textarea,
 .manager-fields input,
 .manager-password input {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .settings-section button,
@@ -104,6 +104,6 @@ textarea {
   .settings-section > header h3,
   .career-role-editor h3,
   .manager-invite h3 {
-    font-size: 30px;
+    font-size: 38px;
   }
 }
