@@ -1003,6 +1003,7 @@ function AccountDetail({ account, staff, demo }) {
                 autoChargeStatements: d.get("autoChargeStatements") === "on",
                 periodSpendLimit: d.get("periodSpendLimit") ? Math.round(Number(d.get("periodSpendLimit")) * 100) : null,
                 periodSpendFrequency: d.get("periodSpendFrequency"),
+                organizationPin: d.get("organizationPin"),
               }),
             });
           }}
@@ -1049,6 +1050,10 @@ function AccountDetail({ account, staff, demo }) {
           <label>
             <span>Cap period</span>
             <select name="periodSpendFrequency" defaultValue={account.period_spend_frequency || "monthly"}><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select>
+          </label>
+          <label>
+            <span>Reset organization PIN <small>Optional</small></span>
+            <input name="organizationPin" type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength="4" maxLength="8" placeholder="Leave unchanged" />
           </label>
           <div className="form-actions"><button>Save billing settings</button></div>
         </form>
