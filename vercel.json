@@ -10,12 +10,16 @@
     { "path": "/api/house/jobs/reconcile", "schedule": "17 6 * * *" },
     { "path": "/api/house/jobs/statements", "schedule": "37 6 * * *" }
   ],
+  "redirects": [
+    { "source": "/accounts", "destination": "/admin-dashboard/", "permanent": true },
+    { "source": "/accounts/:path*", "destination": "/admin-dashboard/:path*", "permanent": true }
+  ],
   "rewrites": [
     { "source": "/api/house/:path*", "destination": "/api/house?__path=:path*" }
   ],
   "headers": [
     {
-      "source": "/accounts/(.*)",
+      "source": "/admin-dashboard/(.*)",
       "headers": [
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Referrer-Policy", "value": "same-origin" },

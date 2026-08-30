@@ -136,7 +136,6 @@ function App() {
         : undefined,
     );
   const [accounts, setAccounts] = useState(demo ? [demoAccount] : null),
-    [account, setAccount] = useState(demo ? demoAccount : null),
     [applications, setApplications] = useState([]),
     [bulkRequests, setBulkRequests] = useState([]),
     [customOrders, setCustomOrders] = useState([]),
@@ -154,7 +153,7 @@ function App() {
         setBulkRequests(b.requests);
         setCustomOrders(o.orders);
         setCareers(c);
-      } else setAccount((await request("/portal/account")).account);
+      }
       setError("");
     } catch (cause) {
       setError(cause.message);
@@ -162,13 +161,10 @@ function App() {
   };
   useEffect(() => {
     if (demo) return;
-    request("/auth/session")
+    request("/admin-auth/session")
       .then(({ user }) => setUser(user))
       .catch(() => setUser(null));
   }, [demo]);
-  useEffect(() => {
-    if (user && !staff && !demo) location.replace("/account/");
-  }, [user, staff, demo]);
   useEffect(() => {
     load();
   }, [user, staff, demo]);
@@ -177,12 +173,9 @@ function App() {
     window.addEventListener("hashchange", syncView);
     return () => window.removeEventListener("hashchange", syncView);
   }, []);
-  useEffect(() => {
-    if (user && !staff && !["overview", "statements", "orders"].includes(view)) location.hash = "overview";
-  }, [user, staff, view]);
   if (user === undefined) return <div className="boot">Loading account service...</div>;
   if (!user) return <Login onUser={setUser} />;
-  if (!staff && !demo) return <div className="boot">Opening your storefront account...</div>;
+  if (!staff && !demo) return <Login onUser={setUser} errorMessage="Administrator access is required." />;
   return (
     <Shell
       user={user}
@@ -194,29 +187,29 @@ function App() {
       }}
       onRefresh={load}
       onLogout={async () => {
-        if (!demo) await request("/auth/logout", { method: "POST" });
+        if (!demo) await request("/admin-auth/logout", { method: "POST" });
         setUser(null);
       }}
     >
       {error ? <p className="global-error">{error}</p> : null}
-      {staff ? <Admin view={view} accounts={accounts || []} setAccounts={setAccounts} applications={applications} setApplications={setApplications} bulkRequests={bulkRequests} setBulkRequests={setBulkRequests} customOrders={customOrders} careers={careers} setCareers={setCareers} demo={demo} /> : <Customer account={account} view={view} />}
+      <Admin view={view} accounts={accounts || []} setAccounts={setAccounts} applications={applications} setApplications={setApplications} bulkRequests={bulkRequests} setBulkRequests={setBulkRequests} customOrders={customOrders} careers={careers} setCareers={setCareers} demo={demo} />
     </Shell>
   );
 }
 
-function Login({ onUser }) {
-  const [error, setError] = useState("");
+function Login({ onUser, errorMessage = "" }) {
+  const [error, setError] = useState(errorMessage);
   return (
     <main className="login">
       <section className="login-brand">
         <div className="brand-mark">AD</div>
-        <p>Institutional ordering</p>
+        <p>Administrative access</p>
         <h1>
-          House accounts,
+          House account operations,
           <br />
           without the paperwork pile.
         </h1>
-        <span>Secure account access for approved organizations.</span>
+        <span>Owner and staff access only. Customer accounts belong at /account/.</span>
       </section>
       <section className="login-panel">
         <form
@@ -227,7 +220,7 @@ function Login({ onUser }) {
             try {
               onUser(
                 (
-                  await request("/auth/login", {
+                  await request("/admin-auth/login", {
                     method: "POST",
                     body: JSON.stringify({ ...data, tenant: "amazing-donuts" }),
                   })
@@ -239,7 +232,7 @@ function Login({ onUser }) {
           }}
         >
           <ShieldCheck />
-          <h2>Sign in</h2>
+          <h2>Admin sign in</h2>
           <label>
             <span>Email address</span>
             <input name="email" type="email" autoComplete="email" required />

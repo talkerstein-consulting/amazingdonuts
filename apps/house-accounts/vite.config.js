@@ -7,8 +7,8 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   root,
-  base: "/accounts/",
+  base: "/admin-dashboard/",
   plugins: [react()],
   server: { port: 5174, proxy: { "/api": "http://127.0.0.1:3101" } },
-  build: { outDir: path.resolve(root, "../../dist/accounts"), emptyOutDir: false }
+  build: { outDir: path.resolve(root, "../../dist/admin-dashboard"), emptyOutDir: false }
 });
