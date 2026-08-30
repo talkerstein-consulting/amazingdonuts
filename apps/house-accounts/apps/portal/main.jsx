@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BriefcaseBusiness, Building2, ClipboardList, CreditCard, Download, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, Users } from "lucide-react";
+import { BriefcaseBusiness, Building2, ClipboardList, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
 import "./portal.css";
 import "./portal-workspaces.css";
 
@@ -81,6 +81,10 @@ const demoCareers = {
     { id: "demo-driver", slug: "driver", title: "Delivery Driver", employment_type: "Part time", shift: "Early mornings, own vehicle", blurb: "Bulk and corporate orders across the city, arriving intact and when they were promised.", responsibilities: ["Run the morning delivery list across Toronto", "Check each order against its sheet before it leaves", "Be the face of the bakery at the door"], sort_order: 40, enabled: true },
   ],
 };
+const demoManagers = [
+  { id: "demo-owner", email: "owner@amazingdonuts.com", first_name: "Raviv", last_name: "Talkar", role: "owner", status: "active" },
+  { id: "demo-manager", email: "manager@amazingdonuts.com", first_name: "Store", last_name: "Manager", role: "staff", status: "active" },
+];
 const navItems = [
   { id: "overview", label: "Overview", Icon: LayoutDashboard },
   { id: "requests", label: "House applications", Icon: Building2 },
@@ -90,6 +94,7 @@ const navItems = [
   { id: "orders", label: "Orders", Icon: Package },
   { id: "purchasers", label: "Purchasers", Icon: Users },
   { id: "careers", label: "Careers", Icon: BriefcaseBusiness },
+  { id: "managers", label: "Account managers", Icon: UserCog, ownerOnly: true },
 ];
 const viewFromHash = () => {
   const candidate = location.hash.slice(1);
@@ -140,6 +145,7 @@ function App() {
     [bulkRequests, setBulkRequests] = useState([]),
     [customOrders, setCustomOrders] = useState([]),
     [careers, setCareers] = useState(demo ? demoCareers : { pageEnabled: true, roles: [] }),
+    [managers, setManagers] = useState(demo ? demoManagers : []),
     [view, setView] = useState(viewFromHash),
     [error, setError] = useState("");
   const staff = ["owner", "staff"].includes(user?.role);
@@ -147,12 +153,14 @@ function App() {
     if (!user || demo) return;
     try {
       if (staff) {
-        const [a, r, b, o, c] = await Promise.all([request("/admin/accounts"), request("/admin/applications"), request("/admin/bulk-requests"), request("/admin/custom-orders"), request("/admin/careers")]);
+        const managerRequest = user.role === "owner" ? request("/admin/managers") : Promise.resolve({ managers: [] });
+        const [a, r, b, o, c, m] = await Promise.all([request("/admin/accounts"), request("/admin/applications"), request("/admin/bulk-requests"), request("/admin/custom-orders"), request("/admin/careers"), managerRequest]);
         setAccounts(a.accounts);
         setApplications(r.applications);
         setBulkRequests(b.requests);
         setCustomOrders(o.orders);
         setCareers(c);
+        setManagers(m.managers);
       }
       setError("");
     } catch (cause) {
@@ -192,13 +200,13 @@ function App() {
       }}
     >
       {error ? <p className="global-error">{error}</p> : null}
-      <Admin view={view} accounts={accounts || []} setAccounts={setAccounts} applications={applications} setApplications={setApplications} bulkRequests={bulkRequests} setBulkRequests={setBulkRequests} customOrders={customOrders} careers={careers} setCareers={setCareers} demo={demo} />
+      <Admin user={user} view={view} accounts={accounts || []} setAccounts={setAccounts} applications={applications} setApplications={setApplications} bulkRequests={bulkRequests} setBulkRequests={setBulkRequests} customOrders={customOrders} careers={careers} setCareers={setCareers} managers={managers} setManagers={setManagers} demo={demo} />
     </Shell>
   );
 }
 
 function Login({ onUser, errorMessage = "" }) {
-  const [error, setError] = useState(errorMessage);
+  const [error, setError] = useState(errorMessage), [showPassword, setShowPassword] = useState(false);
   return (
     <main className="login">
       <section className="login-brand">
@@ -239,7 +247,7 @@ function Login({ onUser, errorMessage = "" }) {
           </label>
           <label>
             <span>Password</span>
-            <input name="password" type="password" autoComplete="current-password" minLength="8" required />
+            <span className="password-field"><input name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" minLength="8" required /><button type="button" title={showPassword ? "Hide password" : "Show password"} aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((value) => !value)}>{showPassword ? <EyeOff/> : <Eye/>}</button></span>
           </label>
           {error ? <p className="error">{error}</p> : null}
           <button>Continue</button>
@@ -265,7 +273,7 @@ function Shell({ user, view, onView, pending, onRefresh, onLogout, children }) {
         </div>
         <nav>
           {navItems
-            .filter((x) => staff || customerViews.includes(x.id))
+            .filter((x) => (staff || customerViews.includes(x.id)) && (!x.ownerOnly || user.role === "owner"))
             .map(({ id, label, Icon }) => (
               <a key={id} href={`#${id}`} className={view === id ? "active" : ""} aria-current={view === id ? "page" : undefined} onClick={() => onView(id)}>
                 <Icon />
@@ -312,7 +320,7 @@ function Shell({ user, view, onView, pending, onRefresh, onLogout, children }) {
   );
 }
 
-function Admin({ view, accounts, setAccounts, applications, setApplications, bulkRequests, setBulkRequests, customOrders, careers, setCareers, demo }) {
+function Admin({ user, view, accounts, setAccounts, applications, setApplications, bulkRequests, setBulkRequests, customOrders, careers, setCareers, managers, setManagers, demo }) {
   const [selected, setSelected] = useState(accounts[0]?.id),
     [query, setQuery] = useState("");
   useEffect(() => {
@@ -362,6 +370,7 @@ function Admin({ view, accounts, setAccounts, applications, setApplications, bul
       </Listing>
     );
   if (view === "careers") return <CareersManager careers={careers} setCareers={setCareers} demo={demo} />;
+  if (view === "managers" && user.role === "owner") return <ManagerAdmin managers={managers} setManagers={setManagers} demo={demo} />;
   return (
     <main className="dashboard">
       {view === "overview" ? (
@@ -377,6 +386,49 @@ function Admin({ view, accounts, setAccounts, applications, setApplications, bul
       </section>
     </main>
   );
+}
+
+function PasswordInput({ name = "password", autoComplete = "new-password", minLength = 10, required = true }) {
+  const [visible, setVisible] = useState(false);
+  return <span className="password-field"><input name={name} type={visible ? "text" : "password"} autoComplete={autoComplete} minLength={minLength} required={required}/><button type="button" title={visible ? "Hide password" : "Show password"} aria-label={visible ? "Hide password" : "Show password"} onClick={() => setVisible((value) => !value)}>{visible ? <EyeOff/> : <Eye/>}</button></span>;
+}
+
+function ManagerAdmin({ managers, setManagers, demo }) {
+  const [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
+  const invite = async (event) => {
+    event.preventDefault(); setMessage(""); setBusy(true);
+    const form = event.currentTarget, data = Object.fromEntries(new FormData(form));
+    try {
+      const manager = demo ? { ...data, id: crypto.randomUUID(), first_name: data.firstName, last_name: data.lastName, role: "staff", status: "active" } : (await request("/admin/managers", { method:"POST", body:JSON.stringify(data) })).manager;
+      setManagers((current) => [...current, manager]); form.reset(); setMessage(`${manager.first_name} can now sign in as an account manager.`);
+    } catch (cause) { setMessage(cause.message); } finally { setBusy(false); }
+  };
+  const replacePassword = async (event, manager) => {
+    event.preventDefault(); setMessage("");
+    const form = event.currentTarget, password = new FormData(form).get("password");
+    try { if (!demo) await request(`/admin/managers/${manager.id}/password`, { method:"PATCH", body:JSON.stringify({ password }) }); form.reset(); setMessage(`Password updated for ${manager.first_name}. Their other sessions were signed out.`); }
+    catch (cause) { setMessage(cause.message); }
+  };
+  const setStatus = async (manager, status) => {
+    setMessage("");
+    try { if (!demo) await request(`/admin/managers/${manager.id}/status`, { method:"PATCH", body:JSON.stringify({ status }) }); setManagers((current) => current.map((item) => item.id === manager.id ? { ...item, status } : item)); setMessage(`${manager.first_name}'s access is now ${status}.`); }
+    catch (cause) { setMessage(cause.message); }
+  };
+  return <main className="dashboard manager-admin"><section className="page-panel">
+    <div className="section-head"><p>Administration</p><h2>Account managers</h2></div>
+    <div className="manager-intro"><div><ShieldCheck/><span><strong>Owner-controlled access</strong><small>Managers can operate house accounts. Only an owner can invite them, replace passwords, or disable access.</small></span></div></div>
+    <form className="manager-invite" onSubmit={invite}>
+      <header><div><span>New manager</span><h3>Invite an account manager</h3></div><p>Set their initial password here and provide it to them securely.</p></header>
+      <div className="manager-fields"><label><span>First name</span><input name="firstName" required/></label><label><span>Last name</span><input name="lastName" required/></label><label><span>Email address</span><input name="email" type="email" autoComplete="off" required/></label><label><span>Initial password <small>10 characters minimum</small></span><PasswordInput/></label></div>
+      <footer><button disabled={busy}>{busy ? "Inviting..." : "Invite manager"}</button></footer>
+    </form>
+    {message ? <p className="manager-message" role="status">{message}</p> : null}
+    <div className="manager-list">{managers.map((manager) => <article className="manager-row" key={manager.id}>
+      <div className="manager-identity"><span>{manager.first_name?.[0]}{manager.last_name?.[0]}</span><div><strong>{manager.first_name} {manager.last_name}</strong><small>{manager.email}</small></div></div>
+      <div className="manager-meta"><b className={`status ${manager.status}`}>{manager.status}</b><small>{manager.role === "owner" ? "Owner" : "Account manager"}</small></div>
+      {manager.role === "staff" ? <><form className="manager-password" onSubmit={(event) => replacePassword(event, manager)}><label><span>New password</span><PasswordInput/></label><button>Update password</button></form><button className={manager.status === "active" ? "manager-disable" : "manager-enable"} type="button" onClick={() => setStatus(manager, manager.status === "active" ? "disabled" : "active")}>{manager.status === "active" ? "Disable access" : "Restore access"}</button></> : <p className="owner-note">Primary account owner</p>}
+    </article>)}</div>
+  </section></main>;
 }
 
 function CareersManager({ careers, setCareers, demo }) {

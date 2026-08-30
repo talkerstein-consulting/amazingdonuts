@@ -3,7 +3,7 @@ import helmet from "helmet";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { adminCookieName, createSession, hashPassword, loadSession, logout, requireStaff, requireUser, verifyPassword } from "./auth.js";
+import { adminCookieName, createSession, hashPassword, loadSession, logout, requireOwner, requireStaff, requireUser, verifyPassword } from "./auth.js";
 import { accountCredit, postPayment, postSale, reserveCredit } from "./ledger.js";
 import { processNextSquareEvent } from "../worker/process-square.js";
 import { statementPdf } from "./statements.js";
@@ -37,6 +37,9 @@ const chargeSchema=z.object({idempotencyKey:z.uuid(),scheduledAt:z.iso.datetime(
 const purchaserSchema=z.object({email:z.string().email(),organizationType:z.string().trim().min(2).max(80),organizationRole:z.string().regex(/^[a-z][a-z0-9_]{1,39}$/),role:z.enum(["account_admin","purchaser","viewer"]),purchaseLimit:z.number().int().min(0).nullable().default(null)});
 const careerSettingsSchema=z.object({pageEnabled:z.boolean()});
 const careerRoleSchema=z.object({title:z.string().trim().min(2).max(120),employmentType:z.string().trim().min(2).max(60),shift:z.string().trim().min(2).max(120),blurb:z.string().trim().min(2).max(600),responsibilities:z.array(z.string().trim().min(2).max(240)).min(1).max(12),sortOrder:z.number().int().min(0).max(10000),enabled:z.boolean()});
+const adminManagerSchema=z.object({firstName:z.string().trim().min(1).max(80),lastName:z.string().trim().min(1).max(80),email:z.string().email(),password:z.string().min(10).max(200)});
+const adminManagerPasswordSchema=z.object({password:z.string().min(10).max(200)});
+const adminManagerStatusSchema=z.object({status:z.enum(["active","disabled"])});
 const wishlistProductSchema=z.string().regex(/^[a-z0-9][a-z0-9-]{0,119}$/);
 const organizationRoles={School:["principal","office_manager","teacher","staff"],Shul:["rabbi","president","administrator","staff"],Caterer:["owner","operations_manager","sales_coordinator","staff"],"Event planner":["owner","lead_planner","coordinator","staff"],"Corporate or office":["owner_executive","office_manager","department_manager","employee"],"Other business":["owner","manager","staff"]};
 
@@ -50,7 +53,7 @@ export function createApp({ pool, square, config }) {
   app.get("/api/public/careers",async(request,response,next)=>{try{const slug=String(request.query.tenantSlug||"amazing-donuts"),tenant=await pool.query("SELECT id FROM tenants WHERE slug=$1 AND status='active'",[slug]);if(!tenant.rowCount)throw Object.assign(new Error("Careers page not found."),{status:404});const [settings,roles]=await Promise.all([pool.query("SELECT page_enabled FROM career_settings WHERE tenant_id=$1",[tenant.rows[0].id]),pool.query("SELECT id,slug,title,employment_type,shift,blurb,responsibilities,sort_order FROM career_roles WHERE tenant_id=$1 AND enabled=true ORDER BY sort_order,created_at",[tenant.rows[0].id])]);response.json({pageEnabled:settings.rows[0]?.page_enabled!==false,roles:roles.rows});}catch(error){next(error);}});
   app.post("/api/auth/login", async (request,response,next)=>{ try {
     const input=loginSchema.parse(request.body);
-    const result=await pool.query(`SELECT u.*,t.id AS tenant_id,t.slug,t.name AS tenant_name,m.role FROM users u JOIN tenant_memberships m ON m.user_id=u.id JOIN tenants t ON t.id=m.tenant_id WHERE lower(u.email)=lower($1) AND t.slug=$2 AND u.status='active' AND m.status='active'`,[input.email,input.tenant]);
+    const result=await pool.query(`SELECT u.*,t.id AS tenant_id,t.slug,t.name AS tenant_name,m.role FROM users u JOIN tenant_memberships m ON m.user_id=u.id JOIN tenants t ON t.id=m.tenant_id WHERE lower(u.email)=lower($1) AND t.slug=$2 AND m.role NOT IN ('owner','staff') AND u.status='active' AND m.status='active'`,[input.email,input.tenant]);
     if (!result.rowCount || !(await verifyPassword(input.password,result.rows[0].password_hash))) throw Object.assign(new Error("Email or password is incorrect."),{status:401,code:"INVALID_LOGIN"});
     await createSession(pool,response,result.rows[0].id,result.rows[0].tenant_id,config.secureCookies);
     response.json({ user:publicUser(result.rows[0]) });
@@ -313,6 +316,33 @@ export function createApp({ pool, square, config }) {
   app.post("/api/admin/careers/roles",async(request,response,next)=>{try{const user=requireStaff(request),input=careerRoleSchema.parse(request.body),slug=`role-${randomUUID().slice(0,8)}`,role=(await pool.query("INSERT INTO career_roles(tenant_id,slug,title,employment_type,shift,blurb,responsibilities,sort_order,enabled,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *",[user.tenant_id,slug,input.title,input.employmentType,input.shift,input.blurb,JSON.stringify(input.responsibilities),input.sortOrder,input.enabled,user.id])).rows[0];response.status(201).json({role});}catch(error){next(error);}});
   app.put("/api/admin/careers/roles/:id",async(request,response,next)=>{try{const user=requireStaff(request),input=careerRoleSchema.parse(request.body),role=(await pool.query("UPDATE career_roles SET title=$3,employment_type=$4,shift=$5,blurb=$6,responsibilities=$7,sort_order=$8,enabled=$9,updated_at=now(),updated_by=$10 WHERE id=$1 AND tenant_id=$2 RETURNING *",[request.params.id,user.tenant_id,input.title,input.employmentType,input.shift,input.blurb,JSON.stringify(input.responsibilities),input.sortOrder,input.enabled,user.id])).rows[0];if(!role)throw Object.assign(new Error("Career position not found."),{status:404});response.json({role});}catch(error){next(error);}});
   app.delete("/api/admin/careers/roles/:id",async(request,response,next)=>{try{const user=requireStaff(request),result=await pool.query("DELETE FROM career_roles WHERE id=$1 AND tenant_id=$2",[request.params.id,user.tenant_id]);if(!result.rowCount)throw Object.assign(new Error("Career position not found."),{status:404});response.status(204).end();}catch(error){next(error);}});
+
+  app.get("/api/admin/managers",async(request,response,next)=>{try{
+    const user=requireOwner(request),result=await pool.query(`SELECT u.id,u.email,u.first_name,u.last_name,m.role,m.status,m.created_at FROM tenant_memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant_id=$1 AND m.role IN ('owner','staff') ORDER BY CASE m.role WHEN 'owner' THEN 0 ELSE 1 END,u.first_name,u.last_name`,[user.tenant_id]);
+    response.json({managers:result.rows});
+  }catch(error){next(error);}});
+  app.post("/api/admin/managers",async(request,response,next)=>{try{
+    const user=requireOwner(request),input=adminManagerSchema.parse(request.body),existing=await pool.query("SELECT id FROM users WHERE lower(email)=lower($1)",[input.email]);
+    if(existing.rowCount)throw Object.assign(new Error("That email already belongs to an account. Use a different admin email."),{status:409,code:"EMAIL_EXISTS"});
+    const passwordHash=await hashPassword(input.password),manager=await transaction(pool,async client=>{const created=(await client.query("INSERT INTO users(email,password_hash,first_name,last_name) VALUES(lower($1),$2,$3,$4) RETURNING id,email,first_name,last_name,created_at",[input.email,passwordHash,input.firstName,input.lastName])).rows[0];await client.query("INSERT INTO tenant_memberships(tenant_id,user_id,role,status) VALUES($1,$2,'staff','active')",[user.tenant_id,created.id]);return {...created,role:"staff",status:"active"};});
+    await audit(pool,user,request,"admin_manager.invited","user",manager.id,null,{email:manager.email,role:manager.role});
+    await sendEmail(config,{to:manager.email,subject:"You can now manage Amazing Donuts house accounts",text:`Hi ${manager.first_name},\n\nYou have been added as an Amazing Donuts house-account manager. Sign in at ${config.siteUrl}/admin-dashboard/ using the password provided to you by the account owner.\n\nFor security, the password is not included in this email.`});
+    response.status(201).json({manager});
+  }catch(error){next(error);}});
+  app.patch("/api/admin/managers/:id/password",async(request,response,next)=>{try{
+    const user=requireOwner(request),input=adminManagerPasswordSchema.parse(request.body),target=await pool.query("SELECT u.id,u.email FROM users u JOIN tenant_memberships m ON m.user_id=u.id WHERE u.id=$1 AND m.tenant_id=$2 AND m.role='staff'",[request.params.id,user.tenant_id]);
+    if(!target.rowCount)throw Object.assign(new Error("Account manager not found."),{status:404});
+    await transaction(pool,async client=>{await client.query("UPDATE users SET password_hash=$2 WHERE id=$1",[request.params.id,await hashPassword(input.password)]);await client.query("DELETE FROM sessions WHERE user_id=$1",[request.params.id]);});
+    await audit(pool,user,request,"admin_manager.password_changed","user",request.params.id,null,{email:target.rows[0].email});
+    response.json({ok:true});
+  }catch(error){next(error);}});
+  app.patch("/api/admin/managers/:id/status",async(request,response,next)=>{try{
+    const user=requireOwner(request),input=adminManagerStatusSchema.parse(request.body),target=(await pool.query("UPDATE tenant_memberships SET status=$3 WHERE tenant_id=$1 AND user_id=$2 AND role='staff' RETURNING user_id,role,status",[user.tenant_id,request.params.id,input.status])).rows[0];
+    if(!target)throw Object.assign(new Error("Account manager not found."),{status:404});
+    if(input.status==="disabled")await pool.query("DELETE FROM sessions WHERE user_id=$1 AND tenant_id=$2",[request.params.id,user.tenant_id]);
+    await audit(pool,user,request,`admin_manager.${input.status}`,"user",request.params.id,null,target);
+    response.json({manager:target});
+  }catch(error){next(error);}});
 
   app.post("/api/admin/accounts/:id/statements", async (request,response,next)=>{ try {
     const user=requireStaff(request), input=statementSchema.parse(request.body);

@@ -35,9 +35,11 @@ export async function createSession(pool, response, userId, tenantId, secure, co
 export async function loadSession(pool, request, cookieName = customerCookieName) {
   const token = cookie(request, cookieName);
   if (!token) return null;
+  const adminSession = cookieName === adminCookieName;
   const result = await pool.query(`SELECT u.id,u.email,u.first_name,u.last_name,m.role,m.tenant_id,t.slug AS tenant_slug,t.name AS tenant_name,t.brand
     FROM sessions s JOIN users u ON u.id=s.user_id JOIN tenant_memberships m ON m.user_id=u.id AND m.tenant_id=s.tenant_id
-    JOIN tenants t ON t.id=s.tenant_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.status='active' AND m.status='active'`, [hashToken(token)]);
+    JOIN tenants t ON t.id=s.tenant_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.status='active' AND m.status='active'
+    AND ($2::boolean = (m.role IN ('owner','staff')))`, [hashToken(token),adminSession]);
   return result.rows[0] || null;
 }
 
@@ -56,5 +58,11 @@ export function requireStaff(request) {
   const user = request.adminUser;
   if (!user) throw Object.assign(new Error("Administrator sign-in required."), { status:401, code:"ADMIN_AUTH_REQUIRED" });
   if (!["owner","staff"].includes(user.role)) throw Object.assign(new Error("Staff access required."), { status:403, code:"FORBIDDEN" });
+  return user;
+}
+
+export function requireOwner(request) {
+  const user = requireStaff(request);
+  if (user.role !== "owner") throw Object.assign(new Error("Owner access required."), { status:403, code:"OWNER_REQUIRED" });
   return user;
 }
