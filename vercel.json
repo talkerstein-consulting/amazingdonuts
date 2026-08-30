@@ -12,6 +12,7 @@
   ],
   "redirects": [
     { "source": "/accounts", "destination": "/admin-dashboard/", "permanent": true },
+    { "source": "/accounts/", "destination": "/admin-dashboard/", "permanent": true },
     { "source": "/accounts/:path*", "destination": "/admin-dashboard/:path*", "permanent": true }
   ],
   "rewrites": [
