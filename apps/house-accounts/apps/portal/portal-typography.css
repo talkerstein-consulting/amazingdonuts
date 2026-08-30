@@ -1,0 +1,109 @@
+@font-face {
+  font-family: "NCL Qikober";
+  src:
+    url("/fonts/NCLQikober-Regular.woff2") format("woff2"),
+    url("/fonts/NCLQikober-Regular.woff") format("woff"),
+    url("/fonts/NCLQikober-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --portal-display: "NCL Qikober", Impact, Haettenschweiler, "Karla", sans-serif;
+  --portal-body: "Karla", system-ui, sans-serif;
+  font-family: var(--portal-body);
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--portal-body);
+  letter-spacing: 0;
+}
+
+.login-brand h1,
+.login-panel h2,
+.workspace > header h1,
+.metric strong,
+.section-head h2,
+.account-title h2,
+.settings-section > header h3,
+.career-role-editor h3,
+.manager-invite h3 {
+  font-family: var(--portal-display);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.workspace > header h1 {
+  font-size: 38px;
+  line-height: 1;
+}
+
+.section-head h2,
+.account-title h2 {
+  font-size: 35px;
+  line-height: 1.05;
+}
+
+.settings-section > header h3,
+.career-role-editor h3,
+.manager-invite h3 {
+  font-size: 35px;
+  line-height: 1.05;
+}
+
+.settings-section > header span,
+.settings-grid label > span:first-child,
+.career-role-editor header span,
+.career-fields label > span,
+.manager-invite header span,
+.manager-fields label > span,
+.manager-password label > span,
+.login-panel label span,
+.controls label span,
+.issue label span {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.settings-section > header p,
+.manager-invite header p {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.settings-grid input,
+.settings-grid select,
+.career-fields input,
+.career-fields textarea,
+.manager-fields input,
+.manager-password input {
+  font-size: 18px;
+}
+
+.settings-section button,
+.career-role-editor button,
+.manager-invite button,
+.manager-password > button {
+  font-size: 16px;
+}
+
+@media (max-width: 760px) {
+  .workspace > header h1 {
+    font-size: 32px;
+  }
+
+  .section-head h2,
+  .account-title h2,
+  .settings-section > header h3,
+  .career-role-editor h3,
+  .manager-invite h3 {
+    font-size: 30px;
+  }
+}

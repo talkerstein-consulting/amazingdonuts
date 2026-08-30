@@ -4,6 +4,7 @@ import { Bell, BriefcaseBusiness, Building2, Check, ClipboardList, CreditCard, D
 import "./portal.css";
 import "./portal-workspaces.css";
 import "./portal-notifications.css";
+import "./portal-typography.css";
 
 const cash = (amount, currency = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(Number(amount || 0) / 100);
 const organizationRoles = {
