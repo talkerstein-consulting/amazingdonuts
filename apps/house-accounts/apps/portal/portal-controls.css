@@ -136,6 +136,21 @@
 }
 .date-range-panel .rdp-range_start .rdp-day_button,
 .date-range-panel .rdp-range_end .rdp-day_button { background: #17394a; color: white; }
+.date-range-panel .rdp-day:not(.rdp-disabled) .rdp-day_button:hover { border-color: #17394a; background: #eef6f8; }
+.date-range-panel .range-preview-day { background: #dbeef3; }
+.date-range-panel .range-preview-day .rdp-day_button { border-radius: 0; }
+.date-range-panel .range-reset-day .rdp-day_button {
+  background: #66777f;
+  color: white;
+  opacity: .52;
+  text-decoration: line-through;
+}
+.date-range-panel .range-reset-day .rdp-day_button:hover {
+  border-color: #17394a;
+  background: #17394a;
+  opacity: 1;
+  text-decoration: none;
+}
 
 @media (max-width: 1050px) {
   .issue { grid-template-columns: 1fr 1fr !important; }

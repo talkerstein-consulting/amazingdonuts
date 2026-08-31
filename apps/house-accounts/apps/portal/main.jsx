@@ -1380,6 +1380,7 @@ const localIsoDate = (value) => {
 function StatementDateRange({ disabled }) {
   const [open, setOpen] = useState(false);
   const [selection, setSelection] = useState(undefined);
+  const [hoveredDay, setHoveredDay] = useState(undefined);
   const [monthCount, setMonthCount] = useState(() => window.innerWidth <= 760 ? 1 : 2);
   const [preset, setPreset] = useState("");
   const from = selection?.from ? localIsoDate(selection.from) : "";
@@ -1397,8 +1398,23 @@ function StatementDateRange({ disabled }) {
     if (days) start.setDate(start.getDate() - days + 1);
     if (months) start.setMonth(start.getMonth() - months);
     setSelection({ from: start, to: end });
+    setHoveredDay(undefined);
     setPreset(id);
   };
+  const selectDay = (date) => {
+    setPreset("");
+    setHoveredDay(undefined);
+    if (!selection?.from || selection.to) {
+      setSelection({ from: date, to: undefined });
+      return;
+    }
+    if (date < selection.from) {
+      setSelection({ from: date, to: undefined });
+      return;
+    }
+    setSelection({ from: selection.from, to: date });
+  };
+  const choosingEnd = Boolean(selection?.from && !selection.to);
   return (
     <div className="date-range-field">
       <span className="field-label">Statement period</span>
@@ -1413,7 +1429,22 @@ function StatementDateRange({ disabled }) {
               <button className={preset === id ? "active" : ""} type="button" key={id} onClick={() => applyPreset(id, months, days)}>{label}</button>
             ))}
           </div>
-          <DayPicker mode="range" selected={selection} onSelect={(next) => { setSelection(next); setPreset(""); }} numberOfMonths={monthCount} defaultMonth={selection?.from || new Date()} showOutsideDays disabled={{ after: new Date() }} />
+          <DayPicker
+            mode="range"
+            selected={selection}
+            onDayClick={selectDay}
+            onDayMouseEnter={(date) => setHoveredDay(date)}
+            onDayMouseLeave={() => setHoveredDay(undefined)}
+            modifiers={{
+              rangeReset: (date) => choosingEnd && date < selection.from,
+              rangePreview: (date) => choosingEnd && hoveredDay >= selection.from && date > selection.from && date <= hoveredDay,
+            }}
+            modifiersClassNames={{ rangeReset: "range-reset-day", rangePreview: "range-preview-day" }}
+            numberOfMonths={monthCount}
+            defaultMonth={selection?.from || new Date()}
+            showOutsideDays
+            disabled={{ after: new Date() }}
+          />
           <button className="range-done" type="button" disabled={!from || !through} onClick={() => setOpen(false)}>Done</button>
         </div>
       ) : null}
