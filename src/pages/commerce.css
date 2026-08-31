@@ -867,6 +867,19 @@
 .profile-form .profile-default span { line-height:1.25; text-align:left; text-transform:none; letter-spacing:0; }
 .profile-form .profile-delete { grid-column:auto; min-height:auto; padding:8px 0; border-radius:0; background:transparent; color:var(--text-price); text-decoration:underline; text-underline-offset:4px; text-align:left; }
 .profile-message { grid-column:1/-1; margin:12px 0 0; color:var(--navy); font-weight:700; }
+.delete-account { margin-top:32px; padding:22px 24px; display:flex; align-items:center; justify-content:space-between; gap:24px; border-radius:var(--radius-panel); background:rgba(179,58,17,.07); box-shadow:inset 0 0 0 1.5px rgba(179,58,17,.22); }
+.delete-account p { margin:0 0 4px; color:var(--text-price); font-family:var(--font-cta); font-size:var(--fs-label); font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+.delete-account h2 { margin:0 0 6px; color:var(--navy); }
+.delete-account span { color:var(--text-body); }
+.delete-account > button,.delete-account__confirm div button { flex:0 0 auto; min-height:44px; padding:0 18px; border:1.5px solid var(--text-price); border-radius:99px; background:transparent; color:var(--text-price); font-family:var(--font-cta); font-weight:800; cursor:pointer; }
+.delete-account__confirm { width:min(360px,100%); display:grid; gap:10px; }
+.delete-account__confirm label { display:grid; gap:7px; color:var(--navy); font-family:var(--font-cta); font-weight:700; }
+.delete-account__confirm input { width:100%; min-height:48px; padding:0 14px; border:0; border-radius:14px; background:var(--cream); box-shadow:inset 0 0 0 2px rgba(14,62,105,.2); color:var(--navy); font:inherit; }
+.delete-account__confirm p { text-transform:none; letter-spacing:0; }
+.delete-account__confirm > div { display:flex; justify-content:flex-end; gap:10px; }
+.delete-account__confirm div button:first-child { border-color:rgba(14,62,105,.28); color:var(--navy); }
+.delete-account__confirm div button:last-child { background:var(--text-price); color:#fff; }
+.delete-account__confirm button:disabled { opacity:.45; cursor:not-allowed; }
 
 .house-application-form {
   margin-top: 28px;
@@ -1018,6 +1031,7 @@
   }
 
   .saved-addresses { grid-template-columns:1fr; }
+  .delete-account { align-items:stretch; flex-direction:column; }
   .save-address-row { grid-template-columns:1fr; }
   .house-application-form { grid-template-columns:1fr; }
   .house-application-form .wide { grid-column:auto; }
