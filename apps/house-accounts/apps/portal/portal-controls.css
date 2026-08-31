@@ -89,7 +89,7 @@
   position: absolute;
   z-index: 5;
   top: calc(100% + 8px);
-  left: 0;
+  right: 0;
   width: min(700px,calc(100vw - 120px));
   max-width: calc(100vw - 120px);
   padding: 14px;
@@ -171,11 +171,11 @@
   text-decoration: none;
 }
 
-@media (max-width: 1050px) {
+@media (max-width: 1500px) {
   .issue { grid-template-columns: 1fr 1fr !important; }
   .issue > div:first-child, .issue > .date-range-field { grid-column: 1/-1; }
 }
-@media (min-width: 761px) and (max-width: 1100px) {
+@media (min-width: 761px) and (max-width: 1250px) {
   .shell { grid-template-columns: 82px minmax(0,1fr); }
   aside { padding: 18px 10px; }
   .side-brand { justify-content: center; padding: 0 0 18px; }
@@ -193,6 +193,8 @@
   .workspace > header { padding: 0 22px; }
   .dashboard { padding: 22px 24px 44px; }
   .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-grid, .request-layout { grid-template-columns: 1fr; }
+  .account-list, .request-list { max-height: 340px; overflow: auto; }
   .account-title > *, .settings-section > header > *, .manager-invite > header > *, .career-role-editor > header > * { min-width: 0; }
   .settings-section > header p, .manager-invite header p { max-width: 46%; overflow-wrap: anywhere; }
   .table-head, .table-row { grid-template-columns: 112px minmax(0,1fr) 82px 92px; }
@@ -200,7 +202,18 @@
   .order-summary-grid { grid-template-columns: 112px minmax(0,1fr) 78px 86px 26px; }
   .statement-grid { grid-template-columns: 112px minmax(0,1fr) 76px 82px 38px; }
   .order-items { padding-left: 122px; }
-  .date-range-panel { width: min(700px,calc(100vw - 170px)); max-width: calc(100vw - 170px); }
+  .date-range-panel {
+    position: fixed;
+    top: 50%;
+    left: calc(50% + 41px);
+    right: auto;
+    width: min(700px,calc(100vw - 130px));
+    max-width: calc(100vw - 130px);
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: translate(-50%,-50%);
+  }
 }
 @media (min-width: 761px) and (max-width: 900px) {
   .workspace > header { height: 82px; padding: 0 18px; }
@@ -223,14 +236,14 @@
   .statement-grid > em { display: none; }
   .statement-grid > b { grid-column: 3; }
   .order-items { padding: 4px 36px 14px 10px; }
-  .date-range-panel { width: min(700px,calc(100vw - 170px)); max-width: calc(100vw - 170px); }
+  .date-range-panel { width: min(700px,calc(100vw - 130px)); max-width: calc(100vw - 130px); }
 }
 @media (max-width: 760px) {
   .statement-actions { align-items: flex-start; flex-direction: column; }
   .card-actions .text-button { width: auto; justify-self: start; }
   .issue { grid-template-columns: 1fr !important; }
   .issue > div:first-child, .issue > .date-range-field { grid-column: auto; }
-  .date-range-panel { position: static; width: 100%; max-width: 100%; margin-top: 8px; }
+  .date-range-panel { position: static; right: auto; width: 100%; max-width: 100%; max-height: none; margin-top: 8px; overflow: visible; transform: none; }
   .date-range-panel .rdp-root { --rdp-day-height: 36px; --rdp-day-width: 36px; --rdp-day_button-height: 34px; --rdp-day_button-width: 34px; }
   .date-range-panel .rdp-months { flex-direction: column; align-items: center; }
 }
