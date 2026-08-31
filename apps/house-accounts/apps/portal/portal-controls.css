@@ -122,3 +122,60 @@
   .range-dates { grid-template-columns: 1fr; }
   .range-dates i { display: none; }
 }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+.order-summary-grid {
+  grid-template-columns: 145px minmax(0,1fr) 110px 100px 28px;
+}
+.order-record { border-bottom: 1px solid #e1e6e7; }
+.order-record .table-row {
+  width: 100%;
+  border: 0;
+  background: white;
+  color: #17394a;
+  text-align: left;
+}
+.order-record .table-row:hover { background: #f7fafb; }
+.order-record.expanded .table-row { background: #eef6f8; }
+.order-chevron { width: 17px; transition: transform .18s ease; }
+.order-record.expanded .order-chevron { transform: rotate(180deg); }
+.order-items { padding: 4px 48px 16px 155px; background: #f8fafb; }
+.order-items-head,.order-item { display: grid; grid-template-columns: minmax(0,1fr) 60px 100px; gap: 12px; align-items: center; }
+.order-items-head { min-height: 34px; color: #71828a; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.order-item { min-height: 44px; border-top: 1px solid #dfe6e8; font-size: 12px; }
+.order-item strong,.order-item small { display: block; }
+.order-item small { margin-top: 3px; color: #71828a; }
+.order-item b { text-align: right; }
+.order-items > p { margin: 10px 0 0; color: #71828a; font-size: 12px; }
+.order-assets { padding-top: 10px; display: flex; flex-wrap: wrap; gap: 14px; border-top: 1px solid #dfe6e8; }
+.order-assets a { display: inline-flex; align-items: center; gap: 6px; color: #17394a; font-size: 11px; font-weight: 800; }
+.order-assets svg { width: 14px; }
+
+.statement-grid {
+  grid-template-columns: 145px minmax(0,1fr) 110px 100px 42px;
+}
+.statement-grid > b { text-align: right; }
+.statement-download { width: 34px; height: 34px; display: grid; place-items: center; justify-self: end; color: #17394a; }
+.statement-download svg { width: 16px; }
+.statement-table .table-row:hover .statement-download { background: #eef6f8; }
+
+@media (max-width: 760px) {
+  .order-summary-grid { grid-template-columns: 90px minmax(0,1fr) 82px 24px; }
+  .order-summary-grid > em { display: none; }
+  .order-summary-grid > b { grid-column: 3; }
+  .order-items { padding: 4px 36px 14px 10px; }
+  .order-items-head,.order-item { grid-template-columns: minmax(0,1fr) 38px 76px; }
+  .statement-grid { grid-template-columns: 92px minmax(0,1fr) 76px 36px; }
+  .statement-grid > em { display: none; }
+  .statement-grid > b { grid-column: 3; }
+}

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Bell, BriefcaseBusiness, Building2, CalendarRange, Check, ClipboardList, Copy, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
+import { Bell, BriefcaseBusiness, Building2, CalendarRange, Check, ChevronDown, ClipboardList, Copy, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
 import "./portal.css";
 import "./portal-workspaces.css";
 import "./portal-notifications.css";
@@ -1273,35 +1273,42 @@ function Activity({ entries = [], account, staff, demo }) {
   );
 }
 function OrderTable({ orders = [] }) {
+  const [expanded, setExpanded] = useState([]);
+  const toggle = (id) => setExpanded((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
   return (
-    <div className="table">
-      <div className="table-head">
+    <div className="table order-table">
+      <div className="table-head order-summary-grid">
         <span>Date</span>
         <span>Order</span>
         <span>Channel</span>
         <span>Total</span>
+        <span aria-hidden="true" />
       </div>
       {orders.length ? (
-        orders.map((x) => (
-          <div className={`table-row${x.assets?.length ? " custom-order-row" : ""}`} key={x.id}>
-            <span>{day(x.ordered_at)}</span>
-            <strong>
-              {x.organization_name || x.email || `#${x.receipt_number || String(x.square_order_id || x.id).slice(-8)}`}
-              {x.purchaser_first_name || x.purchaser_email || x.email ? <small className="purchaser-attribution">Purchased by {x.purchaser_first_name ? `${x.purchaser_first_name} ${x.purchaser_last_name || ""}`.trim() : x.purchaser_email || x.email}</small> : null}
-              {x.assets?.length ? (
-                <small>
-                  {x.assets.map((asset) => (
-                    <a key={asset.id} href={`/api/house/custom-assets/${asset.id}`}>
-                      Download {asset.fileName}
-                    </a>
-                  ))}
-                </small>
-              ) : null}
-            </strong>
-            <em>{x.source}</em>
-            <b>{cash(x.total, x.currency)}</b>
+        orders.map((x) => {
+          const isOpen = expanded.includes(x.id), items = Array.isArray(x.line_items) ? x.line_items : [];
+          return <div className={`order-record${isOpen ? " expanded" : ""}`} key={x.id}>
+            <button className="table-row order-summary-grid" type="button" aria-expanded={isOpen} onClick={() => toggle(x.id)}>
+              <span>{day(x.ordered_at)}</span>
+              <strong>
+                {x.organization_name || x.email || `#${x.receipt_number || String(x.square_order_id || x.id).slice(-8)}`}
+                {x.purchaser_first_name || x.purchaser_email || x.email ? <small className="purchaser-attribution">Purchased by {x.purchaser_first_name ? `${x.purchaser_first_name} ${x.purchaser_last_name || ""}`.trim() : x.purchaser_email || x.email}</small> : null}
+              </strong>
+              <em>{x.source}</em>
+              <b>{cash(x.total, x.currency)}</b>
+              <ChevronDown className="order-chevron" />
+            </button>
+            {isOpen ? <div className="order-items">
+              <div className="order-items-head"><span>Menu item</span><span>Qty</span><span>Amount</span></div>
+              {items.length ? items.map((item, index) => <div className="order-item" key={item.uid || item.catalog_object_id || index}>
+                <span><strong>{item.name || "Menu item"}</strong>{item.variation_name ? <small>{item.variation_name}</small> : null}</span>
+                <span>{item.quantity || 1}</span>
+                <b>{cash(item.total_money?.amount ?? Number(item.base_price_money?.amount || 0) * Number(item.quantity || 1), item.total_money?.currency || item.base_price_money?.currency || x.currency)}</b>
+              </div>) : <p>No item details were stored for this order.</p>}
+              {x.assets?.length ? <div className="order-assets">{x.assets.map((asset) => <a key={asset.id} href={`/api/house/custom-assets/${asset.id}`}><Download /> {asset.fileName}</a>)}</div> : null}
+            </div> : null}
           </div>
-        ))
+        })
       ) : (
         <div className="empty-row">No orders yet.</div>
       )}
@@ -1310,24 +1317,24 @@ function OrderTable({ orders = [] }) {
 }
 function StatementTable({ statements = [] }) {
   return (
-    <div className="table">
-      <div className="table-head">
+    <div className="table statement-table">
+      <div className="table-head statement-grid">
         <span>Period</span>
         <span>Statement</span>
         <span>Status</span>
         <span>Amount</span>
+        <span className="visually-hidden">Download</span>
       </div>
       {statements.length ? (
         statements.map((x) => (
-          <a className="table-row" key={x.id} href={`/api/house/statements/${x.id}.pdf`} target="_blank" rel="noreferrer">
+          <a className="table-row statement-grid" key={x.id} href={`/api/house/statements/${x.id}.pdf`} target="_blank" rel="noreferrer">
             <span>{day(x.period_end)}</span>
             <strong>
               <FileText /> {x.organization_name || x.statement_number}
             </strong>
             <em>{x.status}</em>
-            <b>
-              {cash(x.closing_balance, x.currency)} <Download />
-            </b>
+            <b>{cash(x.closing_balance, x.currency)}</b>
+            <span className="statement-download" aria-label={`Download ${x.organization_name || x.statement_number}`}><Download /></span>
           </a>
         ))
       ) : (
