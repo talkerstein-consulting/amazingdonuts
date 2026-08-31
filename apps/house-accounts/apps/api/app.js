@@ -9,6 +9,7 @@ import { processNextSquareEvent } from "../worker/process-square.js";
 import { statementPdf } from "./statements.js";
 import { transaction } from "./db.js";
 import { deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery, validateFulfillmentSchedule } from "./delivery.js";
+import { OAuth2Client } from "google-auth-library";
 
 const loginSchema = z.object({ email:z.string().email(), password:z.string().min(8), tenant:z.string().min(2) });
 const forgotPasswordSchema=z.object({email:z.string().email(),tenantSlug:z.string().min(2).default("amazing-donuts")});
@@ -51,6 +52,28 @@ export function createApp({ pool, square, config }) {
   app.use(async (request,_response,next)=>{ try { [request.user,request.adminUser]=await Promise.all([loadSession(pool,request),loadSession(pool,request,adminCookieName)]); next(); } catch(error){ next(error); } });
 
   app.get("/api/health", (_request,response)=>response.json({ ok:true, service:"house-account-platform", version:"0.1.0" }));
+  app.get("/api/auth/google/config",(_request,response)=>response.json({enabled:googleConfigured(config)}));
+  app.get("/api/auth/google/start",(request,response,next)=>{try{
+    if(!googleConfigured(config))throw Object.assign(new Error("Google sign-in is not configured."),{status:503,code:"GOOGLE_AUTH_NOT_CONFIGURED"});
+    const nonce=randomBytes(24).toString("base64url"),returnTo=safeReturnTo(request.query.returnTo,config.siteUrl),expiresAt=Date.now()+10*60*1000,state=signGoogleState({nonce,returnTo,expiresAt},config.sessionSecret);
+    response.cookie("google_oauth_state",nonce,{httpOnly:true,secure:config.secureCookies,sameSite:"lax",path:"/",maxAge:10*60*1000});
+    const authorize=new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    authorize.search=new URLSearchParams({client_id:config.googleClientId,redirect_uri:googleRedirectUri(config),response_type:"code",scope:"openid email profile",state,prompt:"select_account"}).toString();
+    response.redirect(authorize.toString());
+  }catch(error){next(error);}});
+  app.get("/api/auth/google/callback",async(request,response)=>{const fallback="/";try{
+    if(!googleConfigured(config))throw new Error("Google sign-in is not configured.");
+    const state=verifyGoogleState(String(request.query.state||""),config.sessionSecret),nonce=readCookie(request,"google_oauth_state");
+    if(!nonce||nonce!==state.nonce||state.expiresAt<Date.now())throw new Error("Google sign-in expired. Please try again.");
+    if(request.query.error)throw new Error("Google sign-in was cancelled.");
+    const code=String(request.query.code||"");if(!code)throw new Error("Google did not return an authorization code.");
+    const tokenResponse=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({code,client_id:config.googleClientId,client_secret:config.googleClientSecret,redirect_uri:googleRedirectUri(config),grant_type:"authorization_code"})});
+    const tokens=await tokenResponse.json();if(!tokenResponse.ok||!tokens.id_token)throw new Error("Google could not complete sign-in.");
+    const ticket=await new OAuth2Client(config.googleClientId).verifyIdToken({idToken:tokens.id_token,audience:config.googleClientId}),claims=ticket.getPayload();
+    if(!claims?.sub||!claims.email||claims.email_verified!==true)throw new Error("Google did not provide a verified email address.");
+    const user=await googleCustomerUser(pool,square,claims);await createSession(pool,response,user.id,user.tenant_id,config.secureCookies);
+    response.clearCookie("google_oauth_state",{httpOnly:true,secure:config.secureCookies,sameSite:"lax",path:"/"});response.redirect(state.returnTo);
+  }catch(error){console.error("Google sign-in failed",error);response.clearCookie("google_oauth_state",{httpOnly:true,secure:config.secureCookies,sameSite:"lax",path:"/"});response.redirect(`${fallback}?authError=${encodeURIComponent(error.message||"Google sign-in failed.")}`);}});
   app.get("/api/public/careers",async(request,response,next)=>{try{const slug=String(request.query.tenantSlug||"amazing-donuts"),tenant=await pool.query("SELECT id FROM tenants WHERE slug=$1 AND status='active'",[slug]);if(!tenant.rowCount)throw Object.assign(new Error("Careers page not found."),{status:404});const [settings,roles]=await Promise.all([pool.query("SELECT page_enabled FROM career_settings WHERE tenant_id=$1",[tenant.rows[0].id]),pool.query("SELECT id,slug,title,employment_type,shift,blurb,responsibilities,sort_order FROM career_roles WHERE tenant_id=$1 AND enabled=true ORDER BY sort_order,created_at",[tenant.rows[0].id])]);response.json({pageEnabled:settings.rows[0]?.page_enabled!==false,roles:roles.rows});}catch(error){next(error);}});
   app.post("/api/auth/login", async (request,response,next)=>{ try {
     const input=loginSchema.parse(request.body);
@@ -394,6 +417,19 @@ export function createApp({ pool, square, config }) {
 }
 
 const publicUser=(row)=>({id:row.id,email:row.email,firstName:row.first_name,lastName:row.last_name,role:row.role,tenantId:row.tenant_id,tenantSlug:row.tenant_slug||row.slug,tenantName:row.tenant_name});
+const googleConfigured=config=>Boolean(config.googleClientId&&config.googleClientSecret&&config.sessionSecret&&!String(config.googleClientId).startsWith("PENDING_")&&!String(config.googleClientSecret).startsWith("PENDING_"));
+const googleRedirectUri=config=>`${String(config.siteUrl).replace(/\/$/,"")}/api/house/auth/google/callback`;
+const readCookie=(request,name)=>{const entry=String(request.get("cookie")||"").split(";").map(value=>value.trim()).find(value=>value.startsWith(`${name}=`));return entry?decodeURIComponent(entry.slice(name.length+1)):null;};
+const safeReturnTo=(value,siteUrl)=>{try{const url=new URL(String(value||"/"),siteUrl),site=new URL(siteUrl);return url.origin===site.origin?`${url.pathname}${url.search}${url.hash}`:"/";}catch{return "/";}};
+const signGoogleState=(payload,secret)=>{const body=Buffer.from(JSON.stringify(payload)).toString("base64url"),signature=createHmac("sha256",secret).update(body).digest("base64url");return `${body}.${signature}`;};
+const verifyGoogleState=(state,secret)=>{const [body,supplied]=state.split("."),expected=createHmac("sha256",secret).update(body||"").digest("base64url"),left=Buffer.from(supplied||""),right=Buffer.from(expected);if(!body||left.length!==right.length||!timingSafeEqual(left,right))throw new Error("Google sign-in state is invalid.");return JSON.parse(Buffer.from(body,"base64url").toString("utf8"));};
+async function googleCustomerUser(pool,square,claims){
+  const tenant=(await pool.query("SELECT * FROM tenants WHERE slug='amazing-donuts' AND status='active' LIMIT 1")).rows[0];if(!tenant)throw new Error("Online accounts are unavailable.");
+  const linked=await pool.query(`SELECT u.*,tm.tenant_id,tm.role,t.slug,t.name AS tenant_name FROM user_identities ui JOIN users u ON u.id=ui.user_id JOIN tenant_memberships tm ON tm.user_id=u.id JOIN tenants t ON t.id=tm.tenant_id WHERE ui.provider='google' AND ui.provider_subject=$1 AND tm.tenant_id=$2 AND tm.role NOT IN ('owner','staff') AND u.status='active' AND tm.status='active' LIMIT 1`,[claims.sub,tenant.id]);if(linked.rowCount)return linked.rows[0];
+  const email=String(claims.email).toLowerCase(),existing=await pool.query(`SELECT u.*,tm.tenant_id,tm.role,t.slug,t.name AS tenant_name FROM users u JOIN tenant_memberships tm ON tm.user_id=u.id JOIN tenants t ON t.id=tm.tenant_id WHERE lower(u.email)=lower($1) AND tm.tenant_id=$2 AND tm.role NOT IN ('owner','staff') AND u.status='active' AND tm.status='active' LIMIT 1`,[email,tenant.id]);let user=existing.rows[0];
+  if(!user){const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(tenant.id):square,found=await tenantSquare.searchCustomers({query:{filter:{email_address:{exact:email}}},limit:1}),customer=found.customers?.[0]||((await tenantSquare.createCustomer({idempotency_key:randomUUID(),given_name:claims.given_name||"Google",family_name:claims.family_name||"Customer",email_address:email})).customer);user=await transaction(pool,async client=>{const created=(await client.query("INSERT INTO users(email,password_hash,first_name,last_name) VALUES($1,NULL,$2,$3) RETURNING *",[email,claims.given_name||"Google",claims.family_name||"Customer"])).rows[0];await client.query("INSERT INTO tenant_memberships(tenant_id,user_id,role) VALUES($1,$2,'viewer')",[tenant.id,created.id]);await client.query("INSERT INTO customer_profiles(tenant_id,user_id,square_customer_id) VALUES($1,$2,$3)",[tenant.id,created.id,customer.id]);return {...created,tenant_id:tenant.id,role:"viewer",slug:tenant.slug,tenant_name:tenant.name};});}
+  await pool.query("INSERT INTO user_identities(user_id,provider,provider_subject,provider_email) VALUES($1,'google',$2,$3) ON CONFLICT(provider,provider_subject) DO UPDATE SET provider_email=excluded.provider_email,updated_at=now()",[user.id,claims.sub,email]);return user;
+}
 const publicCard=(row)=>({brand:row.card_brand,last4:row.last_4,expMonth:row.exp_month,expYear:row.exp_year});
 
 async function addAccountMember(pool,account,input){
