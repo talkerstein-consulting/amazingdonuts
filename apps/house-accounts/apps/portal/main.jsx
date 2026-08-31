@@ -285,7 +285,7 @@ function Shell({ user, view, onView, pending, onRefresh, onLogout, children }) {
           {navItems
             .filter((x) => (staff || customerViews.includes(x.id)) && (!x.ownerOnly || user.role === "owner"))
             .map(({ id, label, Icon }) => (
-              <a key={id} href={`#${id}`} className={view === id ? "active" : ""} aria-current={view === id ? "page" : undefined} onClick={() => onView(id)}>
+              <a key={id} href={`#${id}`} className={view === id ? "active" : ""} aria-current={view === id ? "page" : undefined} title={label} onClick={() => onView(id)}>
                 <Icon />
                 <span>{label}</span>
                 {pending?.[id] ? <b>{pending[id]}</b> : null}
@@ -1400,6 +1400,13 @@ function StatementDateRange({ disabled }) {
     setHoveredDay(undefined);
     setPreset(id);
   };
+  const clearSelection = () => {
+    selectionRef.current = undefined;
+    setSelection(undefined);
+    setHoveredDay(undefined);
+    setPreset("");
+    setDisplayMonth(new Date());
+  };
   const selectDay = (date) => {
     setPreset("");
     setHoveredDay(undefined);
@@ -1440,7 +1447,10 @@ function StatementDateRange({ disabled }) {
             showOutsideDays
             disabled={{ after: new Date() }}
           />
-          <button className="range-done" type="button" disabled={!from || !through} onClick={() => setOpen(false)}>Done</button>
+          <div className="range-actions">
+            <button className="range-clear" type="button" disabled={!from} onClick={clearSelection}>Clear</button>
+            <button className="range-done" type="button" disabled={!from || !through} onClick={() => setOpen(false)}>Done</button>
+          </div>
         </div>
       ) : null}
     </div>
