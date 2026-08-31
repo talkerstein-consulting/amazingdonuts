@@ -192,7 +192,8 @@
    rather than a border, on Canvas so they read as insets in a Shortbread card. */
 .checkout-form input,
 .checkout-form select,
-.profile-form input {
+.profile-form input,
+.profile-form select {
   width: 100%;
   min-height: 52px;
   padding: 0 16px;
@@ -435,6 +436,30 @@
 .address-fields label:first-child {
   grid-column: 1 / -1;
 }
+
+.saved-address-select { grid-column: 1 / -1; }
+.save-address-row { grid-column:1/-1; display:grid; grid-template-columns:1fr 1fr; gap:0 14px; padding:10px 0; }
+.save-address-row .no-contact { grid-column:1/-1; }
+.address-autocomplete { position: relative; }
+.address-autocomplete__menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 18px 45px rgba(14,62,105,.18), inset 0 0 0 1px rgba(14,62,105,.12);
+}
+.address-autocomplete__menu button { width:100%; display:flex; align-items:center; gap:12px; padding:14px 16px; border:0; border-bottom:1px solid rgba(14,62,105,.1); background:#fff; color:var(--navy); text-align:left; cursor:pointer; }
+.address-autocomplete__menu button:hover { background:var(--sand); }
+.address-autocomplete__menu button span { display:grid; gap:2px; text-transform:none; letter-spacing:0; }
+.address-autocomplete__menu button strong { font-size:15px; }
+.address-autocomplete__menu button small { color:var(--text-body); font-size:13px; }
+.address-autocomplete__menu footer { padding:8px 16px; color:rgba(14,62,105,.58); font-size:11px; text-align:right; }
+.address-autocomplete__busy { position:absolute; right:16px; top:18px; color:var(--text-body); font-size:12px; }
+.address-autocomplete__error { display:block; margin-top:6px; color:var(--text-price); }
 
 /* Brick, the price red — the palette has no dedicated error colour, so the
    error state is built from a brand ink rather than a new one. */
@@ -821,6 +846,37 @@
   margin-top: 18px;
 }
 
+.saved-addresses { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:24px; }
+.saved-addresses button { min-height:116px; padding:16px; display:grid; align-content:center; gap:4px; border:0; border-radius:16px; background:var(--sand); box-shadow:inset 0 0 0 2px rgba(14,62,105,.12); color:var(--navy); text-align:left; cursor:pointer; }
+.saved-addresses button.active { box-shadow:inset 0 0 0 3px var(--navy); }
+.saved-addresses button span,.saved-addresses button small { color:var(--text-body); }
+.saved-addresses__add { place-items:center; text-align:center!important; font-weight:800; }
+.profile-form .profile-default { display:flex; align-items:center; gap:10px; }
+.profile-form .profile-default input { width:22px; min-height:22px; }
+.profile-form .profile-default span { text-transform:none; letter-spacing:0; }
+.profile-form .profile-delete { grid-column:auto; min-height:auto; padding:8px 0; border-radius:0; background:transparent; color:var(--text-price); text-decoration:underline; text-underline-offset:4px; text-align:left; }
+.profile-message { grid-column:1/-1; margin:12px 0 0; color:var(--navy); font-weight:700; }
+
+.house-application-form {
+  margin-top: 28px;
+  padding: clamp(20px, 3vw, 34px);
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap: 6px 18px;
+  border-radius: var(--radius-panel);
+  background: var(--sand);
+}
+.house-application-form label { display:grid; gap:7px; margin-top:14px; }
+.house-application-form label > span,.house-application-form legend { color:var(--navy); font-family:var(--font-cta); font-size:var(--fs-label); font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.house-application-form input,.house-application-form select,.house-application-form textarea { width:100%; min-height:52px; padding:0 16px; border:0; border-radius:16px; box-shadow:inset 0 0 0 2px rgba(14,62,105,.2); background:var(--cream); color:var(--navy); font:inherit; }
+.house-application-form textarea { min-height:130px; padding-block:16px; resize:vertical; }
+.house-application-form .wide { grid-column:1/-1; }
+.house-application-form fieldset { margin:22px 0 0; padding:20px; border:0; border-radius:16px; background:rgba(255,255,255,.5); box-shadow:inset 0 0 0 1.5px rgba(14,62,105,.14); }
+.house-application-form fieldset > p { margin:6px 0 10px; color:var(--text-body); }
+.authorized-purchaser-row { display:grid; grid-template-columns:1.1fr 1.1fr .8fr .7fr; gap:12px; align-items:end; padding:10px 0 18px; border-bottom:1px solid rgba(14,62,105,.12); }
+.house-application-form button { min-height:54px; margin-top:18px; padding:0 24px; border:0; border-radius:99px; background:var(--orange); color:#fff; font-family:var(--font-cta); font-size:var(--fs-body); font-weight:800; cursor:pointer; }
+.authorized-purchaser-row button { min-height:auto; padding:8px 0; border-radius:0; background:transparent; color:var(--text-price); text-decoration:underline; }
+
 .account-message {
   padding: 13px 16px;
   border-radius: 16px;
@@ -949,6 +1005,12 @@
   .auth__nameRow {
     grid-template-columns: 1fr;
   }
+
+  .saved-addresses { grid-template-columns:1fr; }
+  .save-address-row { grid-template-columns:1fr; }
+  .house-application-form { grid-template-columns:1fr; }
+  .house-application-form .wide { grid-column:auto; }
+  .authorized-purchaser-row { grid-template-columns:1fr; }
 
   .address-fields label:first-child,
   .fulfillment-schedule > small,

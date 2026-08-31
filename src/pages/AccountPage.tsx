@@ -7,6 +7,7 @@ import "../index.css";
 import "../components/brand/brand.css";
 import "../shop/shop.css";
 import "./commerce.css";
+import AddressAutocomplete, { type Address, type SavedAddress } from "../components/AddressAutocomplete";
 
 const cash = (n: number, c = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency: c }).format(Number(n || 0) / 100);
 const organizationRoles: Record<string, [string, string][]> = {
@@ -119,7 +120,7 @@ export default function AccountPage() {
         <section>
           <UserRound />
           <h1>Your Amazing Donuts account</h1>
-          <p>Sign in to see orders, manage your details, and apply for house-account credit.</p>
+          <p>Sign in to see orders, manage your details, and apply for institutional credit.</p>
           <button onClick={() => setAuthOpen(true)}>Sign in or create account</button>
         </section>
         <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSuccess={load} />
@@ -163,7 +164,7 @@ export default function AccountPage() {
             <UserRound /> Profile
           </button>
           <button className={view === "house" ? "active" : ""} onClick={() => setView("house")}>
-            <Building2 /> House account
+            <Building2 /> Institutional account
           </button>
           {session.houseAccount && (
             <div className="house-credit">
@@ -193,7 +194,7 @@ export default function AccountPage() {
               application={application}
               onApplied={(next) => {
                 setApplication(next);
-                setMessage("House-account application submitted.");
+                setMessage("Institutional account application submitted.");
               }}
             />
           )}
@@ -265,12 +266,26 @@ function Orders({ orders }: { orders: any[] }) {
 
 function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
   const profile = session.profile || {};
+  const blank:Address={addressLine1:"",addressLine2:"",locality:"Toronto",administrativeDistrictLevel1:"ON",postalCode:"",country:"CA"};
+  const [address,setAddress]=useState<Address>({...blank,...(profile.default_address||{})});
+  const [addresses,setAddresses]=useState<SavedAddress[]>([]);
+  const [selectedId,setSelectedId]=useState<string|null>(null);
+  const [label,setLabel]=useState("Home");
+  const [addressType,setAddressType]=useState<'home'|'work'|'other'>('home');
+  const [isDefault,setIsDefault]=useState(true);
+  const [placesEnabled,setPlacesEnabled]=useState(false);
+  const [message,setMessage]=useState("");
+  const loadAddresses=()=>api('/storefront/addresses').then(body=>setAddresses(body.addresses||[]));
+  useEffect(()=>{void loadAddresses();void api('/storefront/config').then(body=>setPlacesEnabled(Boolean(body.placesEnabled)))},[]);
+  const selectAddress=(item:SavedAddress)=>{setSelectedId(item.id);setAddress({addressLine1:item.addressLine1,addressLine2:item.addressLine2,locality:item.locality,administrativeDistrictLevel1:item.administrativeDistrictLevel1,postalCode:item.postalCode,country:item.country});setLabel(item.label);setAddressType(item.addressType);setIsDefault(item.isDefault);setMessage("");};
+  const resetAddress=()=>{setSelectedId(null);setAddress(blank);setLabel("Other");setAddressType('other');setIsDefault(addresses.length===0);setMessage("");};
   return (
     <>
       <div className="commerce-heading">
         <p>Account details</p>
         <h1>Your profile</h1>
       </div>
+      {addresses.length>0&&<div className="saved-addresses" aria-label="Saved addresses">{addresses.map(item=><button type="button" className={selectedId===item.id?'active':''} key={item.id} onClick={()=>selectAddress(item)}><strong>{item.label}</strong><span>{item.addressLine1}{item.addressLine2?`, ${item.addressLine2}`:''}</span><small>{item.locality} {item.postalCode}{item.isDefault?' · Default':''}</small></button>)}<button type="button" className="saved-addresses__add" onClick={resetAddress}>+ Add another</button></div>}
       <form
         className="profile-form"
         onSubmit={async (event) => {
@@ -283,16 +298,12 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
               lastName: data.lastName,
               phone: data.phone,
               address: {
-                addressLine1: data.addressLine1,
-                addressLine2: data.addressLine2,
-                locality: data.locality,
-                administrativeDistrictLevel1: "ON",
-                postalCode: data.postalCode,
-                country: "CA",
+                ...address,
               },
             }),
           });
-          onSaved();
+          if(address.addressLine1&&address.postalCode){await api(selectedId?`/storefront/addresses/${selectedId}`:'/storefront/addresses',{method:selectedId?'PATCH':'POST',body:JSON.stringify({...address,label,addressType,isDefault})});await loadAddresses();}
+          setMessage("Profile and address saved.");onSaved();
         }}
       >
         <label>
@@ -313,20 +324,25 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
         </label>
         <label className="wide">
           <span>Street address</span>
-          <input name="addressLine1" defaultValue={profile.default_address?.addressLine1 || ""} />
+          <AddressAutocomplete address={address} onChange={setAddress} enabled={placesEnabled}/>
         </label>
         <label>
           <span>Unit</span>
-          <input name="addressLine2" defaultValue={profile.default_address?.addressLine2 || ""} />
+          <input value={address.addressLine2} onChange={event=>setAddress({...address,addressLine2:event.target.value})} autoComplete="address-line2" />
         </label>
         <label>
           <span>City</span>
-          <input name="locality" defaultValue={profile.default_address?.locality || "Toronto"} />
+          <input value={address.locality} onChange={event=>setAddress({...address,locality:event.target.value})} autoComplete="address-level2" />
         </label>
         <label>
           <span>Postal code</span>
-          <input name="postalCode" defaultValue={profile.default_address?.postalCode || ""} />
+          <input value={address.postalCode} onChange={event=>setAddress({...address,postalCode:event.target.value.toUpperCase()})} autoComplete="postal-code" />
         </label>
+        <label><span>Address label</span><input value={label} onChange={event=>setLabel(event.target.value)} placeholder="Home, Work, Studio..." required={Boolean(address.addressLine1)}/></label>
+        <label><span>Address type</span><select value={addressType} onChange={event=>setAddressType(event.target.value as typeof addressType)}><option value="home">Home</option><option value="work">Work</option><option value="other">Other</option></select></label>
+        <label className="profile-default"><input type="checkbox" checked={isDefault} onChange={event=>setIsDefault(event.target.checked)}/><span>Use as my default address</span></label>
+        {selectedId&&<button className="profile-delete" type="button" onClick={async()=>{await api(`/storefront/addresses/${selectedId}`,{method:'DELETE'});resetAddress();await loadAddresses();}}>Delete address</button>}
+        {message&&<p className="profile-message" role="status">{message}</p>}
         <button>Save profile</button>
       </form>
     </>
@@ -342,7 +358,7 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
       <>
         <div className="commerce-heading">
           <p>Business credit</p>
-          <h1>Your house account</h1>
+          <h1>Your institutional account</h1>
         </div>
         <div className="house-application-status">
           <Building2 />
@@ -412,7 +428,7 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
       <>
         <div className="commerce-heading">
           <p>Business credit</p>
-          <h1>House-account application</h1>
+          <h1>Institutional account application</h1>
         </div>
         <div className={`house-application-status ${application.status}`}>
           <Building2 />
@@ -431,7 +447,7 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
     <>
       <div className="commerce-heading">
         <p>Business credit</p>
-        <h1>Apply for a house account</h1>
+        <h1>Apply for an institutional account</h1>
       </div>
       <form
         className="house-application-form"

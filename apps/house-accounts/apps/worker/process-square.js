@@ -15,9 +15,9 @@ export async function processNextSquareEvent(pool, square) {
     const payment=(await square.retrievePayment(paymentId)).payment;
     const order=payment.order_id ? (await square.retrieveOrder(payment.order_id)).order : null;
     const account=await pool.query("SELECT * FROM accounts WHERE tenant_id=$1 AND square_customer_id=$2",[claimed.tenant_id,payment.customer_id||order?.customer_id]);
-    const houseTender=payment.source_type==="EXTERNAL" || payment.external_details?.source?.toLowerCase().includes("house account");
+    const houseTender=payment.source_type==="EXTERNAL" || payment.external_details?.source?.toLowerCase().includes("house account") || payment.external_details?.source?.toLowerCase().includes("institutional account");
     if (!houseTender || !account.rowCount) {
-      await pool.query("UPDATE webhook_events SET status='review',processed_at=now(),error=$2 WHERE id=$1",[claimed.id,!houseTender?"Payment is not a recognized house-account tender.":"No matching B2B customer was attached."]);
+      await pool.query("UPDATE webhook_events SET status='review',processed_at=now(),error=$2 WHERE id=$1",[claimed.id,!houseTender?"Payment is not a recognized institutional-account tender.":"No matching B2B customer was attached."]);
       return {status:"review"};
     }
     await transaction(pool,async(client)=>{

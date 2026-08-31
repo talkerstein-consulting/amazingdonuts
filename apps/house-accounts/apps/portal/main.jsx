@@ -98,7 +98,7 @@ const navItems = [
   { id: "orders", label: "Orders", Icon: Package },
   { id: "accounts", label: "Accounts", Icon: Building2 },
   { id: "notifications", label: "Notifications", Icon: Bell },
-  { id: "requests", label: "House applications", Icon: Building2, groupStart: true },
+  { id: "requests", label: "Institutional applications", Icon: Building2, groupStart: true },
   { id: "bulk-requests", label: "Bulk requests", Icon: ClipboardList },
   { id: "purchasers", label: "Purchasers", Icon: Users, groupStart: true },
   { id: "managers", label: "Account managers", Icon: UserCog, ownerOnly: true },
@@ -154,7 +154,7 @@ function App() {
     [customOrders, setCustomOrders] = useState([]),
     [careers, setCareers] = useState(demo ? demoCareers : { pageEnabled: true, roles: [] }),
     [managers, setManagers] = useState(demo ? demoManagers : []),
-    [notifications, setNotifications] = useState(demo ? [{id:"demo-notice",title:"New application: North Toronto School",body:"A new house-account application is ready for review.",link:"#requests",created_at:new Date().toISOString(),read_at:null}] : []),
+    [notifications, setNotifications] = useState(demo ? [{id:"demo-notice",title:"New application: North Toronto School",body:"A new institutional account application is ready for review.",link:"#requests",created_at:new Date().toISOString(),read_at:null}] : []),
     [view, setView] = useState(viewFromHash),
     [error, setError] = useState("");
   const staff = ["owner", "staff"].includes(user?.role);
@@ -224,7 +224,7 @@ function Login({ onUser, errorMessage = "" }) {
         <div className="brand-mark"><img src={brandIcon} alt="Amazing Donuts" /></div>
         <p>Administrative access</p>
         <h1>
-          House account operations,
+          Institutional account operations,
           <br />
           without the paperwork pile.
         </h1>
@@ -279,7 +279,7 @@ function Shell({ user, view, onView, pending, onRefresh, onLogout, children }) {
           <div className="brand-mark"><img src={brandIcon} alt="" /></div>
           <div>
             <strong>{user.tenantName || "Amazing Donuts"}</strong>
-            <span>House Accounts</span>
+            <span>Institutional Accounts</span>
           </div>
         </div>
         <nav>
@@ -371,7 +371,7 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
     );
   if (view === "orders")
     return (
-      <Listing eyebrow="House account activity" title="Orders">
+      <Listing eyebrow="Institutional account activity" title="Orders">
         <OrderTable orders={orders} />
       </Listing>
     );
@@ -402,7 +402,7 @@ function OwnerOverview({ totals, accounts, statements, orders, applications, bul
   const unread = notifications.filter((item) => !item.read_at).length;
   const priorities = [
     { href: "#statements", Icon: ReceiptText, label: "Statements", value: openStatements, detail: "open or awaiting payment" },
-    { href: "#orders", Icon: Package, label: "Orders", value: orders.length, detail: "house-account orders" },
+    { href: "#orders", Icon: Package, label: "Orders", value: orders.length, detail: "institutional account orders" },
     { href: "#accounts", Icon: Building2, label: "Accounts & invoices", value: accounts.length, detail: `${cash(totals.owed)} receivable` },
     { href: pendingApplications ? "#requests" : pendingBulk ? "#bulk-requests" : "#notifications", Icon: Bell, label: "Needs attention", value: pendingApplications + pendingBulk + unread, detail: `${pendingApplications} applications · ${pendingBulk} bulk · ${unread} unread` },
   ];
@@ -461,7 +461,7 @@ function ManagerAdmin({ managers, setManagers, demo }) {
   };
   return <main className="dashboard manager-admin"><section className="page-panel">
     <div className="section-head"><p>Administration</p><h2>Account managers</h2></div>
-    <div className="manager-intro"><div><ShieldCheck/><span><strong>Owner-controlled access</strong><small>Managers can operate house accounts. Only an owner can invite them, replace passwords, or disable access.</small></span></div></div>
+    <div className="manager-intro"><div><ShieldCheck/><span><strong>Owner-controlled access</strong><small>Managers can operate institutional accounts. Only an owner can invite them, replace passwords, or disable access.</small></span></div></div>
     <form className="manager-invite" onSubmit={invite}>
       <header><div><span>New manager</span><h3>Invite an account manager</h3></div><p>Set their initial password here and provide it to them securely.</p></header>
       <div className="manager-fields"><label><span>First name</span><input name="firstName" required/></label><label><span>Last name</span><input name="lastName" required/></label><label><span>Email address</span><input name="email" type="email" autoComplete="off" required/></label><label><span>Initial password <small>10 characters minimum</small></span><PasswordInput/></label></div>
@@ -579,7 +579,7 @@ function Applications({ applications, setApplications, setAccounts, accounts, de
         <div className="request-list">
           <div className="section-head">
             <p>Credit review</p>
-            <h2>House-account applications</h2>
+            <h2>Institutional account applications</h2>
           </div>
           {applications.map((x) => (
             <button key={x.id} className={x.id === application?.id ? "selected" : ""} onClick={() => setSelected(x.id)}>
@@ -592,7 +592,7 @@ function Applications({ applications, setApplications, setAccounts, accounts, de
               <em className={`status ${x.status}`}>{x.status}</em>
             </button>
           ))}
-          {!applications.length ? <div className="empty-row">No house-account applications yet.</div> : null}
+          {!applications.length ? <div className="empty-row">No institutional account applications yet.</div> : null}
         </div>
         {application ? (
           <HouseApplicationDetail
@@ -601,7 +601,7 @@ function Applications({ applications, setApplications, setAccounts, accounts, de
             onReviewed={({ application: next, account, accountCode }) => {
               setApplications(applications.map((x) => (x.id === next.id ? next : x)));
               if (account) setAccounts([account, ...accounts]);
-              if (accountCode) alert(`Approved. House account code: ${accountCode}\n\nRecord this code now; it is only shown once.`);
+              if (accountCode) alert(`Approved. Institutional account code: ${accountCode}\n\nRecord this code now; it is only shown once.`);
             }}
           />
         ) : (
@@ -942,7 +942,7 @@ function Customer({ account, view }) {
   if (!account)
     return (
       <main className="dashboard">
-        <div className="empty">No house account is linked to this login.</div>
+        <div className="empty">No institutional account is linked to this login.</div>
       </main>
     );
   if (view === "statements")
@@ -986,7 +986,7 @@ function AccountDetail({ account, staff, demo }) {
     <article className="account-detail">
       <div className="account-title">
         <div>
-          <p>{account.account_code_hint || "House account"}</p>
+          <p>{account.account_code_hint || "Institutional account"}</p>
           <h2>{account.organization_name}</h2>
           <span>
             {account.billing_contact} · {account.billing_email}
