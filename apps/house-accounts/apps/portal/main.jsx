@@ -10,6 +10,7 @@ import "./portal-notifications.css";
 import "./portal-typography.css";
 import "./portal-controls.css";
 
+const brandIcon = `${import.meta.env.BASE_URL}favicon.png`;
 const cash = (amount, currency = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(Number(amount || 0) / 100);
 const organizationRoles = {
   School: [
@@ -220,7 +221,7 @@ function Login({ onUser, errorMessage = "" }) {
   return (
     <main className="login">
       <section className="login-brand">
-        <div className="brand-mark">AD</div>
+        <div className="brand-mark"><img src={brandIcon} alt="Amazing Donuts" /></div>
         <p>Administrative access</p>
         <h1>
           House account operations,
@@ -275,7 +276,7 @@ function Shell({ user, view, onView, pending, onRefresh, onLogout, children }) {
     <div className="shell">
       <aside>
         <div className="side-brand">
-          <div className="brand-mark">AD</div>
+          <div className="brand-mark"><img src={brandIcon} alt="" /></div>
           <div>
             <strong>{user.tenantName || "Amazing Donuts"}</strong>
             <span>House Accounts</span>
