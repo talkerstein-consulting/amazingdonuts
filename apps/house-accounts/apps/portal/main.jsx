@@ -1377,28 +1377,30 @@ const localIsoDate = (value) => {
 };
 function StatementDateRange({ disabled }) {
   const [open, setOpen] = useState(false);
-  const [from, setFrom] = useState("");
-  const [through, setThrough] = useState("");
+  const [range, setRange] = useState("");
   const [preset, setPreset] = useState("");
+  const match = range.match(/^\s*(\d{4}-\d{2}-\d{2})\s*(?:-|–|to)\s*(\d{4}-\d{2}-\d{2})\s*$/i);
+  const valid = Boolean(match && match[1] <= match[2]);
+  const updateRange = (value) => {
+    setRange(value);
+    setPreset("");
+  };
   const applyPreset = (id, months, days) => {
     const end = new Date();
     const start = new Date(end);
     if (days) start.setDate(start.getDate() - days + 1);
     if (months) start.setMonth(start.getMonth() - months);
-    setFrom(localIsoDate(start));
-    setThrough(localIsoDate(end));
+    const nextFrom = localIsoDate(start), nextThrough = localIsoDate(end);
+    setRange(`${nextFrom} - ${nextThrough}`);
     setPreset(id);
   };
-  const rangeLabel = from && through ? `${day(`${from}T12:00:00`)} - ${day(`${through}T12:00:00`)}` : "Select statement period";
   return (
     <div className="date-range-field">
       <span className="field-label">Statement period</span>
-      <button className="date-range-trigger" type="button" disabled={disabled} aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+      <label className="date-range-input">
         <CalendarRange />
-        <span>{rangeLabel}</span>
-      </button>
-      <input type="hidden" name="from" value={from} />
-      <input type="hidden" name="through" value={through} />
+        <input name="range" value={range} disabled={disabled} aria-expanded={open} aria-label="Statement period" placeholder="YYYY-MM-DD - YYYY-MM-DD" onFocus={() => setOpen(true)} onChange={(event) => updateRange(event.target.value)} />
+      </label>
       {open ? (
         <div className="date-range-panel">
           <div className="range-presets" aria-label="Statement period presets">
@@ -1406,12 +1408,7 @@ function StatementDateRange({ disabled }) {
               <button className={preset === id ? "active" : ""} type="button" key={id} onClick={() => applyPreset(id, months, days)}>{label}</button>
             ))}
           </div>
-          <div className="range-dates">
-            <label><span>Start date</span><input type="date" value={from} max={through || undefined} onChange={(event) => { setFrom(event.target.value); setPreset(""); }} required /></label>
-            <i aria-hidden="true">to</i>
-            <label><span>End date</span><input type="date" value={through} min={from || undefined} onChange={(event) => { setThrough(event.target.value); setPreset(""); }} required /></label>
-          </div>
-          <button className="range-done" type="button" disabled={!from || !through} onClick={() => setOpen(false)}>Done</button>
+          <button className="range-done" type="button" disabled={!valid} onClick={() => setOpen(false)}>Done</button>
         </div>
       ) : null}
     </div>
@@ -1426,7 +1423,8 @@ function Statements({ account, staff, demo }) {
     event.preventDefault();
     if (demo) return;
     const data = new FormData(event.currentTarget);
-    if (!data.get("from") || !data.get("through")) {
+    const range = String(data.get("range") || "").match(/^\s*(\d{4}-\d{2}-\d{2})\s*(?:-|–|to)\s*(\d{4}-\d{2}-\d{2})\s*$/i);
+    if (!range || range[1] > range[2]) {
       setError("Choose a statement period before issuing the invoice.");
       return;
     }
@@ -1437,8 +1435,8 @@ function Statements({ account, staff, demo }) {
       const { statement } = await request(`/admin/accounts/${account.id}/statements`, {
         method: "POST",
         body: JSON.stringify({
-          periodStart: data.get("from"),
-          periodEnd: data.get("through"),
+          periodStart: range[1],
+          periodEnd: range[2],
           ...(scheduled ? { scheduledChargeAt: new Date(String(scheduled)).toISOString() } : {}),
         }),
       });
