@@ -1385,6 +1385,7 @@ function StatementDateRange({ disabled }) {
   const [hoveredDay, setHoveredDay] = useState(undefined);
   const [displayMonth, setDisplayMonth] = useState(() => new Date());
   const [preset, setPreset] = useState("");
+  const [calendarRevision, setCalendarRevision] = useState(0);
   const from = selection?.from ? localIsoDate(selection.from) : "";
   const through = selection?.to ? localIsoDate(selection.to) : "";
   const range = from && through ? `${from} - ${through}` : from ? `${from} - Select end date` : "";
@@ -1399,6 +1400,7 @@ function StatementDateRange({ disabled }) {
     setDisplayMonth(new Date(start.getFullYear(), start.getMonth(), 1));
     setHoveredDay(undefined);
     setPreset(id);
+    setCalendarRevision((value) => value + 1);
   };
   const clearSelection = () => {
     selectionRef.current = undefined;
@@ -1406,6 +1408,7 @@ function StatementDateRange({ disabled }) {
     setHoveredDay(undefined);
     setPreset("");
     setDisplayMonth(new Date());
+    setCalendarRevision((value) => value + 1);
   };
   const selectDay = (date) => {
     setPreset("");
@@ -1431,6 +1434,7 @@ function StatementDateRange({ disabled }) {
             ))}
           </div>
           <DayPicker
+            key={calendarRevision}
             mode="range"
             selected={selection}
             onDayClick={selectDay}
