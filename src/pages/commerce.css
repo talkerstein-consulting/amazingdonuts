@@ -170,6 +170,7 @@
 }
 
 .checkout-form label,
+.checkout-date-field,
 .profile-form label {
   display: grid;
   gap: 7px;
@@ -177,6 +178,7 @@
 }
 
 .checkout-form label span,
+.checkout-date-field > span,
 .profile-form label span {
   font-family: var(--font-cta);
   font-size: var(--fs-label);

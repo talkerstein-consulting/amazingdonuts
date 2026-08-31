@@ -32,6 +32,7 @@ import Footer from '../components/Footer';
 import AuthModal from '../shop/AuthModal';
 import CartDrawer from '../shop/CartDrawer';
 import KosherBadge from '../components/KosherBadge';
+import BrandDatePicker, { localDateValue } from '../components/BrandDatePicker';
 
 /* The same carousel the homepage uses, and deferred the same way: it pulls in
    @react-three/fiber and the whole of `three`, and it sits well below the fold
@@ -267,7 +268,7 @@ function IntakeForm() {
   const minDate = useMemo(() => {
     const d = new Date(today);
     d.setDate(d.getDate() + LEAD_DAYS);
-    return d.toISOString().slice(0, 10);
+    return localDateValue(d);
   }, [today]);
 
   const toggleProduct = (p: string) =>
@@ -276,6 +277,11 @@ function IntakeForm() {
   const send = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
+    if (!date) {
+      setSubmitState('error');
+      setSubmitMessage('Choose the date you need the order.');
+      return;
+    }
     setSubmitState('sending');
     setSubmitMessage('');
     try {
@@ -359,17 +365,8 @@ function IntakeForm() {
       </Row>
 
       <div>
-        <label>
-          <FieldLabel label="When do you need it?" Icon={CalendarClock} />
-          <input
-            required
-            type="date"
-            value={date}
-            min={minDate}
-            onChange={(e) => setDate(e.target.value)}
-            style={{ ...field, maxWidth: 260 }}
-          />
-        </label>
+        <FieldLabel label="When do you need it?" Icon={CalendarClock} />
+        <BrandDatePicker value={date} min={minDate} onChange={setDate} ariaLabel="Choose the date for your bulk order" />
 
         {tooSoon && (
           <p
@@ -490,15 +487,16 @@ export default function BulkOrdersPage() {
             </h1>
             <p
               style={{
-                margin: '18px 0 clamp(30px,3.6vw,52px)',
+                margin: '18px auto clamp(30px,3.6vw,52px)',
                 maxWidth: '56ch',
                 fontSize: 'var(--type-body)',
                 lineHeight: 1.45,
+                textAlign: 'center',
                 color: 'rgba(14,62,105,.72)'
               }}
             >
               Planning for an office, school, simcha or community event? Share the date, guest count and what you
-              have in mind. The bakery will recommend the right mix and follow up with a clear quote.
+              have in mind. We’ll recommend the right mix and follow up with a clear quote.
             </p>
 
             {/* --- three-up band (features-3 stand-in) --- */}
@@ -556,6 +554,42 @@ export default function BulkOrdersPage() {
                 </article>
               ))}
             </div>
+
+            {/* --- intake --- */}
+            <section
+              aria-label="Bulk order enquiry"
+              style={{
+                marginTop: 'clamp(34px,4vw,60px)',
+                padding: 'clamp(22px,2.8vw,40px)',
+                borderRadius: 32,
+                background: 'var(--sand)'
+              }}
+            >
+              <h2
+                style={{
+                  margin: '0 0 6px',
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 400,
+                  fontSize: 'clamp(28px,3.2vw,40px)',
+                  lineHeight: 1
+                }}
+              >
+                Tell us about it
+              </h2>
+              <p
+                style={{
+                  margin: '0 0 clamp(22px,2.6vw,32px)',
+                  maxWidth: '52ch',
+                  fontFamily: F.text,
+                  fontSize: 15.5,
+                  lineHeight: 1.5,
+                  color: 'rgba(14,62,105,.72)'
+                }}
+              >
+                Four questions and a date. Enough for us to quote without a phone call first.
+              </p>
+              <IntakeForm />
+            </section>
 
             {/* --- UGC --- */}
             <section aria-label="Customer photos" style={{ marginTop: 'clamp(34px,4vw,60px)' }}>
@@ -619,41 +653,6 @@ export default function BulkOrdersPage() {
               </div>
             </section>
 
-            {/* --- intake --- */}
-            <section
-              aria-label="Bulk order enquiry"
-              style={{
-                marginTop: 'clamp(34px,4vw,60px)',
-                padding: 'clamp(22px,2.8vw,40px)',
-                borderRadius: 32,
-                background: 'var(--sand)'
-              }}
-            >
-              <h2
-                style={{
-                  margin: '0 0 6px',
-                  fontFamily: 'var(--font-display)',
-                  fontWeight: 400,
-                  fontSize: 'clamp(28px,3.2vw,40px)',
-                  lineHeight: 1
-                }}
-              >
-                Tell us about it
-              </h2>
-              <p
-                style={{
-                  margin: '0 0 clamp(22px,2.6vw,32px)',
-                  maxWidth: '52ch',
-                  fontFamily: F.text,
-                  fontSize: 15.5,
-                  lineHeight: 1.5,
-                  color: 'rgba(14,62,105,.72)'
-                }}
-              >
-                Four questions and a date. Enough for us to quote without a phone call first.
-              </p>
-              <IntakeForm />
-            </section>
           </main>
 
           <Footer ready />
