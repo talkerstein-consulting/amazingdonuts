@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
+import { nextDateRangeSelection } from "../../lib/date-range.js";
 import { Bell, BriefcaseBusiness, Building2, CalendarRange, Check, ChevronDown, ClipboardList, Copy, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
 import "./portal.css";
 import "./portal-workspaces.css";
@@ -1404,15 +1405,7 @@ function StatementDateRange({ disabled }) {
   const selectDay = (date) => {
     setPreset("");
     setHoveredDay(undefined);
-    if (!selection?.from || selection.to) {
-      setSelection({ from: date, to: undefined });
-      return;
-    }
-    if (date < selection.from) {
-      setSelection({ from: date, to: undefined });
-      return;
-    }
-    setSelection({ from: selection.from, to: date });
+    setSelection((current) => nextDateRangeSelection(current, date));
   };
   const choosingEnd = Boolean(selection?.from && !selection.to);
   return (
