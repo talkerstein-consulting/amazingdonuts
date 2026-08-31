@@ -90,7 +90,7 @@
   z-index: 5;
   top: calc(100% + 8px);
   left: 0;
-  width: min(540px,calc(100vw - 80px));
+  width: min(700px,calc(100vw - 80px));
   padding: 14px;
   display: grid !important;
   gap: 14px !important;
@@ -109,6 +109,33 @@
 }
 .range-presets button.active { border-color: #17394a !important; background: #17394a !important; color: white !important; }
 .date-range-panel .range-done { min-height: 36px !important; justify-self: end; padding: 0 16px !important; }
+.date-range-panel .rdp-root {
+  --rdp-accent-color: #17394a;
+  --rdp-accent-background-color: #dbeef3;
+  --rdp-day-height: 38px;
+  --rdp-day-width: 38px;
+  --rdp-day_button-height: 36px;
+  --rdp-day_button-width: 36px;
+  --rdp-months-gap: 24px;
+  margin: 0;
+  color: #17394a;
+}
+.date-range-panel .rdp-months { justify-content: center; max-width: none; }
+.date-range-panel .rdp-month_caption { font-size: 14px; }
+.date-range-panel .rdp-weekday { color: #71828a; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.date-range-panel .rdp-day_button,
+.date-range-panel .rdp-button_next,
+.date-range-panel .rdp-button_previous {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+.date-range-panel .rdp-range_start .rdp-day_button,
+.date-range-panel .rdp-range_end .rdp-day_button { background: #17394a; color: white; }
 
 @media (max-width: 1050px) {
   .issue { grid-template-columns: 1fr 1fr !important; }
@@ -120,6 +147,7 @@
   .issue { grid-template-columns: 1fr !important; }
   .issue > div:first-child, .issue > .date-range-field { grid-column: auto; }
   .date-range-panel { position: static; width: 100%; margin-top: 8px; }
+  .date-range-panel .rdp-root { --rdp-day-height: 36px; --rdp-day-width: 36px; --rdp-day_button-height: 34px; --rdp-day_button-width: 34px; }
 }
 
 .visually-hidden {

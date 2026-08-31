@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { DayPicker } from "react-day-picker";
+import "react-day-picker/style.css";
 import { Bell, BriefcaseBusiness, Building2, CalendarRange, Check, ChevronDown, ClipboardList, Copy, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
 import "./portal.css";
 import "./portal-workspaces.css";
@@ -1377,21 +1379,24 @@ const localIsoDate = (value) => {
 };
 function StatementDateRange({ disabled }) {
   const [open, setOpen] = useState(false);
-  const [range, setRange] = useState("");
+  const [selection, setSelection] = useState(undefined);
+  const [monthCount, setMonthCount] = useState(() => window.innerWidth <= 760 ? 1 : 2);
   const [preset, setPreset] = useState("");
-  const match = range.match(/^\s*(\d{4}-\d{2}-\d{2})\s*(?:-|–|to)\s*(\d{4}-\d{2}-\d{2})\s*$/i);
-  const valid = Boolean(match && match[1] <= match[2]);
-  const updateRange = (value) => {
-    setRange(value);
-    setPreset("");
-  };
+  const from = selection?.from ? localIsoDate(selection.from) : "";
+  const through = selection?.to ? localIsoDate(selection.to) : "";
+  const range = from && through ? `${from} - ${through}` : from ? `${from} - Select end date` : "";
+  useEffect(() => {
+    const media = matchMedia("(max-width: 760px)"), update = () => setMonthCount(media.matches ? 1 : 2);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const applyPreset = (id, months, days) => {
     const end = new Date();
     const start = new Date(end);
     if (days) start.setDate(start.getDate() - days + 1);
     if (months) start.setMonth(start.getMonth() - months);
-    const nextFrom = localIsoDate(start), nextThrough = localIsoDate(end);
-    setRange(`${nextFrom} - ${nextThrough}`);
+    setSelection({ from: start, to: end });
     setPreset(id);
   };
   return (
@@ -1399,7 +1404,7 @@ function StatementDateRange({ disabled }) {
       <span className="field-label">Statement period</span>
       <label className="date-range-input">
         <CalendarRange />
-        <input name="range" value={range} disabled={disabled} aria-expanded={open} aria-label="Statement period" placeholder="YYYY-MM-DD - YYYY-MM-DD" onFocus={() => setOpen(true)} onChange={(event) => updateRange(event.target.value)} />
+        <input name="range" value={range} readOnly disabled={disabled} aria-expanded={open} aria-label="Statement period" placeholder="Select a date range" onClick={() => setOpen(true)} onFocus={() => setOpen(true)} />
       </label>
       {open ? (
         <div className="date-range-panel">
@@ -1408,7 +1413,8 @@ function StatementDateRange({ disabled }) {
               <button className={preset === id ? "active" : ""} type="button" key={id} onClick={() => applyPreset(id, months, days)}>{label}</button>
             ))}
           </div>
-          <button className="range-done" type="button" disabled={!valid} onClick={() => setOpen(false)}>Done</button>
+          <DayPicker mode="range" selected={selection} onSelect={(next) => { setSelection(next); setPreset(""); }} numberOfMonths={monthCount} defaultMonth={selection?.from || new Date()} showOutsideDays disabled={{ after: new Date() }} />
+          <button className="range-done" type="button" disabled={!from || !through} onClick={() => setOpen(false)}>Done</button>
         </div>
       ) : null}
     </div>
