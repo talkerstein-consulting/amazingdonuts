@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Bell, BriefcaseBusiness, Building2, Check, ClipboardList, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
+import { Bell, BriefcaseBusiness, Building2, CalendarRange, Check, ClipboardList, Copy, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
 import "./portal.css";
 import "./portal-workspaces.css";
 import "./portal-notifications.css";
 import "./portal-typography.css";
+import "./portal-controls.css";
 
 const cash = (amount, currency = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(Number(amount || 0) / 100);
 const organizationRoles = {
@@ -1019,7 +1020,7 @@ function AccountDetail({ account, staff, demo }) {
           </label>
           <label>
             <span>Credit limit</span>
-            <input name="limit" type="number" min="0" step=".01" defaultValue={limit / 100} />
+            <div className="money-input"><span aria-hidden="true">$</span><input name="limit" type="number" min="0" step=".01" defaultValue={limit / 100} /></div>
           </label>
           <label>
             <span>Terms</span>
@@ -1045,7 +1046,7 @@ function AccountDetail({ account, staff, demo }) {
           </label>
           <label>
             <span>Period spending cap <small>Optional</small></span>
-            <input name="periodSpendLimit" type="number" min="0.01" step=".01" placeholder="No limit" defaultValue={account.period_spend_limit ? Number(account.period_spend_limit) / 100 : ""} />
+            <div className="money-input"><span aria-hidden="true">$</span><input name="periodSpendLimit" type="number" min="0.01" step=".01" placeholder="No limit" defaultValue={account.period_spend_limit ? Number(account.period_spend_limit) / 100 : ""} /></div>
           </label>
           <label>
             <span>Cap period</span>
@@ -1103,9 +1104,9 @@ function AdminCardManager({ account, demo }) {
     <section className="settings-section card-settings">
       <header><div><span>Payment method</span><h3>Card on file</h3></div><p>Enter the card here. Card details are sent directly to Square and never stored on this website.</p></header>
       <div className="card-status"><div><CreditCard/><span><strong>{activeCard ? `${activeCard.card_brand || "Card"} ending ${activeCard.last_4}` : "No active card"}</strong><small>{activeCard ? "Available for authorized statement collection" : "Credit checkout remains unavailable until a card is saved"}</small></span></div><div className="card-actions">
-        <button type="button" onClick={() => { setEditing(true); setMessage(""); setError(""); }}>{activeCard ? "Replace card" : "Add card"}</button>
+        <button className="primary-button" type="button" onClick={() => { setEditing(true); setMessage(""); setError(""); }}>{activeCard ? "Replace card" : "Add card"}</button>
         <button className="secondary-button" type="button" onClick={async()=>{try{await request(`/admin/accounts/${account.id}/card/replacement`,{method:"POST"});setMessage("Secure card link emailed to the account contact.");}catch(cause){setError(cause.message);}}}>Email secure link</button>
-        {activeCard ? <button className="danger-button" type="button" onClick={async()=>{if(confirm("Disable the active card? Credit checkout and automatic collection will stop.")){await request(`/admin/accounts/${account.id}/card/disable`,{method:"POST"});location.reload();}}}>Disable card</button> : null}
+        {activeCard ? <button className="text-button danger-button" type="button" onClick={async()=>{if(confirm("Disable the active card? Credit checkout and automatic collection will stop.")){await request(`/admin/accounts/${account.id}/card/disable`,{method:"POST"});location.reload();}}}>Disable card</button> : null}
       </div></div>
       {editing ? <form className="admin-card-entry" onSubmit={async(event)=>{event.preventDefault();setBusy(true);setError("");setMessage("");try{if(demo){setMessage("Demo card saved.");setEditing(false);return;}if(!card.current)throw new Error("The secure card form is still loading.");const data=new FormData(event.currentTarget),token=await card.current.tokenize({intent:"STORE",customerInitiated:false,sellerKeyedIn:true,billingContact:{givenName:String(data.get("cardholderName")||account.billing_contact||account.organization_name),email:account.billing_email}});if(token.status!=="OK"||!token.token)throw new Error(token.errors?.[0]?.message||"Card authorization failed.");await request(`/admin/accounts/${account.id}/card`,{method:"POST",body:JSON.stringify({sourceId:token.token,cardholderName:data.get("cardholderName"),authorizationConfirmed:data.get("authorizationConfirmed")==="on"})});location.reload();}catch(cause){setError(cause.message);}finally{setBusy(false);}}}>
         <label><span>Cardholder name</span><input name="cardholderName" required minLength="2" defaultValue={account.billing_contact||account.organization_name}/></label>
@@ -1361,6 +1362,54 @@ function PurchaserTable({ purchasers = [] }) {
     </div>
   );
 }
+const localIsoDate = (value) => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const date = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${date}`;
+};
+function StatementDateRange({ disabled }) {
+  const [open, setOpen] = useState(false);
+  const [from, setFrom] = useState("");
+  const [through, setThrough] = useState("");
+  const [preset, setPreset] = useState("");
+  const applyPreset = (id, months, days) => {
+    const end = new Date();
+    const start = new Date(end);
+    if (days) start.setDate(start.getDate() - days + 1);
+    if (months) start.setMonth(start.getMonth() - months);
+    setFrom(localIsoDate(start));
+    setThrough(localIsoDate(end));
+    setPreset(id);
+  };
+  const rangeLabel = from && through ? `${day(`${from}T12:00:00`)} - ${day(`${through}T12:00:00`)}` : "Select statement period";
+  return (
+    <div className="date-range-field">
+      <span className="field-label">Statement period</span>
+      <button className="date-range-trigger" type="button" disabled={disabled} aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+        <CalendarRange />
+        <span>{rangeLabel}</span>
+      </button>
+      <input type="hidden" name="from" value={from} />
+      <input type="hidden" name="through" value={through} />
+      {open ? (
+        <div className="date-range-panel">
+          <div className="range-presets" aria-label="Statement period presets">
+            {[["30d", "30 days", 0, 30], ["2m", "2 months", 2, 0], ["3m", "3 months", 3, 0], ["6m", "6 months", 6, 0], ["12m", "12 months", 12, 0]].map(([id, label, months, days]) => (
+              <button className={preset === id ? "active" : ""} type="button" key={id} onClick={() => applyPreset(id, months, days)}>{label}</button>
+            ))}
+          </div>
+          <div className="range-dates">
+            <label><span>Start date</span><input type="date" value={from} max={through || undefined} onChange={(event) => { setFrom(event.target.value); setPreset(""); }} required /></label>
+            <i aria-hidden="true">to</i>
+            <label><span>End date</span><input type="date" value={through} min={from || undefined} onChange={(event) => { setThrough(event.target.value); setPreset(""); }} required /></label>
+          </div>
+          <button className="range-done" type="button" disabled={!from || !through} onClick={() => setOpen(false)}>Done</button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 function Statements({ account, staff, demo }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -1370,6 +1419,10 @@ function Statements({ account, staff, demo }) {
     event.preventDefault();
     if (demo) return;
     const data = new FormData(event.currentTarget);
+    if (!data.get("from") || !data.get("through")) {
+      setError("Choose a statement period before issuing the invoice.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -1393,7 +1446,7 @@ function Statements({ account, staff, demo }) {
     <div className="statements">
       <StatementTable statements={account.statements} />
       {staff && openStatement ? (
-        <div className="controls">
+        <div className="statement-actions">
           <button
             type="button"
             onClick={async () => {
@@ -1407,6 +1460,7 @@ function Statements({ account, staff, demo }) {
             Charge saved card
           </button>
           <button
+            className="text-button"
             type="button"
             onClick={async () => {
               await navigator.clipboard.writeText(paymentLink);
@@ -1414,7 +1468,7 @@ function Statements({ account, staff, demo }) {
             }}
             disabled={!paymentLink}
           >
-            Copy payment link
+            <Copy /> Copy payment link
           </button>
         </div>
       ) : null}
@@ -1427,14 +1481,7 @@ function Statements({ account, staff, demo }) {
               <small>Issue a statement now, or schedule its saved-card collection.</small>
             </span>
           </div>
-          <label>
-            <span>From</span>
-            <input type="date" name="from" required disabled={busy} />
-          </label>
-          <label>
-            <span>Through</span>
-            <input type="date" name="through" required disabled={busy} />
-          </label>
+          <StatementDateRange disabled={busy} />
           <label>
             <span>Scheduled payment</span>
             <input type="datetime-local" name="scheduledChargeAt" disabled={busy} />
