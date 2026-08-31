@@ -1381,31 +1381,32 @@ const localIsoDate = (value) => {
 function StatementDateRange({ disabled }) {
   const [open, setOpen] = useState(false);
   const [selection, setSelection] = useState(undefined);
+  const selectionRef = useRef(undefined);
   const [hoveredDay, setHoveredDay] = useState(undefined);
-  const [monthCount, setMonthCount] = useState(() => window.innerWidth <= 760 ? 1 : 2);
+  const [displayMonth, setDisplayMonth] = useState(() => new Date());
   const [preset, setPreset] = useState("");
   const from = selection?.from ? localIsoDate(selection.from) : "";
   const through = selection?.to ? localIsoDate(selection.to) : "";
   const range = from && through ? `${from} - ${through}` : from ? `${from} - Select end date` : "";
-  useEffect(() => {
-    const media = matchMedia("(max-width: 760px)"), update = () => setMonthCount(media.matches ? 1 : 2);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
   const applyPreset = (id, months, days) => {
     const end = new Date();
     const start = new Date(end);
     if (days) start.setDate(start.getDate() - days + 1);
     if (months) start.setMonth(start.getMonth() - months);
-    setSelection({ from: start, to: end });
+    const next = { from: start, to: end };
+    selectionRef.current = next;
+    setSelection(next);
+    setDisplayMonth(new Date(start.getFullYear(), start.getMonth(), 1));
     setHoveredDay(undefined);
     setPreset(id);
   };
   const selectDay = (date) => {
     setPreset("");
     setHoveredDay(undefined);
-    setSelection((current) => nextDateRangeSelection(current, date));
+    const next = nextDateRangeSelection(selectionRef.current, date);
+    selectionRef.current = next;
+    setSelection(next);
+    if (!next.to) setDisplayMonth(new Date(date.getFullYear(), date.getMonth(), 1));
   };
   const choosingEnd = Boolean(selection?.from && !selection.to);
   return (
@@ -1433,8 +1434,9 @@ function StatementDateRange({ disabled }) {
               rangePreview: (date) => choosingEnd && hoveredDay >= selection.from && date > selection.from && date <= hoveredDay,
             }}
             modifiersClassNames={{ rangeReset: "range-reset-day", rangePreview: "range-preview-day" }}
-            numberOfMonths={monthCount}
-            defaultMonth={selection?.from || new Date()}
+            numberOfMonths={2}
+            month={displayMonth}
+            onMonthChange={setDisplayMonth}
             showOutsideDays
             disabled={{ after: new Date() }}
           />

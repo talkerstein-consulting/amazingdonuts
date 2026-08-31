@@ -136,7 +136,13 @@
 }
 .date-range-panel .rdp-range_start .rdp-day_button,
 .date-range-panel .rdp-range_end .rdp-day_button { background: #17394a; color: white; }
-.date-range-panel .rdp-day:not(.rdp-disabled) .rdp-day_button:hover { border-color: #17394a; background: #eef6f8; }
+.date-range-panel .rdp-day:not(.rdp-disabled):not(.rdp-range_start):not(.rdp-range_end) .rdp-day_button:hover { border-color: #17394a; background: #eef6f8; }
+.date-range-panel .rdp-outside.rdp-range_start .rdp-day_button,
+.date-range-panel .rdp-outside.rdp-range_end .rdp-day_button {
+  border-color: transparent;
+  background: transparent;
+  color: inherit;
+}
 .date-range-panel .range-preview-day { background: #dbeef3; }
 .date-range-panel .range-preview-day .rdp-day_button { border-radius: 0; }
 .date-range-panel .range-reset-day .rdp-day_button {
@@ -163,6 +169,7 @@
   .issue > div:first-child, .issue > .date-range-field { grid-column: auto; }
   .date-range-panel { position: static; width: 100%; margin-top: 8px; }
   .date-range-panel .rdp-root { --rdp-day-height: 36px; --rdp-day-width: 36px; --rdp-day_button-height: 34px; --rdp-day_button-width: 34px; }
+  .date-range-panel .rdp-months { flex-direction: column; align-items: center; }
 }
 
 .visually-hidden {
