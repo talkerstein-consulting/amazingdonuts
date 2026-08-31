@@ -18,6 +18,7 @@ declare global { interface Window { Square?: { payments:(appId:string,locationId
 
 const blankAddress:Address={addressLine1:'',addressLine2:'',locality:'Toronto',administrativeDistrictLevel1:'ON',postalCode:'',country:'CA'};
 const HOURS:Record<number,[number,number]|undefined>={0:[8*60,13*60],1:[7*60+30,16*60],2:[7*60+30,16*60],3:[7*60+30,16*60],4:[7*60+30,16*60],5:[7*60+30,14*60]};
+const torontoISOString=(value:string)=>{const [date,time]=value.split('T'),[year,month,day]=date.split('-').map(Number),[hour,minute]=time.split(':').map(Number),wallClock=Date.UTC(year,month-1,day,hour,minute),probe=new Date(wallClock),parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(probe).filter(part=>part.type!=='literal').map(part=>[part.type,part.value])),offset=Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day),Number(parts.hour),Number(parts.minute))-wallClock;return new Date(wallClock-offset).toISOString()};
 const localValue=(date:Date)=>new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
 const nextOpen=(date:Date)=>{while(!HOURS[date.getDay()])date.setDate(date.getDate()+1);date.setHours(9,0,0,0);return localValue(date)};
 const tomorrow=()=>nextOpen(new Date(Date.now()+86400000));
@@ -61,7 +62,7 @@ function Checkout(){
   useEffect(()=>{if(!config?.applicationId||method!=='card'||!session?.user)return;let cancelled=false;const mount=async()=>{if(!window.Square){const script=document.createElement('script');script.src=config.environment==='sandbox'?'https://sandbox.web.squarecdn.com/v1/square.js':'https://web.squarecdn.com/v1/square.js';script.async=true;await new Promise<void>((resolve,reject)=>{script.onload=()=>resolve();script.onerror=()=>reject(new Error('Secure card fields could not load.'));document.head.appendChild(script)})}if(cancelled||!window.Square)return;card.current=await window.Square.payments(config.applicationId,config.locationId).card();await card.current.attach('#square-card')};void mount().catch(cause=>setError(cause.message));return()=>{cancelled=true;void card.current?.destroy().catch(()=>{});card.current=undefined}},[config,method,session?.user]);
 
   const items=()=>lines.map(line=>({name:line.product.name,quantity:line.qty}));
-  const fulfillmentBody=()=>({type:fulfillment,scheduledAt:new Date(scheduledAt).toISOString(),recipient:{displayName:`${session?.user?.firstName||''} ${session?.user?.lastName||''}`.trim(),email:session?.user?.email||'',phone},...(fulfillment==='delivery'?{address,deliveryInstructions,noContact}:{})});
+  const fulfillmentBody=()=>({type:fulfillment,scheduledAt:torontoISOString(scheduledAt),recipient:{displayName:`${session?.user?.firstName||''} ${session?.user?.lastName||''}`.trim(),email:session?.user?.email||'',phone},...(fulfillment==='delivery'?{address,deliveryInstructions,noContact}:{})});
   useEffect(()=>{
     if(!session?.user||!lines.length||!customReady||!phone||!scheduledAt||(fulfillment==='delivery'&&(!address.addressLine1||address.postalCode.replace(/\s/g,'').length<6))){setQuote(undefined);setQuoteError('');return}
     const controller=new AbortController();

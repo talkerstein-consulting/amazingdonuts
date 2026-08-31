@@ -41,6 +41,14 @@ test("accepts 15-minute fulfillment slots during Toronto business hours", () => 
   assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-10-02T18:00:00Z" }, now));
 });
 
+test("accepts published opening and closing times in both Toronto daylight and standard time", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-07-06T11:30:00Z" }, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-07-06T20:00:00Z" }, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-12-07T12:30:00Z" }, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-12-07T21:00:00Z" }, now));
+});
+
 test("rejects fulfillment outside Toronto business hours", () => {
   const now = new Date("2026-09-01T00:00:00Z");
   assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T11:15:00Z" }, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
