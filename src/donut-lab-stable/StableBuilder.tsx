@@ -88,14 +88,16 @@ function hydrate(): State {
     if (!saved || typeof saved.baseId !== 'string') return INITIAL;
     // Ids run through byId at read time, so an option retired from the menu
     // since the last visit falls back to the first of its list.
+    const base = byId(BASES, saved.baseId);
+    const takesIcing = RULES.takesIcing(base.id);
     return {
       ...INITIAL,
-      baseId: saved.baseId,
-      icingId: saved.icingId === 'red-glaze' ? 'red' : (saved.icingId ?? INITIAL.icingId),
+      baseId: base.id,
+      icingId: takesIcing ? (saved.icingId === 'red-glaze' ? 'red' : (saved.icingId ?? INITIAL.icingId)) : 'none',
       fillingId: saved.fillingId ?? INITIAL.fillingId,
-      sprinkleIds: Array.isArray(saved.sprinkleIds)
+      sprinkleIds: takesIcing && Array.isArray(saved.sprinkleIds)
         ? saved.sprinkleIds
-        : [saved.sprinkleId ?? INITIAL.sprinkleIds[0]]
+        : takesIcing ? [saved.sprinkleId ?? INITIAL.sprinkleIds[0]] : ['none']
     };
   } catch {
     /* Private mode, or a shape we no longer understand. Start fresh. */
@@ -122,6 +124,8 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         baseId: action.id,
+        icingId: RULES.takesIcing(action.id) ? state.icingId : 'none',
+        sprinkleIds: RULES.takesIcing(action.id) ? state.sprinkleIds : ['none'],
         fillingId: RULES.takesFilling(action.id) ? state.fillingId : 'none',
         print: RULES.takesPrint(action.id) ? state.print : null,
         added: false, qty: 1
@@ -447,12 +451,13 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
   const surprise = () => {
     const pickOne = <T,>(list: T[]): T => list[Math.floor(Math.random() * list.length)];
     const b = pickOne(BASES);
+    const icingId = RULES.takesIcing(b.id) ? pickOne(ICINGS.filter((x) => !x.bare)).id : 'none';
     dispatch({
       type: 'surprise',
       next: {
         baseId: b.id,
-        icingId: pickOne(ICINGS.filter((x) => !x.bare)).id,
-        sprinkleIds: [pickOne(SPRINKLES.filter((x) => !x.bare)).id],
+        icingId,
+        sprinkleIds: RULES.takesIcing(b.id) ? [pickOne(SPRINKLES.filter((x) => !x.bare)).id] : ['none'],
         fillingId: RULES.takesFilling(b.id) ? pickOne(FILLINGS.filter((x) => !x.bare)).id : 'none'
       }
     });

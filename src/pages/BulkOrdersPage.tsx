@@ -485,26 +485,8 @@ export default function BulkOrdersPage() {
                 textWrap: 'balance'
               }}
             >
-              <span>Donuts,</span>
-              {/* Trimmed art, not just a bigger box. The catalogue cut-out is a
-                  600x600 canvas whose donut fills only 54% of the width and
-                  48.5% of the height - the rest is transparent padding - so
-                  raising this element's height mostly bought empty space and the
-                  donut itself barely moved. `zap-donut-trimmed.webp` is the same
-                  artwork cropped to its alpha bounding box (324x291, and 44kB
-                  against the PNG's 216kB), so the height below is all donut.
-
-                  Bigger than the homepage's 1em cap on purpose: there the donut
-                  shares its line with words either side, here it is the only
-                  object between 'Donuts,' and 'by the'. Sized in `em` so it
-                  tracks the clamped headline instead of drifting from it. */}
-              <img
-                src="/img/zap-donut-trimmed.webp"
-                alt="Sprinkled donut"
-                style={{ height: 'clamp(1em,13vw,1.7em)', width: 'auto' }}
-              />
-              <span>by the</span>
-              <span style={{ flexBasis: '100%' }}>dozen dozen.</span>
+              <span>Big orders,</span>
+              <span style={{ flexBasis: '100%' }}>made straightforward.</span>
             </h1>
             <p
               style={{
@@ -515,8 +497,8 @@ export default function BulkOrdersPage() {
                 color: 'rgba(14,62,105,.72)'
               }}
             >
-              Offices, simchas, schools and the mornings that need to go well. Tell us the date and the head count
-              and we will come back with a plan and a price.
+              Planning for an office, school, simcha or community event? Share the date, guest count and what you
+              have in mind. The bakery will recommend the right mix and follow up with a clear quote.
             </p>
 
             {/* --- three-up band (features-3 stand-in) --- */}

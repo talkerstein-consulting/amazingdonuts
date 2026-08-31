@@ -52,7 +52,11 @@ export default defineConfig({
         careers: path.resolve(__dirname, 'careers/index.html'),
         bulkOrders: path.resolve(__dirname, 'bulk-orders/index.html'),
         checkout: path.resolve(__dirname, 'checkout/index.html'),
-        account: path.resolve(__dirname, 'account/index.html')
+        account: path.resolve(__dirname, 'account/index.html'),
+        allergyFree: path.resolve(__dirname, 'allergy-free/index.html'),
+        kashruth: path.resolve(__dirname, 'kashruth/index.html'),
+        privacyPolicy: path.resolve(__dirname, 'privacy-policy/index.html'),
+        shippingReturns: path.resolve(__dirname, 'shipping-returns/index.html')
       }
     }
   },

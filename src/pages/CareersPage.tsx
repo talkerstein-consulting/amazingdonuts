@@ -179,7 +179,8 @@ function RoleCard({ role }: { role: Role }) {
 
 export default function CareersPage() {
   const [authOpen, setAuthOpen] = useState(false);
-  const [careers, setCareers] = useState<CareersConfig>({ pageEnabled: true, roles: ROLES });
+  const [careers, setCareers] = useState<CareersConfig>({ pageEnabled: false, roles: [] });
+  const [loaded, setLoaded] = useState(false);
   useEffect(initSmoothScroll, []);
   useEffect(() => {
     const controller = new AbortController();
@@ -188,18 +189,23 @@ export default function CareersPage() {
         if (!response.ok) throw new Error('Careers are unavailable.');
         return response.json();
       })
-      .then(body => setCareers({
-        pageEnabled: body.pageEnabled !== false,
-        roles: (body.roles || []).map((role: any) => ({
-          id: role.id,
-          title: role.title,
-          type: role.employment_type,
-          shift: role.shift,
-          blurb: role.blurb,
-          doing: role.responsibilities || []
-        }))
-      }))
-      .catch(error => { if (error.name !== 'AbortError') console.error(error); });
+      .then(body => {
+        setCareers({
+          pageEnabled: body.pageEnabled !== false,
+          roles: (body.roles || []).map((role: any) => ({
+            id: role.id,
+            title: role.title,
+            type: role.employment_type,
+            shift: role.shift,
+            blurb: role.blurb,
+            doing: role.responsibilities || []
+          }))
+        });
+        setLoaded(true);
+      })
+      .catch(error => {
+        if (error.name !== 'AbortError') setLoaded(true);
+      });
     return () => controller.abort();
   }, []);
 
@@ -212,7 +218,7 @@ export default function CareersPage() {
 
           <main style={{ maxWidth: 1240, margin: '0 auto', padding: 'clamp(24px,4vw,56px) clamp(18px,4vw,40px)' }}>
             <h1 style={{ margin: 0, fontSize: 'var(--type-section)', lineHeight: 0.92, maxWidth: '18ch' }}>
-              Work where the donuts are.
+              {!loaded ? 'Careers at Amazing Donuts.' : careers.pageEnabled ? 'Work where the donuts are.' : 'Nothing open today.'}
             </h1>
             <p
               style={{
@@ -223,8 +229,11 @@ export default function CareersPage() {
                 color: 'rgba(14,62,105,.72)'
               }}
             >
-              Small team, early mornings, and a kitchen that has been running on Bathurst since 1997. No experience
-              required for the counter; for the kitchen, tell us what you have made.
+              {!loaded
+                ? 'Checking the bakery’s current openings.'
+                : careers.pageEnabled
+                ? 'Small team, early mornings, and a kitchen that has been running on Bathurst since 1997. No experience required for the counter; for the kitchen, tell us what you have made.'
+                : 'Our team is full for now. New opportunities will be posted here as soon as there is room at the table.'}
             </p>
 
             <p
@@ -242,7 +251,7 @@ export default function CareersPage() {
               {SHOP_ADDRESS.street}, {SHOP_ADDRESS.city} — every role is on site
             </p>
 
-            {careers.pageEnabled ? <div
+            {!loaded ? <div aria-label="Loading careers" style={{ minHeight: 180 }} /> : careers.pageEnabled && careers.roles.length > 0 ? <div
               style={{
                 display: 'grid',
                 gap: 'clamp(16px,2vw,24px)',
@@ -253,7 +262,7 @@ export default function CareersPage() {
               {careers.roles.map((role) => (
                 <RoleCard key={role.id} role={role} />
               ))}
-            </div> : <div style={{ padding: 'clamp(24px,3vw,40px)', background: 'var(--sand)', borderRadius: 28 }}><h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 30 }}>No openings right now.</h2><p style={{ margin: '10px 0 0', fontFamily: F.text, color: 'rgba(14,62,105,.72)' }}>Please check back another time.</p></div>}
+            </div> : <div style={{ padding: 'clamp(24px,3vw,40px)', background: 'var(--sand)', borderRadius: 28 }}><h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 30 }}>The next opening will land here.</h2><p style={{ margin: '10px 0 0', fontFamily: F.text, color: 'rgba(14,62,105,.72)' }}>There are no roles accepting applications at the moment.</p></div>}
 
             {/* The catch-all, for the far more common case of someone good
                 turning up when nothing is posted. */}

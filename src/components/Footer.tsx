@@ -12,6 +12,7 @@ import type { KosherKey } from './KosherBadge';
 import { LAB_HREF } from '../lib/lab-href';
 import { shopHref } from '../lib/shop-href';
 import CurvedInput from './CurvedInput';
+import { useCareersVisibility } from '../hooks/useCareersVisibility';
 
 /* Donuts and Cupcakes both pointed at '#favorites', so two differently
    labelled links went to the same homepage teaser and neither of them to the
@@ -28,8 +29,11 @@ const MENU_LINKS = [
    three used to point at `#top`, which on any page but the homepage went
    nowhere at all. */
 const COMPANY_LINKS = [
-  { label: 'Careers', href: CAREERS_HREF },
-  { label: 'Contact', href: CONTACT_HREF }
+  { label: 'Contact', href: CONTACT_HREF },
+  { label: 'Allergy free', href: '/allergy-free/' },
+  { label: 'Kashruth', href: '/kashruth/' },
+  { label: 'Privacy policy', href: '/privacy-policy/' },
+  { label: 'Shipping & returns', href: '/shipping-returns/' }
 ];
 
 /**
@@ -59,20 +63,19 @@ const item: Variants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }
 };
 
-const LINK_GROUPS = [
-  { label: 'Menu', links: MENU_LINKS },
-  { label: 'Company', links: COMPANY_LINKS }
-];
-
 /** On phones the two link columns collapse into a tab pair to save vertical space. */
-function LinkTabs() {
+function LinkTabs({ companyLinks }: { companyLinks: typeof COMPANY_LINKS }) {
+  const groups = [
+    { label: 'Menu', links: MENU_LINKS },
+    { label: 'Information', links: companyLinks }
+  ];
   const [tab, setTab] = useState(0);
-  const group = LINK_GROUPS[tab];
+  const group = groups[tab];
 
   return (
     <div>
       <div role="tablist" aria-label="Footer links" style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-        {LINK_GROUPS.map((entry, i) => {
+        {groups.map((entry, i) => {
           const selected = i === tab;
           return (
             <button
@@ -139,6 +142,10 @@ export default function Footer({ ready }: { ready: boolean }) {
   const spin = useScrollSpin<HTMLImageElement>(150, ready);
   const reduce = useReducedMotion();
   const isDesktop = useIsDesktop();
+  const careersVisible = useCareersVisibility();
+  const companyLinks = careersVisible
+    ? [{ label: 'Careers', href: CAREERS_HREF }, ...COMPANY_LINKS]
+    : COMPANY_LINKS;
 
   return (
     <footer style={{ position: 'relative', background: 'var(--cream)' }}>
@@ -146,7 +153,7 @@ export default function Footer({ ready }: { ready: boolean }) {
       <div className="footer-signup-intro">
         <h2 className="footer-signup-title">First dibs on the good stuff</h2>
         <p className="footer-signup-lede">
-          New flavors, seasonal boxes and the odd Friday-only bake — in your inbox before they hit the case.
+          New flavours, seasonal boxes and the odd Friday-only bake — in your inbox before they hit the case.
         </p>
       </div>
 
@@ -212,7 +219,7 @@ export default function Footer({ ready }: { ready: boolean }) {
               Keep it amazing
             </h2>
             <p style={{ marginTop: 18, maxWidth: '38ch', fontSize: 'var(--type-body)', lineHeight: 1.4, color: 'rgba(251,247,239,.72)' }}>
-              Fresh donuts, cupcakes and custom orders — get the drop on new flavors before anyone else.
+              Fresh donuts, cupcakes and custom orders — get the drop on new flavours before anyone else.
             </p>
 
             {/* Same pills as the certification bar. The kosher marks are
@@ -360,7 +367,7 @@ export default function Footer({ ready }: { ready: boolean }) {
               Company
             </span>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {COMPANY_LINKS.map((link) => (
+              {companyLinks.map((link) => (
                 <li key={link.label}>
                   <a href={link.href} style={{ fontFamily: 'var(--font-label)', fontSize: 15, color: 'var(--navy)' }}>
                     {link.label}
@@ -371,7 +378,7 @@ export default function Footer({ ready }: { ready: boolean }) {
           </nav>
             </>
           ) : (
-            <LinkTabs />
+            <LinkTabs companyLinks={companyLinks} />
           )}
         </motion.div>
 

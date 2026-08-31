@@ -472,7 +472,12 @@ export default function ShopAll() {
                     src={tile.product.img}
                     alt={tile.product.name}
                     loading="lazy"
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.18)' }}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      transform: `scale(${tile.product.id === 'heart-shape-donut' || tile.product.id === 'star-of-david-donut-special-order' ? 0.82 : 1.18})`
+                    }}
                   />
                 </button>
 

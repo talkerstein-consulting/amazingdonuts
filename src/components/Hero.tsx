@@ -38,10 +38,9 @@ export default function Hero({ ready }: { ready: boolean }) {
         {/* The donut sits mid-line, so the break lands after it: two lines,
             the second short. `flexBasis: 100%` is what forces that break —
             the h1 is a flex row, so it cannot be done with a <br>. */}
-        <span>Have an</span>
+        <span>Freshly made,</span>
         <img src="/img/heart-shape-donut-1.png" alt="Heart-shaped donut" style={{ height: 'clamp(0.62em,8vw,1em)', width: 'auto' }} />
-        <span>amazing</span>
-        <span style={{ flexBasis: '100%' }}>morning.</span>
+        <span>all day.</span>
       </motion.h1>
 
       <motion.p
@@ -58,7 +57,7 @@ export default function Hero({ ready }: { ready: boolean }) {
           color: 'rgba(14,62,105,.75)'
         }}
       >
-        Hand-cut and decorated every morning since '97.
+        Hand-cut, decorated and ready whenever the craving shows up.
       </motion.p>
 
       <motion.div

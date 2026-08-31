@@ -36,6 +36,28 @@ export type Icing = { id: string; name: string; key: string | null; swatch: stri
 export type Filling = { id: string; name: string; key: string | null; swatch: string | null; bare?: boolean };
 export type Sprinkle = { id: string; name: string; colors: string[]; bare?: boolean };
 
+const seasonalBases = new Set(['sofgania', 'kids-sofgania']);
+
+/** From 30 days before 25 Kislev through the eight nights of Chanukah. */
+const isSofganiaSeason = (() => {
+  const today = new Date();
+  const hebrew = new Intl.DateTimeFormat('en-u-ca-hebrew', { month: 'long', day: 'numeric' });
+  for (let offset = -40; offset <= 80; offset += 1) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
+    const parts = hebrew.formatToParts(date);
+    const day = parts.find(part => part.type === 'day')?.value;
+    const month = parts.find(part => part.type === 'month')?.value;
+    if (day === '25' && month === 'Kislev') {
+      const opens = new Date(date);
+      opens.setDate(opens.getDate() - 30);
+      const closes = new Date(date);
+      closes.setDate(closes.getDate() + 8);
+      return today >= opens && today < closes;
+    }
+  }
+  return false;
+})();
+
 export const BASES: Base[] = [
   { id: 'round',         name: 'Round Donut',        folder: 'round_donut',               slug: 'round_donut',          note: 'The one people picture.',           scale: 1 },
   { id: 'kids-round',    name: 'Kids Size Round',    folder: 'kids_size_round',           slug: 'kids_round',           note: 'Same donut, smaller hands.',        scale: 0.72 },
@@ -54,7 +76,7 @@ export const BASES: Base[] = [
   { id: 'cookie-2',      name: '2" Cookie',          folder: 'cookie_2in',                slug: 'cookie_2in',           note: 'Small, flat, iced.',                scale: 0.5 },
   { id: 'cookie-3',      name: '3" Cookie',          folder: 'cookie_3in',                slug: 'cookie_3in',           note: 'The printing size.',                scale: 0.72 },
   { id: 'cookie-lg',     name: 'Large Cookie',       folder: 'large_cookie',              slug: 'cookie_large',         note: 'Big enough to share. Nobody does.', scale: 1 }
-];
+].filter(base => isSofganiaSeason || !seasonalBases.has(base.id));
 
 /** `swatch` drives the colour dot; `key` is the filename fragment. */
 export const ICINGS: Icing[] = [
@@ -221,6 +243,9 @@ export const printSpot = (baseId: string) =>
   baseId === 'cupcake' ? { top: 42, size: 31 } : { top: 50, size: 34 };
 
 export const RULES = {
+  /** Cinnamon twists are sold plain and do not enter the topping workflow. */
+  takesIcing: (baseId: string) => baseId !== 'twist',
+
   /** Sofgania / Boston only. */
   takesFilling: (baseId: string) => FILLABLE.has(baseId),
 
@@ -328,9 +353,9 @@ export const STEP_NOTES: Record<StepId, string> = {
 export const stepsFor = (b: Base, ic: Icing): StepId[] => {
   const list: StepId[] = ['base'];
   if (itemForBase(b.id).members.length > 1) list.push('size');
-  list.push('icing');
+  if (RULES.takesIcing(b.id)) list.push('icing');
   if (RULES.takesFilling(b.id)) list.push('filling');
-  if (RULES.takesSprinkles(ic.id)) list.push('sprinkle');
+  if (RULES.takesIcing(b.id) && RULES.takesSprinkles(ic.id)) list.push('sprinkle');
   return list;
 };
 

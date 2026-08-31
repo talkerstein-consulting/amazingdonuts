@@ -8,7 +8,7 @@ import { CATEGORIES, PRODUCTS } from '../data/products';
 import { LAB_HREF } from '../lib/lab-href';
 import { HOME_HREF, onHomeClick } from '../lib/home-href';
 import { SHOP_HREF, shopHref } from '../lib/shop-href';
-import { BULK_HREF, CONTACT_HREF } from '../lib/routes';
+import { CONTACT_HREF } from '../lib/routes';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -18,10 +18,6 @@ const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const NAV_LINKS = [
   { href: SHOP_HREF, label: 'Products' },
   { href: LAB_HREF, label: 'Donut lab' },
-  /* Was '#bulk', the homepage's teaser band. Bulk orders is a real page with
-     the intake form on it, so the nav points at the thing rather than at an
-     advert for the thing. */
-  { href: BULK_HREF, label: 'Bulk orders' },
   { href: CONTACT_HREF, label: 'Contact' }
 ];
 

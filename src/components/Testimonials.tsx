@@ -27,7 +27,7 @@ const RATING = { score: '4.3', of: '5', count: 81 };
 
 const QUOTES = [
   { quote: 'We ordered custom donuts for our son’s Bar Mitzvah and they looked and tasted amazing.', name: 'Sharon I', role: 'Google review', stars: 5 },
-  { quote: 'The glaze was smooth and flavorful, and you can really taste the quality ingredients. Definitely coming back.', name: 'Amandeep S', role: 'Google review', stars: 5 },
+  { quote: 'The glaze was smooth and flavourful, and you can really taste the quality ingredients. Definitely coming back.', name: 'Amandeep S', role: 'Google review', stars: 5 },
   { quote: 'Got a donut cake for my nephew’s b’day and he loved it… their donuts are koshered good and staff was nice, so therefore a hidden gem.', name: 'Ken N', role: 'Google review', stars: 4 },
   { quote: 'I had driven by here numerous times before work and finally I stopped in… The donuts were so good! The service was amazing.', name: 'Brian P', role: 'Google review', stars: 5 },
   { quote: 'We got challah and donuts a few times here. Very good, Friday mornings it’s a rush.', name: 'Hernan Garcia', role: 'Google review', stars: 5 },
