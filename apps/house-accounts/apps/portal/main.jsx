@@ -93,15 +93,15 @@ const demoManagers = [
 ];
 const navItems = [
   { id: "overview", label: "Overview", Icon: LayoutDashboard },
-  { id: "notifications", label: "Notifications", Icon: Bell },
-  { id: "requests", label: "House applications", Icon: Building2 },
-  { id: "bulk-requests", label: "Bulk requests", Icon: ClipboardList },
-  { id: "accounts", label: "Accounts", Icon: Building2 },
   { id: "statements", label: "Statements", Icon: ReceiptText },
   { id: "orders", label: "Orders", Icon: Package },
-  { id: "purchasers", label: "Purchasers", Icon: Users },
-  { id: "careers", label: "Careers", Icon: BriefcaseBusiness },
+  { id: "accounts", label: "Accounts", Icon: Building2 },
+  { id: "notifications", label: "Notifications", Icon: Bell },
+  { id: "requests", label: "House applications", Icon: Building2, groupStart: true },
+  { id: "bulk-requests", label: "Bulk requests", Icon: ClipboardList },
+  { id: "purchasers", label: "Purchasers", Icon: Users, groupStart: true },
   { id: "managers", label: "Account managers", Icon: UserCog, ownerOnly: true },
+  { id: "careers", label: "Careers", Icon: BriefcaseBusiness },
 ];
 const viewFromHash = () => {
   const candidate = location.hash.slice(1);
@@ -284,8 +284,8 @@ function Shell({ user, view, onView, pending, onRefresh, onLogout, children }) {
         <nav>
           {navItems
             .filter((x) => (staff || customerViews.includes(x.id)) && (!x.ownerOnly || user.role === "owner"))
-            .map(({ id, label, Icon }) => (
-              <a key={id} href={`#${id}`} className={view === id ? "active" : ""} aria-current={view === id ? "page" : undefined} title={label} onClick={() => onView(id)}>
+            .map(({ id, label, Icon, groupStart }) => (
+              <a key={id} href={`#${id}`} className={`${view === id ? "active" : ""}${groupStart ? " group-start" : ""}`} aria-current={view === id ? "page" : undefined} title={label} onClick={() => onView(id)}>
                 <Icon />
                 <span>{label}</span>
                 {pending?.[id] ? <b>{pending[id]}</b> : null}
@@ -383,22 +383,41 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
   if (view === "careers") return <CareersManager careers={careers} setCareers={setCareers} demo={demo} />;
   if (view === "managers" && user.role === "owner") return <ManagerAdmin managers={managers} setManagers={setManagers} demo={demo} />;
   if (view === "notifications") return <NotificationCenter notifications={notifications} setNotifications={setNotifications} demo={demo}/>;
+  if (view === "overview") return <OwnerOverview totals={totals} accounts={accounts} statements={statements} orders={orders} applications={applications} bulkRequests={bulkRequests} notifications={notifications} demo={demo} />;
   return (
     <main className="dashboard">
-      {view === "overview" ? (
-        <><section className="metrics">
-          <Metric label="Receivables" value={cash(totals.owed)} note={`${accounts.length} organizations`} tone="magenta" />
-          <Metric label="Available credit" value={cash(totals.available)} note="Across active accounts" tone="green" />
-          <Metric label="Reserved" value={cash(totals.reserved)} note="Pending online orders" tone="yellow" />
-          <Metric label="Approved credit" value={cash(totals.approved)} note="Across active accounts" tone="green" />
-        </section><EmailHealth demo={demo}/></>
-      ) : null}
       <section className="admin-grid">
         <AccountList accounts={visible} account={account} query={query} setQuery={setQuery} setSelected={setSelected} />
         {account ? <AccountDetail account={account} staff demo={demo} /> : <div className="empty">No account selected.</div>}
       </section>
     </main>
   );
+}
+
+function OwnerOverview({ totals, accounts, statements, orders, applications, bulkRequests, notifications, demo }) {
+  const openStatements = statements.filter((item) => !["paid", "void"].includes(item.status)).length;
+  const pendingApplications = applications.filter((item) => item.status === "pending").length;
+  const pendingBulk = bulkRequests.filter((item) => item.status === "pending").length;
+  const unread = notifications.filter((item) => !item.read_at).length;
+  const priorities = [
+    { href: "#statements", Icon: ReceiptText, label: "Statements", value: openStatements, detail: "open or awaiting payment" },
+    { href: "#orders", Icon: Package, label: "Orders", value: orders.length, detail: "house-account orders" },
+    { href: "#accounts", Icon: Building2, label: "Accounts & invoices", value: accounts.length, detail: `${cash(totals.owed)} receivable` },
+    { href: pendingApplications ? "#requests" : pendingBulk ? "#bulk-requests" : "#notifications", Icon: Bell, label: "Needs attention", value: pendingApplications + pendingBulk + unread, detail: `${pendingApplications} applications · ${pendingBulk} bulk · ${unread} unread` },
+  ];
+  return <main className="dashboard owner-overview">
+    <section className="metrics">
+      <Metric label="Receivables" value={cash(totals.owed)} note={`${accounts.length} organizations`} tone="magenta" />
+      <Metric label="Available credit" value={cash(totals.available)} note="Across active accounts" tone="green" />
+      <Metric label="Reserved" value={cash(totals.reserved)} note="Pending online orders" tone="yellow" />
+      <Metric label="Approved credit" value={cash(totals.approved)} note="Across active accounts" tone="green" />
+    </section>
+    <section className="priority-panel">
+      <header><div><span>Daily operations</span><h2>Owner work queue</h2></div><p>Money movement and customer commitments first.</p></header>
+      <div className="priority-links">{priorities.map(({ href, Icon, label, value, detail }) => <a href={href} key={label}><Icon/><span><strong>{label}</strong><small>{detail}</small></span><b>{value}</b></a>)}</div>
+    </section>
+    <EmailHealth demo={demo}/>
+  </main>;
 }
 
 function EmailHealth({demo}) {
@@ -958,7 +977,7 @@ function Metric({ label, value, note, tone }) {
   );
 }
 function AccountDetail({ account, staff, demo }) {
-  const [tab, setTab] = useState("activity"),
+  const [tab, setTab] = useState(staff ? "statements" : "activity"),
     used = Number(account.credit.balance || account.credit.postedBalance || 0),
     limit = Number(account.credit.creditLimit || 0),
     percent = limit ? Math.min(100, (used / limit) * 100) : 0;
@@ -988,7 +1007,17 @@ function AccountDetail({ account, staff, demo }) {
           {cash(account.credit.available, account.currency)} available · {cash(account.credit.reserved, account.currency)} reserved
         </p>
       </div>
-      {staff ? (
+      <nav className="detail-tabs account-priority-tabs" aria-label="Account workspace">
+        <button className={tab === "statements" ? "active" : ""} onClick={() => setTab("statements")}>Statements</button>
+        <button className={tab === "activity" ? "active" : ""} onClick={() => setTab("activity")}>Activity</button>
+        <button className={tab === "orders" ? "active" : ""} onClick={() => setTab("orders")}>Orders</button>
+        {staff ? <button className={tab === "billing" ? "active" : ""} onClick={() => setTab("billing")}>Billing setup</button> : null}
+        {staff ? <button className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>Team</button> : null}
+      </nav>
+      {tab === "statements" ? <Statements account={account} staff={staff} demo={demo} /> : null}
+      {tab === "activity" ? <Activity entries={account.ledger} account={account} staff={staff} demo={demo} /> : null}
+      {tab === "orders" ? <OrderTable orders={account.orders} /> : null}
+      {staff && tab === "billing" ? (
         <section className="settings-section billing-settings">
           <header><div><span>Account settings</span><h3>Credit & billing</h3></div><p>Control the approved balance, payment terms, and statement schedule.</p></header>
         <form
@@ -1063,20 +1092,8 @@ function AccountDetail({ account, staff, demo }) {
         </form>
         </section>
       ) : null}
-      {staff ? <AdminCardManager account={account} demo={demo} /> : null}
-      {staff ? <AccountMemberForm account={account} /> : null}
-      <nav className="detail-tabs">
-        <button className={tab === "activity" ? "active" : ""} onClick={() => setTab("activity")}>
-          Activity
-        </button>
-        <button className={tab === "statements" ? "active" : ""} onClick={() => setTab("statements")}>
-          Statements
-        </button>
-        <button className={tab === "orders" ? "active" : ""} onClick={() => setTab("orders")}>
-          Orders
-        </button>
-      </nav>
-      {tab === "activity" ? <Activity entries={account.ledger} account={account} staff={staff} demo={demo} /> : tab === "statements" ? <Statements account={account} staff={staff} demo={demo} /> : <OrderTable orders={account.orders} />}
+      {staff && tab === "billing" ? <AdminCardManager account={account} demo={demo} /> : null}
+      {staff && tab === "team" ? <AccountMemberForm account={account} /> : null}
     </article>
   );
 }
