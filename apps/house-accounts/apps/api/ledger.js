@@ -3,12 +3,20 @@ import { transaction } from "./db.js";
 export async function accountCredit(client, accountId) {
   const result = await client.query(`SELECT a.credit_limit,
     COALESCE((SELECT SUM(p.amount) FROM journal_postings p WHERE p.account_id=a.id AND p.ledger_account='accounts_receivable'),0)::bigint AS balance,
-    COALESCE((SELECT SUM(r.amount) FROM credit_reservations r WHERE r.account_id=a.id AND r.status='active'),0)::bigint AS reserved
+    COALESCE((SELECT SUM(r.amount) FROM credit_reservations r WHERE r.account_id=a.id AND r.status='active' AND r.expires_at>now()),0)::bigint AS reserved
     FROM accounts a WHERE a.id=$1`, [accountId]);
   if (!result.rowCount) throw Object.assign(new Error("Account not found."), { status:404 });
   const row = result.rows[0];
   const creditLimit = Number(row.credit_limit), balance = Number(row.balance), reserved = Number(row.reserved);
   return { creditLimit, balance, reserved, available:creditLimit-balance-reserved };
+}
+
+export function institutionalOrderStatus(squarePaymentStatus) {
+  const status=String(squarePaymentStatus||"").toUpperCase();
+  if(status==="COMPLETED"||status==="APPROVED")return "posted";
+  if(status==="CANCELED"||status==="CANCELLED")return "cancelled";
+  if(status==="REFUNDED")return "refunded";
+  return "review";
 }
 
 export async function reserveCredit(pool, { accountId, amount, idempotencyKey }) {
