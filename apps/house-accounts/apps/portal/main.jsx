@@ -1176,8 +1176,8 @@ function AccountMemberForm({ account }) {
     <section className="settings-section team-settings">
       <header><div><span>Access</span><h3>Team members</h3></div><p>Add an existing website customer and control what they can do.</p></header>
     <div className="account-member-list">
-      <div className="account-member-head"><span>Member</span><span>Organization role</span><span>Access</span><span>Order limit</span><span>Status</span></div>
-      {account.purchasers?.length ? account.purchasers.map(member=><article key={member.id}><div><strong>{member.display_name||`${member.first_name||""} ${member.last_name||""}`.trim()}</strong><small>{member.email}{member.phone?` · ${formatPhone(member.phone)}`:""}</small></div><span>{String(member.organization_role||"Staff").replaceAll("_"," ")}</span><span>{member.role==="account_admin"?"Administrator":member.role}</span><span>{member.purchase_limit==null?"No limit":cash(member.purchase_limit)}</span><span><b className={`status ${member.status}`}>{member.status}</b><small>{member.has_pin?"PIN set":"No PIN"}</small></span></article>) : <p className="empty-row">No team members are linked to this account yet.</p>}
+      <div className="account-member-head"><span>Member</span><span>Organization role</span><span>Access</span><span>Order limit</span><span>Status</span><span>PIN</span></div>
+      {account.purchasers?.length ? account.purchasers.map(member=><AccountMemberRow account={account} member={member} key={member.id}/>) : <p className="empty-row">No team members are linked to this account yet.</p>}
     </div>
     <div className="team-add-heading"><span>Add another member</span><p>The customer must already have a website login.</p></div>
     <form
@@ -1231,6 +1231,11 @@ function AccountMemberForm({ account }) {
     </form>
     </section>
   );
+}
+function AccountMemberRow({account,member}){
+  const [editing,setEditing]=useState(false),[visible,setVisible]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
+  const save=async(event)=>{event.preventDefault();setBusy(true);setMessage("");const pin=new FormData(event.currentTarget).get("pin");try{await request(`/admin/accounts/${account.id}/purchasers/${member.id}/pin`,{method:"PATCH",body:JSON.stringify({pin})});setMessage("PIN updated.");setEditing(false);setTimeout(()=>location.reload(),350);}catch(cause){setMessage(cause.message);}finally{setBusy(false);}};
+  return <article><div><strong>{member.display_name||`${member.first_name||""} ${member.last_name||""}`.trim()}</strong><small>{member.email}{member.phone?` · ${formatPhone(member.phone)}`:""}</small></div><span>{String(member.organization_role||"Staff").replaceAll("_"," ")}</span><span>{member.role==="account_admin"?"Administrator":member.role}</span><span>{member.purchase_limit==null?"No limit":cash(member.purchase_limit)}</span><span><b className={`status ${member.status}`}>{member.status}</b></span><span className="member-pin-control">{editing?<form onSubmit={save}><span className="portal-pin-field"><input name="pin" type={visible?"text":"password"} inputMode="numeric" pattern="[0-9]{4,8}" minLength="4" maxLength="8" autoFocus required/><button type="button" onClick={()=>setVisible(current=>!current)} aria-label={visible?"Hide new PIN":"Show new PIN"}>{visible?<EyeOff/>:<Eye/>}</button></span><span><button disabled={busy}>{busy?"Saving...":"Save"}</button><button type="button" onClick={()=>{setEditing(false);setMessage("");}}>Cancel</button></span></form>:<><small>{member.has_pin?"PIN securely set":"No PIN set"}</small><button type="button" onClick={()=>setEditing(true)}>{member.has_pin?"Reset PIN":"Set PIN"}</button></>}{message?<small role="status">{message}</small>:null}</span></article>;
 }
 function Activity({ entries = [], account, staff, demo }) {
   return (
