@@ -23,6 +23,7 @@ import '../index.css';
 import '../components/brand/brand.css';
 import '../shop/shop.css';
 import { SquircleDefs, BrandButton, C, F } from '../components/brand';
+import { formatNorthAmericanPhone } from '../lib/phone';
 import { NavThemeProvider } from '../lib/nav-theme';
 import { ShopProvider } from '../lib/shop';
 import { initSmoothScroll } from '../lib/smooth-scroll';
@@ -424,7 +425,7 @@ function IntakeForm() {
           <input
             type="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(formatNorthAmericanPhone(e.target.value))}
             style={field}
             autoComplete="tel"
           />

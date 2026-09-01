@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Building2, CreditCard, Heart, LogOut, Package, ReceiptText, UserRound } from "lucide-react";
+import { useEffect, useRef, useState, type InputHTMLAttributes } from "react";
+import { ArrowLeft, Building2, CreditCard, Eye, EyeOff, Heart, LogOut, Package, ReceiptText, UserRound } from "lucide-react";
 import { PRODUCTS } from "../data/products";
 import AuthModal from "../shop/AuthModal";
 import CommerceLogo from "./CommerceLogo";
@@ -8,6 +8,7 @@ import "../components/brand/brand.css";
 import "../shop/shop.css";
 import "./commerce.css";
 import AddressAutocomplete, { type Address, type SavedAddress } from "../components/AddressAutocomplete";
+import { formatNorthAmericanPhone } from "../lib/phone";
 
 const cash = (n: number, c = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency: c }).format(Number(n || 0) / 100);
 const organizationRoles: Record<string, [string, string][]> = {
@@ -53,6 +54,11 @@ const day = (v: string) =>
     month: "short",
     day: "numeric",
   });
+function PinField({name,value,onChange,placeholder,required=false}:{name?:string;value?:string;onChange?:(value:string)=>void;placeholder?:string;required?:boolean}){
+  const [visible,setVisible]=useState(false);
+  return <div className="pin-field"><input name={name} type={visible?"text":"password"} inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} value={value} onChange={onChange?event=>onChange(event.target.value):undefined} placeholder={placeholder} autoComplete="new-password" required={required}/><button type="button" onClick={()=>setVisible(current=>!current)} aria-label={visible?"Hide PIN":"Show PIN"}>{visible?<EyeOff/>:<Eye/>}</button></div>;
+}
+const MoneyField=({name,...props}:{name:string}&InputHTMLAttributes<HTMLInputElement>)=><div className="storefront-money-input"><span aria-hidden="true">$</span><input name={name} type="number" {...props}/></div>;
 async function api(path: string, options?: RequestInit) {
   const response = await fetch(`/api/house${path}`, {
     headers: {
@@ -321,7 +327,7 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
         </label>
         <label>
           <span>Phone</span>
-          <input name="phone" defaultValue={profile.default_phone || profile.phone || ""} />
+          <input name="phone" type="tel" defaultValue={formatNorthAmericanPhone(profile.default_phone || profile.phone || "")} onInput={event=>event.currentTarget.value=formatNorthAmericanPhone(event.currentTarget.value)} autoComplete="tel" />
         </label>
         <label className="wide">
           <span>Street address</span>
@@ -379,6 +385,7 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
             <p>A card on file is required before credit purchases are enabled.</p>
           )}
         </div>
+        {session.houseAccount.role === "account_admin" && account ? <OrganizationSettings account={account} /> : null}
         {!session.houseAccount.card || new URLSearchParams(location.search).has("replace-card") ? <SaveHouseCard session={session} onSaved={() => location.reload()} /> : null}
         {session.houseAccount.role === "account_admin" ? <CustomerMemberManager session={session} account={account} /> : null}
         {account?.ledger?.length ? (
@@ -494,15 +501,15 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
         </label>
         <label>
           <span>Phone</span>
-          <input name="phone" type="tel" defaultValue={session.profile?.default_phone || session.profile?.phone || ""} />
+          <input name="phone" type="tel" defaultValue={formatNorthAmericanPhone(session.profile?.default_phone || session.profile?.phone || "")} onInput={event=>event.currentTarget.value=formatNorthAmericanPhone(event.currentTarget.value)} autoComplete="tel" />
         </label>
         <label>
           <span>Requested credit limit</span>
-          <input name="requestedCreditLimit" type="number" min="0" step="100" required />
+          <MoneyField name="requestedCreditLimit" min="0" step="100" required />
         </label>
         <label>
           <span>Typical order total</span>
-          <input name="estimatedOrderTotal" type="number" min="0" step="25" defaultValue="0" required />
+          <MoneyField name="estimatedOrderTotal" min="0" step="25" defaultValue="0" required />
         </label>
         <label>
           <span>Billing frequency</span>
@@ -514,9 +521,9 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
         </label>
         <label>
           <span>Organization authorization PIN</span>
-          <input name="organizationPin" type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} autoComplete="new-password" required />
+          <PinField name="organizationPin" required />
         </label>
-        <fieldset className="wide authorized-purchasers"><legend>Additional authorized purchasers</legend><p>The applicant is automatically the account administrator. Give each additional purchaser their own 4 to 8 digit PIN.</p>{purchasers.map((person, index) => <div className="authorized-purchaser-row" key={index}><label><span>Name</span><input value={person.name} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name:event.target.value } : item))}/></label><label><span>Email</span><input type="email" value={person.email} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, email:event.target.value } : item))}/></label><label><span>Role</span><input value={person.organizationRole} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, organizationRole:event.target.value } : item))}/></label><label><span>Personal PIN</span><input type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} value={person.pin} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, pin:event.target.value } : item))}/></label>{purchasers.length > 1 ? <button type="button" onClick={() => setPurchasers((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</button> : null}</div>)}<button type="button" onClick={() => setPurchasers((current) => [...current,{ name:"",email:"",organizationRole:"Purchaser",pin:"" }])}>Add another purchaser</button></fieldset>
+        <fieldset className="wide authorized-purchasers"><legend>Additional authorized purchasers</legend><p>The applicant is automatically the account administrator. Give each additional purchaser their own 4 to 8 digit PIN.</p>{purchasers.map((person, index) => <div className="authorized-purchaser-row" key={index}><label><span>Name</span><input value={person.name} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name:event.target.value } : item))}/></label><label><span>Email</span><input type="email" value={person.email} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, email:event.target.value } : item))}/></label><label><span>Role</span><input value={person.organizationRole} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, organizationRole:event.target.value } : item))}/></label><label><span>Personal PIN</span><PinField value={person.pin} onChange={pin=>setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, pin } : item))} required/></label>{purchasers.length > 1 ? <button type="button" onClick={() => setPurchasers((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</button> : null}</div>)}<button type="button" onClick={() => setPurchasers((current) => [...current,{ name:"",email:"",organizationRole:"Purchaser",pin:"" }])}>Add another purchaser</button></fieldset>
         <label className="wide">
           <span>About your ordering needs</span>
           <textarea name="notes" rows={5} maxLength={3000} placeholder="Typical order size, frequency, and billing contact details" />
@@ -532,6 +539,24 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
       </form>
     </>
   );
+}
+
+function OrganizationSettings({account}:{account:any}){
+  const [message,setMessage]=useState(""),address=account.metadata?.address||{};
+  return <section className="organization-settings"><div className="section-heading"><p>Organization profile</p><h2>Account details</h2><span>Keep invoice, contact, and authorization details current.</span></div><form className="house-application-form" onSubmit={async event=>{event.preventDefault();setMessage("");const data=new FormData(event.currentTarget);try{await api("/storefront/house-settings",{method:"PATCH",body:JSON.stringify({organizationName:data.get("organizationName"),organizationType:data.get("organizationType"),billingContact:data.get("billingContact"),billingEmail:data.get("billingEmail"),phone:data.get("phone"),organizationPin:data.get("organizationPin"),address:{addressLine1:data.get("addressLine1"),addressLine2:data.get("addressLine2"),locality:data.get("locality"),administrativeDistrictLevel1:data.get("province"),postalCode:data.get("postalCode"),country:"CA"}})});setMessage("Organization details updated.");}catch(cause){setMessage(cause instanceof Error?cause.message:"Details could not be updated.");}}}>
+    <label><span>Organization name</span><input name="organizationName" defaultValue={account.organization_name} required/></label>
+    <label><span>Organization type</span><select name="organizationType" defaultValue={account.metadata?.organizationType||"Other business"}>{Object.keys(organizationRoles).map(type=><option key={type}>{type}</option>)}</select></label>
+    <label><span>Billing contact</span><input name="billingContact" defaultValue={account.billing_contact} required/></label>
+    <label><span>Invoice email</span><input name="billingEmail" type="email" defaultValue={account.billing_email} required/></label>
+    <label><span>Phone</span><input name="phone" type="tel" defaultValue={formatNorthAmericanPhone(account.metadata?.phone||"")} onInput={event=>event.currentTarget.value=formatNorthAmericanPhone(event.currentTarget.value)} autoComplete="tel"/></label>
+    <label><span>Reset organization PIN <small>Optional</small></span><PinField name="organizationPin" placeholder="Leave unchanged"/></label>
+    <label className="wide"><span>Street address</span><input name="addressLine1" defaultValue={address.addressLine1||""} autoComplete="street-address"/></label>
+    <label><span>Unit</span><input name="addressLine2" defaultValue={address.addressLine2||""} autoComplete="address-line2"/></label>
+    <label><span>City</span><input name="locality" defaultValue={address.locality||"Toronto"} autoComplete="address-level2"/></label>
+    <label><span>Province</span><input name="province" defaultValue={address.administrativeDistrictLevel1||"ON"} autoComplete="address-level1"/></label>
+    <label><span>Postal code</span><input name="postalCode" defaultValue={address.postalCode||""} autoComplete="postal-code"/></label>
+    {message?<p className="profile-message wide" role="status">{message}</p>:null}<button className="wide">Save account details</button>
+  </form></section>;
 }
 
 function CustomerMemberManager({ session, account }: { session: any; account: any }) {
@@ -590,11 +615,11 @@ function CustomerMemberManager({ session, account }: { session: any; account: an
         </label>
         <label>
           <span>Purchase limit</span>
-          <input name="purchaseLimit" type="number" min="0" step="1" />
+          <MoneyField name="purchaseLimit" min="0" step="1" />
         </label>
         <label>
           <span>Personal authorization PIN</span>
-          <input name="pin" type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} required />
+          <PinField name="pin" required />
         </label>
         <button>Add member</button>
         {message ? <p className="wide">{message}</p> : null}
@@ -606,7 +631,7 @@ function CustomerMemberManager({ session, account }: { session: any; account: an
               <header>
                 <div>
                   <strong>
-                    {member.first_name} {member.last_name}
+                    {member.display_name || `${member.first_name} ${member.last_name}`}
                   </strong>
                   <span>{member.email}</span>
                 </div>
@@ -654,7 +679,7 @@ function SaveHouseCard({ session, onSaved }: { session: any; onSaved: () => void
   }, []);
   return (
     <form
-      className="house-application-form"
+      className="house-card-form"
       onSubmit={async (event) => {
         event.preventDefault();
         setBusy(true);
@@ -690,17 +715,17 @@ function SaveHouseCard({ session, onSaved }: { session: any; onSaved: () => void
         }
       }}
     >
-      <div className="wide">
+      <div>
         <h2>Add a card on file</h2>
         <p>This card secures the credit account and may be charged for statement balances.</p>
         <div id="house-card-fields" className="square-card" />
       </div>
-      <label className="wide no-contact">
+      <label className="house-card-consent">
         <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
         <span>I authorize Amazing Donuts to save this card and charge outstanding statements when due.</span>
       </label>
-      {error ? <p className="checkout-error wide">{error}</p> : null}
-      <button className="wide" disabled={!ready || !consent || busy}>
+      {error ? <p className="checkout-error">{error}</p> : null}
+      <button disabled={!ready || !consent || busy}>
         {busy ? "Saving card..." : "Save card and enable credit"}
       </button>
     </form>

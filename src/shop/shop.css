@@ -1297,7 +1297,7 @@
 .authorized-purchasers{margin:4px 0;padding:18px;border:1px solid rgba(14,62,105,.2)}.authorized-purchasers legend{padding:0 8px;font-weight:800}.authorized-purchasers>p{margin:0 0 14px;color:var(--muted);font-size:13px}.authorized-purchaser-row{display:grid;grid-template-columns:1fr 1fr .8fr auto;gap:10px;align-items:end;margin-top:10px}.authorized-purchaser-row button{min-height:50px;padding:0 14px;background:transparent;color:var(--navy);border:1px solid rgba(14,62,105,.28)}.authorized-purchasers>button{margin-top:14px;padding:0 18px}@media(max-width:760px){.authorized-purchaser-row{grid-template-columns:1fr}.authorized-purchaser-row button{width:100%}}
 .house-application-status { margin-top: 30px; padding: 28px; border-radius: var(--radius-panel); background: #fff; color: var(--navy); }
 .house-application-status > svg { width: 36px; height: 36px; color: var(--pink); }
-.house-application-status h2 { margin: 14px 0 8px; }
+.house-application-status h2 { margin:14px 0 8px; font-family:var(--font-display); font-size:clamp(38px,4vw,58px); font-weight:400; line-height:.95; }
 .house-application-status > strong { text-transform: capitalize; }
 .house-application-status a { min-height: 48px; margin-top: 18px; padding: 0 18px; display: inline-flex; align-items: center; background: var(--orange); color: #fff; font-weight: 800; }
 .house-application-status a:hover,

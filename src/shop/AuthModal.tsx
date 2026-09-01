@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Eye, EyeOff, X } from 'lucide-react';
+import { formatNorthAmericanPhone } from '../lib/phone';
 import { C, F } from '../components/brand';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -169,7 +170,7 @@ export default function AuthModal({ open, onClose, onSuccess }: { open: boolean;
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div></>}
-                {mode === 'up' && <><label className="auth__label" htmlFor="auth-phone">Phone</label><input id="auth-phone" className="auth__input" type="tel" required autoComplete="tel" value={phone} onChange={e=>setPhone(e.target.value)}/></>}
+                {mode === 'up' && <><label className="auth__label" htmlFor="auth-phone">Phone</label><input id="auth-phone" className="auth__input" type="tel" required autoComplete="tel" value={phone} onChange={e=>setPhone(formatNorthAmericanPhone(e.target.value))}/></>}
                 {error && <p className="auth__error" role="alert">{error}</p>}
 
                 <button type="submit" className="auth__submit brand-press" disabled={busy}>

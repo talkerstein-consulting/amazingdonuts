@@ -870,6 +870,7 @@
 .delete-account { margin-top:32px; padding:22px 24px; display:flex; align-items:center; justify-content:space-between; gap:24px; border-radius:var(--radius-panel); background:rgba(179,58,17,.07); box-shadow:inset 0 0 0 1.5px rgba(179,58,17,.22); }
 .delete-account p { margin:0 0 4px; color:var(--text-price); font-family:var(--font-cta); font-size:var(--fs-label); font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
 .delete-account h2 { margin:0 0 6px; color:var(--navy); }
+.delete-account h2,.section-heading h2 { font-family:var(--font-display); font-size:clamp(38px,4vw,58px); font-weight:400; line-height:.95; }
 .delete-account span { color:var(--text-body); }
 .delete-account > button,.delete-account__confirm div button { flex:0 0 auto; min-height:44px; padding:0 18px; border:1.5px solid var(--text-price); border-radius:99px; background:transparent; color:var(--text-price); font-family:var(--font-cta); font-weight:800; cursor:pointer; }
 .delete-account__confirm { width:min(360px,100%); display:grid; gap:10px; }
@@ -893,13 +894,35 @@
 .house-application-form label { display:grid; gap:7px; margin-top:14px; }
 .house-application-form label > span,.house-application-form legend { color:var(--navy); font-family:var(--font-cta); font-size:var(--fs-label); font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
 .house-application-form input,.house-application-form select,.house-application-form textarea { width:100%; min-height:52px; padding:0 16px; border:0; border-radius:16px; box-shadow:inset 0 0 0 2px rgba(14,62,105,.2); background:var(--cream); color:var(--navy); font:inherit; }
+.storefront-money-input,.pin-field { position:relative; }
+.storefront-money-input > span { position:absolute; z-index:1; left:18px; top:50%; transform:translateY(-50%); color:var(--text-body); font-weight:800; }
+.house-application-form .storefront-money-input input { padding-left:36px; }
+.pin-field input { padding-right:54px!important; }
+.pin-field button { position:absolute; top:0; right:0; width:52px; min-height:52px; margin:0; padding:0; display:grid; place-items:center; border-radius:0 16px 16px 0; background:transparent; color:var(--navy); }
+.pin-field button svg { width:20px; }
 .house-application-form textarea { min-height:130px; padding-block:16px; resize:vertical; }
 .house-application-form .wide { grid-column:1/-1; }
 .house-application-form fieldset { margin:22px 0 0; padding:20px; border:0; border-radius:16px; background:rgba(255,255,255,.5); box-shadow:inset 0 0 0 1.5px rgba(14,62,105,.14); }
 .house-application-form fieldset > p { margin:6px 0 10px; color:var(--text-body); }
 .authorized-purchaser-row { display:grid; grid-template-columns:1.1fr 1.1fr .8fr .7fr; gap:12px; align-items:end; padding:10px 0 18px; border-bottom:1px solid rgba(14,62,105,.12); }
 .house-application-form button { min-height:54px; margin-top:18px; padding:0 24px; border:0; border-radius:99px; background:var(--orange); color:#fff; font-family:var(--font-cta); font-size:var(--fs-body); font-weight:800; cursor:pointer; }
+.house-application-form .pin-field button { top:0; width:52px; min-height:52px; margin:0; padding:0; border-radius:0 16px 16px 0; background:transparent; color:var(--navy); }
 .authorized-purchaser-row button { min-height:auto; padding:8px 0; border-radius:0; background:transparent; color:var(--text-price); text-decoration:underline; }
+.organization-settings { margin-top:34px; }
+.section-heading p { margin:0 0 6px; color:var(--text-price); font-family:var(--font-cta); font-size:var(--fs-label); font-weight:800; text-transform:uppercase; }
+.section-heading h2 { margin:0; color:var(--navy); }
+.section-heading span { display:block; margin-top:8px; color:var(--text-body); }
+.house-card-form { margin-top:28px; padding:clamp(20px,3vw,34px); display:grid; gap:18px; border-radius:var(--radius-panel); background:var(--sand); }
+.house-card-form h2 { margin:0; font-family:var(--font-display); font-size:clamp(38px,4vw,54px); font-weight:400; line-height:.95; }
+.house-card-form p { color:var(--text-body); }
+.house-card-consent { display:grid; grid-template-columns:22px minmax(0,1fr); align-items:start; gap:12px; padding:14px 16px; border-radius:14px; background:rgba(255,255,255,.58); color:var(--navy); }
+.house-card-consent input { width:22px!important; height:22px!important; min-height:22px!important; margin:1px 0 0!important; padding:0!important; }
+.house-card-consent span { line-height:1.45; }
+.house-card-form > button { min-height:54px; padding:0 24px; border:0; border-radius:99px; background:var(--orange); color:#fff; font-family:var(--font-cta); font-weight:800; }
+.save-card-choice { margin-top:16px; padding:16px; display:grid!important; grid-template-columns:22px minmax(0,1fr); align-items:start; gap:12px!important; border-radius:16px; background:var(--sand); box-shadow:inset 0 0 0 1.5px rgba(14,62,105,.18); }
+.save-card-choice input { width:22px!important; height:22px!important; min-height:22px!important; margin:1px 0 0!important; }
+.save-card-choice span,.save-card-choice strong,.save-card-choice small { display:block; }
+.save-card-choice small { margin-top:4px; color:var(--text-body); line-height:1.45; }
 
 .account-message {
   padding: 13px 16px;

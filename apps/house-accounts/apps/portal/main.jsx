@@ -12,6 +12,7 @@ import "./portal-controls.css";
 
 const brandIcon = `${import.meta.env.BASE_URL}favicon.png`;
 const cash = (amount, currency = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(Number(amount || 0) / 100);
+const formatPhone=value=>{const raw=String(value||"").replace(/\D/g,"").slice(0,11),national=raw.startsWith("1")?raw.slice(1):raw.slice(0,10);if(!national)return raw?"+1":"";const area=national.slice(0,3),exchange=national.slice(3,6),line=national.slice(6,10);return `+1${area?` (${area}${area.length===3?")":""}`:""}${exchange?` ${exchange}`:""}${line?`-${line}`:""}`;};
 const organizationRoles = {
   School: [
     ["principal", "Principal"],
@@ -646,7 +647,7 @@ function HouseApplicationDetail({ application, demo, onReviewed }) {
           <h2>{application.organization_name}</h2>
           <span>
             {application.contact_name} · <a href={`mailto:${application.email}`}>{application.email}</a>
-            {application.phone ? ` · ${application.phone}` : ""}
+            {application.phone ? ` · ${formatPhone(application.phone)}` : ""}
           </span>
         </div>
         <span className={`status ${application.status}`}>{application.status}</span>
@@ -678,7 +679,7 @@ function HouseApplicationDetail({ application, demo, onReviewed }) {
         >
           <label>
             <span>Credit limit</span>
-            <input name="creditLimit" type="number" min="0" step=".01" defaultValue={Number(application.requested_credit_limit || 100000) / 100} required />
+            <div className="money-input"><span aria-hidden="true">$</span><input name="creditLimit" type="number" min="0" step=".01" defaultValue={Number(application.requested_credit_limit || 100000) / 100} required /></div>
           </label>
           <label>
             <span>Terms</span>
@@ -776,7 +777,7 @@ function BulkRequestDetail({ item, demo, onReviewed }) {
           <h2>{item.organization_name}</h2>
           <span>
             {item.contact_name} · <a href={`mailto:${item.email}`}>{item.email}</a>
-            {item.phone ? ` · ${item.phone}` : ""}
+            {item.phone ? ` · ${formatPhone(item.phone)}` : ""}
           </span>
         </div>
         <span className={`status ${item.status}`}>{item.status}</span>
@@ -867,7 +868,7 @@ function ApplicationDetail({ application, demo, onReviewed }) {
           <h2>{application.organization_name}</h2>
           <span>
             {application.contact_name} · <a href={`mailto:${application.email}`}>{application.email}</a>
-            {application.phone ? ` · ${application.phone}` : ""}
+            {application.phone ? ` · ${formatPhone(application.phone)}` : ""}
           </span>
         </div>
         <span className={`status ${application.status}`}>{application.status}</span>
@@ -904,7 +905,7 @@ function ApplicationDetail({ application, demo, onReviewed }) {
         >
           <label>
             <span>Credit limit</span>
-            <input name="creditLimit" type="number" min="0" step=".01" defaultValue="1000" required />
+            <div className="money-input"><span aria-hidden="true">$</span><input name="creditLimit" type="number" min="0" step=".01" defaultValue="1000" required /></div>
           </label>
           <label>
             <span>Terms</span>
@@ -982,6 +983,7 @@ function AccountDetail({ account, staff, demo }) {
     used = Number(account.credit.balance || account.credit.postedBalance || 0),
     limit = Number(account.credit.creditLimit || 0),
     percent = limit ? Math.min(100, (used / limit) * 100) : 0;
+  const [showBillingPin,setShowBillingPin]=useState(false);
   return (
     <article className="account-detail">
       <div className="account-title">
@@ -1018,6 +1020,9 @@ function AccountDetail({ account, staff, demo }) {
       {tab === "statements" ? <Statements account={account} staff={staff} demo={demo} /> : null}
       {tab === "activity" ? <Activity entries={account.ledger} account={account} staff={staff} demo={demo} /> : null}
       {tab === "orders" ? <OrderTable orders={account.orders} /> : null}
+      {staff && tab === "billing" ? (
+        <AdminOrganizationSettings account={account} demo={demo} />
+      ) : null}
       {staff && tab === "billing" ? (
         <section className="settings-section billing-settings">
           <header><div><span>Account settings</span><h3>Credit & billing</h3></div><p>Control the approved balance, payment terms, and statement schedule.</p></header>
@@ -1087,7 +1092,7 @@ function AccountDetail({ account, staff, demo }) {
           </label>
           <label>
             <span>Reset organization PIN <small>Optional</small></span>
-            <input name="organizationPin" type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength="4" maxLength="8" placeholder="Leave unchanged" />
+            <div className="portal-pin-field"><input name="organizationPin" type={showBillingPin?"text":"password"} inputMode="numeric" pattern="[0-9]{4,8}" minLength="4" maxLength="8" placeholder="Leave unchanged"/><button type="button" onClick={()=>setShowBillingPin(current=>!current)} aria-label={showBillingPin?"Hide PIN":"Show PIN"}>{showBillingPin?<EyeOff/>:<Eye/>}</button></div>
           </label>
           <div className="form-actions"><button>Save billing settings</button></div>
         </form>
@@ -1139,6 +1144,23 @@ function AdminCardManager({ account, demo }) {
     </section>
   );
 }
+function AdminOrganizationSettings({account,demo}){
+  const [showPin,setShowPin]=useState(false),address=account.metadata?.address||{};
+  return <section className="settings-section organization-settings-admin"><header><div><span>Organization profile</span><h3>Account details</h3></div><p>Edit the organization, billing contact, address, and authorization PIN.</p></header><form className="settings-grid" onSubmit={async event=>{event.preventDefault();if(demo)return;const data=new FormData(event.currentTarget);await request(`/admin/accounts/${account.id}/organization`,{method:"PATCH",body:JSON.stringify({organizationName:data.get("organizationName"),organizationType:data.get("organizationType"),billingContact:data.get("billingContact"),billingEmail:data.get("billingEmail"),phone:data.get("phone"),organizationPin:data.get("organizationPin"),address:{addressLine1:data.get("addressLine1"),addressLine2:data.get("addressLine2"),locality:data.get("locality"),administrativeDistrictLevel1:data.get("province"),postalCode:data.get("postalCode"),country:"CA"}})});location.reload();}}>
+    <label><span>Organization name</span><input name="organizationName" defaultValue={account.organization_name} required/></label>
+    <label><span>Organization type</span><select name="organizationType" defaultValue={account.metadata?.organizationType||"Other business"}>{Object.keys(organizationRoles).map(type=><option key={type}>{type}</option>)}</select></label>
+    <label><span>Billing contact</span><input name="billingContact" defaultValue={account.billing_contact} required/></label>
+    <label><span>Invoice email</span><input name="billingEmail" type="email" defaultValue={account.billing_email} required/></label>
+    <label><span>Phone</span><input name="phone" type="tel" defaultValue={formatPhone(account.metadata?.phone||"")} onInput={event=>event.currentTarget.value=formatPhone(event.currentTarget.value)}/></label>
+    <label><span>Reset organization PIN <small>Optional</small></span><div className="portal-pin-field"><input name="organizationPin" type={showPin?"text":"password"} inputMode="numeric" pattern="[0-9]{4,8}" minLength="4" maxLength="8" placeholder="Leave unchanged"/><button type="button" onClick={()=>setShowPin(current=>!current)} aria-label={showPin?"Hide PIN":"Show PIN"}>{showPin?<EyeOff/>:<Eye/>}</button></div></label>
+    <label className="wide"><span>Street address</span><input name="addressLine1" defaultValue={address.addressLine1||""}/></label>
+    <label><span>Unit</span><input name="addressLine2" defaultValue={address.addressLine2||""}/></label>
+    <label><span>City</span><input name="locality" defaultValue={address.locality||"Toronto"}/></label>
+    <label><span>Province</span><input name="province" defaultValue={address.administrativeDistrictLevel1||"ON"}/></label>
+    <label><span>Postal code</span><input name="postalCode" defaultValue={address.postalCode||""}/></label>
+    <div className="form-actions"><button>Save account details</button></div>
+  </form></section>;
+}
 function AccountMemberForm({ account }) {
   const initialType = organizationRoles[account.metadata?.organizationType] ? account.metadata.organizationType : "Other business";
   const [organizationType, setOrganizationType] = useState(initialType);
@@ -1187,7 +1209,7 @@ function AccountMemberForm({ account }) {
       </label>
       <label>
         <span>Per-order limit <small>Optional</small></span>
-        <input name="purchaseLimit" type="number" min="0" step="1" placeholder="No limit" />
+        <div className="money-input"><span aria-hidden="true">$</span><input name="purchaseLimit" type="number" min="0" step="1" placeholder="No limit" /></div>
       </label>
       <label>
         <span>Personal PIN</span>
