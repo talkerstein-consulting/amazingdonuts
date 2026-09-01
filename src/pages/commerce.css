@@ -759,6 +759,15 @@
   margin-top: 30px;
 }
 
+.customer-orders > h2 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: var(--type-card-heading-sm);
+  font-weight: 400;
+  line-height: .95;
+  color: var(--navy);
+}
+
 .customer-orders article {
   border: 0;
   border-radius: var(--radius-panel);
