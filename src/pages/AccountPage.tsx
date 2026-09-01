@@ -384,6 +384,12 @@ function HouseAccount({ session, account, application, statementToken, onStateme
   const [placesEnabled,setPlacesEnabled]=useState(false);
   useEffect(()=>{void api('/storefront/config').then(body=>setPlacesEnabled(Boolean(body.placesEnabled)))},[]);
   const linkedStatement=statementToken&&account?.statements?.find((statement:any)=>statement.payment_token===statementToken);
+  const featuredStatement=linkedStatement||[...(account?.statements||[])]
+    .filter((statement:any)=>["overdue","partially_paid","issued"].includes(statement.status)&&Number(statement.closing_balance)>0)
+    .sort((left:any,right:any)=>{
+      const priority:Record<string,number>={overdue:0,partially_paid:1,issued:2};
+      return priority[left.status]-priority[right.status]||new Date(left.due_at||left.period_end).getTime()-new Date(right.due_at||right.period_end).getTime();
+    })[0];
   if (session.houseAccount)
     return (
       <>
@@ -405,7 +411,7 @@ function HouseAccount({ session, account, application, statementToken, onStateme
             <p>A card on file is required before credit purchases are enabled.</p>
           )}
         </div>
-        {linkedStatement?<StatementPaymentPanel statement={linkedStatement} session={session} onPaid={onStatementPaid}/>:null}
+        {featuredStatement?<StatementPaymentPanel statement={featuredStatement} session={session} onPaid={onStatementPaid}/>:null}
         {statementToken&&account&&!linkedStatement?<div className="statement-link-error" role="alert"><ReceiptText/><div><strong>We could not match this payment link</strong><span>The invoice may belong to another institutional account or the link may no longer be valid.</span></div></div>:null}
         {session.houseAccount.role === "account_admin" && account ? <OrganizationSettings account={account} /> : null}
         {!session.houseAccount.card || new URLSearchParams(location.search).has("replace-card") ? <SaveHouseCard session={session} onSaved={() => location.reload()} /> : null}
@@ -419,7 +425,7 @@ function HouseAccount({ session, account, application, statementToken, onStateme
         {account?.statements?.length ? (
           <div className="customer-orders">
             <h2>Statements</h2>
-            <div className="account-table-scroll"><table className="account-data-table statement-data-table"><thead><tr><th>Period</th><th>Statement</th><th>Status</th><th className="money-column">Amount</th><th className="action-column">Download</th><th className="action-column">Payment</th></tr></thead><tbody>{account.statements.map((statement: any) => <tr key={statement.id}><td>{day(statement.period_end)}</td><td><strong>{statement.statement_number}</strong></td><td><span className={`statement-status statement-status--${statement.status}`}>{statement.status}</span></td><td className="money-column">{cash(statement.closing_balance, statement.currency)}</td><td className="action-column"><a className="table-icon-action" href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer" aria-label={`Download ${statement.statement_number}`} title="Download PDF"><Download/></a></td><td className="action-column">{!["paid", "void"].includes(statement.status)&&statement.payment_token!==statementToken ? <PayStatement statement={statement} session={session} /> : <span className="table-action-empty">—</span>}</td></tr>)}</tbody></table></div>
+            <div className="account-table-scroll"><table className="account-data-table statement-data-table"><thead><tr><th>Period</th><th>Statement</th><th>Status</th><th className="money-column">Amount</th><th className="action-column">Download</th><th className="action-column">Payment</th></tr></thead><tbody>{account.statements.map((statement: any) => <tr key={statement.id}><td>{day(statement.period_end)}</td><td><strong>{statement.statement_number}</strong></td><td><span className={`statement-status statement-status--${statement.status}`}>{statement.status}</span></td><td className="money-column">{cash(statement.closing_balance, statement.currency)}</td><td className="action-column"><a className="table-icon-action" href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer" aria-label={`Download ${statement.statement_number}`} title="Download PDF"><Download/></a></td><td className="action-column">{!["paid", "void"].includes(statement.status)&&statement.id!==featuredStatement?.id ? <PayStatement statement={statement} session={session} /> : <span className="table-action-empty">—</span>}</td></tr>)}</tbody></table></div>
           </div>
         ) : (
           <div className="no-orders">
