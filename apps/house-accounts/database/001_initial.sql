@@ -145,6 +145,7 @@ CREATE TABLE IF NOT EXISTS house_account_applications (
   invoice_email TEXT,
   authorized_purchasers JSONB NOT NULL DEFAULT '[]',
   organization_pin_hash TEXT,
+  address JSONB NOT NULL DEFAULT '{}',
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
   review_notes TEXT,
   reviewed_at TIMESTAMPTZ,
@@ -195,6 +196,7 @@ ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS billing_frequenc
 ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS invoice_email TEXT;
 ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS authorized_purchasers JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS organization_pin_hash TEXT;
+ALTER TABLE house_account_applications ADD COLUMN IF NOT EXISTS address JSONB NOT NULL DEFAULT '{}';
 ALTER TABLE account_users ADD COLUMN IF NOT EXISTS organization_role TEXT NOT NULL DEFAULT 'staff';
 ALTER TABLE account_users ADD COLUMN IF NOT EXISTS purchaser_pin_hash TEXT;
 ALTER TABLE account_users DROP CONSTRAINT IF EXISTS account_users_organization_role_check;

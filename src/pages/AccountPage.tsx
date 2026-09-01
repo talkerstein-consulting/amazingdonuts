@@ -364,6 +364,10 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [purchasers, setPurchasers] = useState([{ name: "", email: "", organizationRole: "Purchaser", pin: "" }]);
+  const blankAddress:Address={addressLine1:"",addressLine2:"",locality:"Toronto",administrativeDistrictLevel1:"ON",postalCode:"",country:"CA"};
+  const [organizationAddress,setOrganizationAddress]=useState<Address>({...blankAddress,...(session.profile?.default_address||{})});
+  const [placesEnabled,setPlacesEnabled]=useState(false);
+  useEffect(()=>{void api('/storefront/config').then(body=>setPlacesEnabled(Boolean(body.placesEnabled)))},[]);
   if (session.houseAccount)
     return (
       <>
@@ -471,7 +475,7 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
           try {
             const body = await api("/storefront/house-application", {
               method: "POST",
-              body: JSON.stringify({ ...data, authorizedPurchasers: purchasers.filter((person) => person.name.trim() && person.email.trim()) }),
+              body: JSON.stringify({ ...data, address:organizationAddress, authorizedPurchasers: purchasers.filter((person) => person.name.trim() && person.email.trim()) }),
             });
             onApplied(body.application);
           } catch (cause) {
@@ -522,6 +526,26 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
         <label>
           <span>Organization authorization PIN</span>
           <PinField name="organizationPin" required />
+        </label>
+        <label className="wide">
+          <span>Organization address</span>
+          <AddressAutocomplete address={organizationAddress} onChange={setOrganizationAddress} enabled={placesEnabled} required />
+        </label>
+        <label>
+          <span>Unit</span>
+          <input value={organizationAddress.addressLine2} onChange={event=>setOrganizationAddress({...organizationAddress,addressLine2:event.target.value})} autoComplete="address-line2" />
+        </label>
+        <label>
+          <span>City</span>
+          <input value={organizationAddress.locality} onChange={event=>setOrganizationAddress({...organizationAddress,locality:event.target.value})} autoComplete="address-level2" required />
+        </label>
+        <label>
+          <span>Province</span>
+          <input value={organizationAddress.administrativeDistrictLevel1} onChange={event=>setOrganizationAddress({...organizationAddress,administrativeDistrictLevel1:event.target.value.toUpperCase()})} autoComplete="address-level1" required />
+        </label>
+        <label>
+          <span>Postal code</span>
+          <input value={organizationAddress.postalCode} onChange={event=>setOrganizationAddress({...organizationAddress,postalCode:event.target.value.toUpperCase()})} autoComplete="postal-code" required />
         </label>
         <fieldset className="wide authorized-purchasers"><legend>Additional authorized purchasers</legend><p>The applicant is automatically the account administrator. Give each additional purchaser their own 4 to 8 digit PIN.</p>{purchasers.map((person, index) => <div className="authorized-purchaser-row" key={index}><label><span>Name</span><input value={person.name} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name:event.target.value } : item))}/></label><label><span>Email</span><input type="email" value={person.email} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, email:event.target.value } : item))}/></label><label><span>Role</span><input value={person.organizationRole} onChange={(event) => setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, organizationRole:event.target.value } : item))}/></label><label><span>Personal PIN</span><PinField value={person.pin} onChange={pin=>setPurchasers((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, pin } : item))} required/></label>{purchasers.length > 1 ? <button type="button" onClick={() => setPurchasers((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</button> : null}</div>)}<button type="button" onClick={() => setPurchasers((current) => [...current,{ name:"",email:"",organizationRole:"Purchaser",pin:"" }])}>Add another purchaser</button></fieldset>
         <label className="wide">

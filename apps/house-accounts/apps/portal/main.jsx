@@ -664,6 +664,10 @@ function HouseApplicationDetail({ application, demo, onReviewed }) {
         <div><dt>Billing frequency</dt><dd>{application.billing_frequency || "Monthly"}</dd></div>
         <div><dt>Invoice email</dt><dd><a href={`mailto:${application.invoice_email || application.email}`}>{application.invoice_email || application.email}</a></dd></div>
       </dl>
+      <div className="request-notes">
+        <strong>Organization address</strong>
+        <p>{application.address?.addressLine1 ? <>{application.address.addressLine1}{application.address.addressLine2 ? `, ${application.address.addressLine2}` : ""}<br/>{application.address.locality}, {application.address.administrativeDistrictLevel1} {application.address.postalCode}</> : "No address submitted."}</p>
+      </div>
       <div className="request-notes authorized-review"><strong>Authorized purchasers</strong>{application.authorized_purchasers?.length ? <ul>{application.authorized_purchasers.map((person,index) => <li key={`${person.email}-${index}`}><b>{person.name}</b><span>{person.organizationRole} · {person.email}</span></li>)}</ul> : <p>No additional purchasers requested.</p>}</div>
       <div className="request-notes">
         <strong>Applicant notes</strong>
