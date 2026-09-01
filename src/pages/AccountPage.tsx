@@ -212,7 +212,12 @@ export default function AccountPage() {
               account={creditAccount}
               application={application}
               statementToken={statementToken}
-              onStatementPaid={() => void load()}
+              onStatementPaid={() => {
+                const url=new URL(location.href);
+                url.searchParams.delete("statement");
+                history.replaceState({},"",`${url.pathname}${url.search}${url.hash}`);
+                void load();
+              }}
               onApplied={(next) => {
                 setApplication(next);
                 setMessage("Institutional account application submitted.");
@@ -384,12 +389,14 @@ function HouseAccount({ session, account, application, statementToken, onStateme
   const [placesEnabled,setPlacesEnabled]=useState(false);
   useEffect(()=>{void api('/storefront/config').then(body=>setPlacesEnabled(Boolean(body.placesEnabled)))},[]);
   const linkedStatement=statementToken&&account?.statements?.find((statement:any)=>statement.payment_token===statementToken);
-  const featuredStatement=linkedStatement||[...(account?.statements||[])]
+  const actionableStatuses=["overdue","partially_paid","issued"];
+  const outstandingStatement=[...(account?.statements||[])]
     .filter((statement:any)=>["overdue","partially_paid","issued"].includes(statement.status)&&Number(statement.closing_balance)>0)
     .sort((left:any,right:any)=>{
       const priority:Record<string,number>={overdue:0,partially_paid:1,issued:2};
       return priority[left.status]-priority[right.status]||new Date(left.due_at||left.period_end).getTime()-new Date(right.due_at||right.period_end).getTime();
     })[0];
+  const featuredStatement=(linkedStatement&&actionableStatuses.includes(linkedStatement.status)?linkedStatement:null)||outstandingStatement||linkedStatement;
   if (session.houseAccount)
     return (
       <>
