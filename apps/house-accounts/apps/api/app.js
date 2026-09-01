@@ -243,7 +243,13 @@ export function createApp({ pool, square, config }) {
     if(["paid","void"].includes(statement.status)||Number(statement.closing_balance)<=0)throw Object.assign(new Error("This statement has no outstanding balance."),{status:409});
     const duplicate=await pool.query("SELECT * FROM payment_allocations WHERE tenant_id=$1 AND metadata->>'idempotencyKey'=$2",[user.tenant_id,input.idempotencyKey]);
     if(duplicate.rowCount)return response.json({payment:duplicate.rows[0],statement:{...statement,status:"paid"}});
-    const payment=await collectStatement(pool,square,config,statement,input.sourceId,input.idempotencyKey,user.id);
+    let sourceId=input.sourceId,paymentMethod="Card";
+    if(sourceId==="SAVED_CARD"){
+      const saved=(await pool.query("SELECT square_card_id,card_brand,last_4 FROM account_cards WHERE account_id=$1 AND status='active' ORDER BY created_at DESC LIMIT 1",[statement.account_id])).rows[0];
+      if(!saved)throw Object.assign(new Error("The saved card is no longer available. Choose another card."),{status:409,code:"SAVED_CARD_UNAVAILABLE"});
+      sourceId=saved.square_card_id;paymentMethod=`Saved ${saved.card_brand||"card"} ending in ${saved.last_4}`;
+    }
+    const payment=await collectStatement(pool,square,config,statement,sourceId,input.idempotencyKey,user.id,paymentMethod);
     const paidAmount=new Intl.NumberFormat("en-CA",{style:"currency",currency:statement.currency}).format(Number(statement.closing_balance)/100);
     await Promise.all([sendEmail(config,{to:user.email,subject:`Payment received for ${statement.statement_number}`,text:`We received your ${paidAmount} payment. Statement ${statement.statement_number} is now paid.\n\nView your account: ${config.siteUrl}/account/`}),notifyOwners(config,"Institutional account payment received",`${statement.statement_number}\n${user.email}\n${paidAmount}`)]);
     response.status(201).json({payment:{id:payment.id,status:payment.status},statement:{id:statement.id,status:"paid"}});

@@ -778,7 +778,9 @@ function StatementPaymentPanel({statement,session,onPaid}:{statement:any;session
 
 function PayStatement({ statement, session, expanded = false, onPaid }: { statement: any; session: any; expanded?: boolean; onPaid?: () => void }) {
   const card = useRef<SquareCard | undefined>(undefined);
+  const savedCard=session.houseAccount?.card;
   const [open, setOpen] = useState(expanded),
+    [useAnotherCard,setUseAnotherCard]=useState(!savedCard),
     [ready,setReady]=useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -790,7 +792,7 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
     return()=>document.removeEventListener('keydown',close);
   },[open,expanded]);
   useEffect(() => {
-    if (!open) return;
+    if (!open||!useAnotherCard) return;
     let cancelled = false;
     const mount = async () => {
       const config = await api("/storefront/config");
@@ -816,7 +818,7 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
       void card.current?.destroy().catch(() => {});
       card.current = undefined;
     };
-  }, [open, statement.id]);
+  }, [open, statement.id, useAnotherCard]);
   if (paid) return <div className="statement-payment-success"><CreditCard/><div><strong>Payment received</strong><span>This invoice is paid. A receipt has been sent by email.</span></div></div>;
   if (!open)
     return (
@@ -824,13 +826,27 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
         <CreditCard /> Pay now
       </button>
     );
+  const finishPayment=async(sourceId:string)=>{
+    setBusy(true);setError("");
+    try{
+      await api(`/storefront/statements/${statement.id}/pay`,{method:"POST",body:JSON.stringify({sourceId,idempotencyKey:crypto.randomUUID()})});
+      setPaid(true);onPaid?.();
+    }catch(cause){setError(cause instanceof Error?cause.message:"Payment failed.");}
+    finally{setBusy(false);}
+  };
   const paymentForm=(
     <div className="statement-payment">
-      <div className="statement-payment-heading"><CreditCard/><div><strong>Pay securely by card</strong><span>Card details are encrypted and processed by Square.</span></div></div>
-      <div id={`statement-card-${statement.id}`} className="square-card" />
-      {!ready&&!error?<p className="statement-payment-loading">Loading secure card fields...</p>:null}
-      {error ? <p className="checkout-error">{error}</p> : null}
-      <button
+      {savedCard&&!useAnotherCard?<>
+        <div className="statement-payment-heading"><CreditCard/><div><strong>Pay with {String(savedCard.brand||'card').toUpperCase()} ending in {savedCard.last4}</strong><span>Use the card already authorized for this institutional account.</span></div></div>
+        {error?<p className="checkout-error">{error}</p>:null}
+        <button type="button" disabled={busy} onClick={()=>void finishPayment("SAVED_CARD")}>{busy?"Processing...":`Pay ${cash(statement.closing_balance,statement.currency)}`}</button>
+        <button className="statement-payment-secondary" type="button" disabled={busy} onClick={()=>{setError("");setUseAnotherCard(true);}}>Pay with another card</button>
+      </>:<>
+        <div className="statement-payment-heading"><CreditCard/><div><strong>Pay with another card</strong><span>Card details are encrypted and processed by Square.</span></div></div>
+        <div id={`statement-card-${statement.id}`} className="square-card" />
+        {!ready&&!error?<p className="statement-payment-loading">Loading secure card fields...</p>:null}
+        {error ? <p className="checkout-error">{error}</p> : null}
+        <button
         type="button"
         disabled={busy||!ready}
         onClick={async () => {
@@ -857,24 +873,17 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
               },
             });
             if (token.status !== "OK" || !token.token) throw new Error(cardErrorMessage(token.errors?.[0]?.message));
-            await api(`/storefront/statements/${statement.id}/pay`, {
-              method: "POST",
-              body: JSON.stringify({
-                sourceId: token.token,
-                idempotencyKey: crypto.randomUUID(),
-              }),
-            });
-            setPaid(true);
-            onPaid?.();
+            await finishPayment(token.token);
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : "Payment failed.");
-          } finally {
             setBusy(false);
           }
         }}
       >
         {busy ? "Processing..." : `Pay ${cash(statement.closing_balance, statement.currency)}`}
-      </button>
+        </button>
+        {savedCard?<button className="statement-payment-secondary" type="button" disabled={busy} onClick={()=>{setError("");setUseAnotherCard(false);}}>Use saved card instead</button>:null}
+      </>}
     </div>
   );
   if(expanded)return paymentForm;
