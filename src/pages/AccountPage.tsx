@@ -59,6 +59,13 @@ const day = (value: unknown) => {
     day: "numeric",
   });
 };
+const cardErrorMessage = (message?: string) => {
+  if (!message) return "Card authorization failed. Please check the card details and try again.";
+  if (/verificationDetails|billingContact|must be a\(n\) object/i.test(message)) {
+    return "We couldn't verify the billing details for this card. Please check the card details and try again.";
+  }
+  return message;
+};
 function PinField({name,value,onChange,placeholder,required=false}:{name?:string;value?:string;onChange?:(value:string)=>void;placeholder?:string;required?:boolean}){
   const [visible,setVisible]=useState(false);
   return <div className="pin-field"><input name={name} type={visible?"text":"password"} inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} value={value} onChange={onChange?event=>onChange(event.target.value):undefined} placeholder={placeholder} autoComplete="new-password" required={required}/><button type="button" onClick={()=>setVisible(current=>!current)} aria-label={visible?"Hide PIN":"Show PIN"}>{visible?<EyeOff/>:<Eye/>}</button></div>;
@@ -398,7 +405,7 @@ function HouseAccount({ session, account, application, statementToken, onStateme
             <p>A card on file is required before credit purchases are enabled.</p>
           )}
         </div>
-        {linkedStatement?<StatementPaymentPanel statement={linkedStatement} onPaid={onStatementPaid}/>:null}
+        {linkedStatement?<StatementPaymentPanel statement={linkedStatement} session={session} onPaid={onStatementPaid}/>:null}
         {statementToken&&account&&!linkedStatement?<div className="statement-link-error" role="alert"><ReceiptText/><div><strong>We could not match this payment link</strong><span>The invoice may belong to another institutional account or the link may no longer be valid.</span></div></div>:null}
         {session.houseAccount.role === "account_admin" && account ? <OrganizationSettings account={account} /> : null}
         {!session.houseAccount.card || new URLSearchParams(location.search).has("replace-card") ? <SaveHouseCard session={session} onSaved={() => location.reload()} /> : null}
@@ -412,7 +419,7 @@ function HouseAccount({ session, account, application, statementToken, onStateme
         {account?.statements?.length ? (
           <div className="customer-orders">
             <h2>Statements</h2>
-            <div className="account-table-scroll"><table className="account-data-table statement-data-table"><thead><tr><th>Period</th><th>Statement</th><th>Status</th><th className="money-column">Amount</th><th className="action-column">Download</th><th className="action-column">Payment</th></tr></thead><tbody>{account.statements.map((statement: any) => <tr key={statement.id}><td>{day(statement.period_end)}</td><td><strong>{statement.statement_number}</strong></td><td><span className={`statement-status statement-status--${statement.status}`}>{statement.status}</span></td><td className="money-column">{cash(statement.closing_balance, statement.currency)}</td><td className="action-column"><a className="table-icon-action" href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer" aria-label={`Download ${statement.statement_number}`} title="Download PDF"><Download/></a></td><td className="action-column">{!["paid", "void"].includes(statement.status)&&statement.payment_token!==statementToken ? <PayStatement statement={statement} /> : <span className="table-action-empty">—</span>}</td></tr>)}</tbody></table></div>
+            <div className="account-table-scroll"><table className="account-data-table statement-data-table"><thead><tr><th>Period</th><th>Statement</th><th>Status</th><th className="money-column">Amount</th><th className="action-column">Download</th><th className="action-column">Payment</th></tr></thead><tbody>{account.statements.map((statement: any) => <tr key={statement.id}><td>{day(statement.period_end)}</td><td><strong>{statement.statement_number}</strong></td><td><span className={`statement-status statement-status--${statement.status}`}>{statement.status}</span></td><td className="money-column">{cash(statement.closing_balance, statement.currency)}</td><td className="action-column"><a className="table-icon-action" href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer" aria-label={`Download ${statement.statement_number}`} title="Download PDF"><Download/></a></td><td className="action-column">{!["paid", "void"].includes(statement.status)&&statement.payment_token!==statementToken ? <PayStatement statement={statement} session={session} /> : <span className="table-action-empty">—</span>}</td></tr>)}</tbody></table></div>
           </div>
         ) : (
           <div className="no-orders">
@@ -740,12 +747,12 @@ function SaveHouseCard({ session, onSaved }: { session: any; onSaved: () => void
   );
 }
 
-function StatementPaymentPanel({statement,onPaid}:{statement:any;onPaid:()=>void}){
+function StatementPaymentPanel({statement,session,onPaid}:{statement:any;session:any;onPaid:()=>void}){
   const settled=['paid','void'].includes(statement.status);
-  return <section className="statement-payment-panel" aria-labelledby="statement-payment-title"><header><div><span>{settled?'Invoice receipt':'Invoice payment'}</span><h2 id="statement-payment-title">{settled?'Invoice':'Pay'} {statement.statement_number}</h2><p>{statement.organization_name||'Institutional account'} · Due {day(statement.due_at)}</p></div><strong>{cash(statement.closing_balance,statement.currency)}</strong></header><div className="statement-payment-summary"><span>{settled?'Invoice total':'Amount due'}</span><b>{cash(statement.closing_balance,statement.currency)}</b><a href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer"><ReceiptText/> Download invoice</a></div>{settled?<div className="statement-payment-success"><CreditCard/><div><strong>{statement.status==='paid'?'Payment received':'No payment required'}</strong><span>{statement.status==='paid'?'This invoice has been paid.':'This invoice has been voided.'}</span></div></div>:<PayStatement statement={statement} expanded onPaid={onPaid}/>}</section>;
+  return <section className="statement-payment-panel" aria-labelledby="statement-payment-title"><header><div><span>{settled?'Invoice receipt':'Invoice payment'}</span><h2 id="statement-payment-title">{settled?'Invoice':'Pay'} {statement.statement_number}</h2><p>{statement.organization_name||'Institutional account'} · Due {day(statement.due_at)}</p></div><strong>{cash(statement.closing_balance,statement.currency)}</strong></header><div className="statement-payment-summary"><span>{settled?'Invoice total':'Amount due'}</span><b>{cash(statement.closing_balance,statement.currency)}</b><a href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer"><ReceiptText/> Download invoice</a></div>{settled?<div className="statement-payment-success"><CreditCard/><div><strong>{statement.status==='paid'?'Payment received':'No payment required'}</strong><span>{statement.status==='paid'?'This invoice has been paid.':'This invoice has been voided.'}</span></div></div>:<PayStatement statement={statement} session={session} expanded onPaid={onPaid}/>}</section>;
 }
 
-function PayStatement({ statement, expanded = false, onPaid }: { statement: any; expanded?: boolean; onPaid?: () => void }) {
+function PayStatement({ statement, session, expanded = false, onPaid }: { statement: any; session: any; expanded?: boolean; onPaid?: () => void }) {
   const card = useRef<SquareCard | undefined>(undefined);
   const [open, setOpen] = useState(expanded),
     [ready,setReady]=useState(false),
@@ -813,8 +820,19 @@ function PayStatement({ statement, expanded = false, onPaid }: { statement: any;
               intent: "CHARGE",
               customerInitiated: true,
               sellerKeyedIn: false,
+              billingContact: {
+                givenName: session.user.firstName,
+                familyName: session.user.lastName,
+                email: session.user.email,
+                phone: session.profile?.default_phone || session.user.phone || undefined,
+                addressLines: [session.profile?.default_address?.addressLine1, session.profile?.default_address?.addressLine2].filter(Boolean),
+                city: session.profile?.default_address?.locality || undefined,
+                state: session.profile?.default_address?.administrativeDistrictLevel1 || undefined,
+                postalCode: session.profile?.default_address?.postalCode || undefined,
+                countryCode: session.profile?.default_address?.country || "CA",
+              },
             });
-            if (token.status !== "OK" || !token.token) throw new Error(token.errors?.[0]?.message || "Card authorization failed.");
+            if (token.status !== "OK" || !token.token) throw new Error(cardErrorMessage(token.errors?.[0]?.message));
             await api(`/storefront/statements/${statement.id}/pay`, {
               method: "POST",
               body: JSON.stringify({
