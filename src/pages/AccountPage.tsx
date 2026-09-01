@@ -92,6 +92,7 @@ declare global {
 
 export default function AccountPage() {
   const resetToken = new URLSearchParams(location.search).get("reset");
+  const statementToken = new URLSearchParams(location.search).get("statement");
   const [session, setSession] = useState<any>();
   const [orders, setOrders] = useState<any[]>([]);
   const [creditAccount, setCreditAccount] = useState<any>();
@@ -198,6 +199,8 @@ export default function AccountPage() {
               session={session}
               account={creditAccount}
               application={application}
+              statementToken={statementToken}
+              onStatementPaid={() => void load()}
               onApplied={(next) => {
                 setApplication(next);
                 setMessage("Institutional account application submitted.");
@@ -360,7 +363,7 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
   );
 }
 
-function HouseAccount({ session, account, application, onApplied }: { session: any; account: any; application: any; onApplied: (application: any) => void }) {
+function HouseAccount({ session, account, application, statementToken, onStatementPaid, onApplied }: { session: any; account: any; application: any; statementToken: string | null; onStatementPaid: () => void; onApplied: (application: any) => void }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [purchasers, setPurchasers] = useState([{ name: "", email: "", organizationRole: "Purchaser", pin: "" }]);
@@ -368,6 +371,7 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
   const [organizationAddress,setOrganizationAddress]=useState<Address>({...blankAddress,...(session.profile?.default_address||{})});
   const [placesEnabled,setPlacesEnabled]=useState(false);
   useEffect(()=>{void api('/storefront/config').then(body=>setPlacesEnabled(Boolean(body.placesEnabled)))},[]);
+  const linkedStatement=statementToken&&account?.statements?.find((statement:any)=>statement.payment_token===statementToken);
   if (session.houseAccount)
     return (
       <>
@@ -389,6 +393,8 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
             <p>A card on file is required before credit purchases are enabled.</p>
           )}
         </div>
+        {linkedStatement?<StatementPaymentPanel statement={linkedStatement} onPaid={onStatementPaid}/>:null}
+        {statementToken&&account&&!linkedStatement?<div className="statement-link-error" role="alert"><ReceiptText/><div><strong>We could not match this payment link</strong><span>The invoice may belong to another institutional account or the link may no longer be valid.</span></div></div>:null}
         {session.houseAccount.role === "account_admin" && account ? <OrganizationSettings account={account} /> : null}
         {!session.houseAccount.card || new URLSearchParams(location.search).has("replace-card") ? <SaveHouseCard session={session} onSaved={() => location.reload()} /> : null}
         {session.houseAccount.role === "account_admin" ? <CustomerMemberManager session={session} account={account} /> : null}
@@ -425,7 +431,7 @@ function HouseAccount({ session, account, application, onApplied }: { session: a
                   <a href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer">
                     Download PDF
                   </a>
-                  {!["paid", "void"].includes(statement.status) ? <PayStatement statement={statement} /> : null}
+                  {!["paid", "void"].includes(statement.status)&&statement.payment_token!==statementToken ? <PayStatement statement={statement} /> : null}
                 </footer>
               </article>
             ))}
@@ -756,9 +762,15 @@ function SaveHouseCard({ session, onSaved }: { session: any; onSaved: () => void
   );
 }
 
-function PayStatement({ statement }: { statement: any }) {
+function StatementPaymentPanel({statement,onPaid}:{statement:any;onPaid:()=>void}){
+  const settled=['paid','void'].includes(statement.status);
+  return <section className="statement-payment-panel" aria-labelledby="statement-payment-title"><header><div><span>{settled?'Invoice receipt':'Invoice payment'}</span><h2 id="statement-payment-title">{settled?'Invoice':'Pay'} {statement.statement_number}</h2><p>{statement.organization_name||'Institutional account'} · Due {day(statement.due_at)}</p></div><strong>{cash(statement.closing_balance,statement.currency)}</strong></header><div className="statement-payment-summary"><span>{settled?'Invoice total':'Amount due'}</span><b>{cash(statement.closing_balance,statement.currency)}</b><a href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer"><ReceiptText/> Download invoice</a></div>{settled?<div className="statement-payment-success"><CreditCard/><div><strong>{statement.status==='paid'?'Payment received':'No payment required'}</strong><span>{statement.status==='paid'?'This invoice has been paid.':'This invoice has been voided.'}</span></div></div>:<PayStatement statement={statement} expanded onPaid={onPaid}/>}</section>;
+}
+
+function PayStatement({ statement, expanded = false, onPaid }: { statement: any; expanded?: boolean; onPaid?: () => void }) {
   const card = useRef<SquareCard | undefined>(undefined);
-  const [open, setOpen] = useState(false),
+  const [open, setOpen] = useState(expanded),
+    [ready,setReady]=useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [paid, setPaid] = useState(false);
@@ -780,15 +792,17 @@ function PayStatement({ statement }: { statement: any }) {
       if (cancelled || !window.Square) return;
       card.current = await window.Square.payments(config.applicationId, config.locationId).card();
       await card.current.attach(`#statement-card-${statement.id}`);
+      if(!cancelled)setReady(true);
     };
     void mount().catch((cause) => setError(cause.message));
     return () => {
       cancelled = true;
+      setReady(false);
       void card.current?.destroy().catch(() => {});
       card.current = undefined;
     };
   }, [open, statement.id]);
-  if (paid) return <strong>Paid</strong>;
+  if (paid) return <div className="statement-payment-success"><CreditCard/><div><strong>Payment received</strong><span>This invoice is paid. A receipt has been sent by email.</span></div></div>;
   if (!open)
     return (
       <button type="button" onClick={() => setOpen(true)}>
@@ -797,11 +811,13 @@ function PayStatement({ statement }: { statement: any }) {
     );
   return (
     <div className="statement-payment">
+      <div className="statement-payment-heading"><CreditCard/><div><strong>Pay securely by card</strong><span>Card details are encrypted and processed by Square.</span></div></div>
       <div id={`statement-card-${statement.id}`} className="square-card" />
+      {!ready&&!error?<p className="statement-payment-loading">Loading secure card fields...</p>:null}
       {error ? <p className="checkout-error">{error}</p> : null}
       <button
         type="button"
-        disabled={busy}
+        disabled={busy||!ready}
         onClick={async () => {
           setBusy(true);
           setError("");
@@ -823,6 +839,7 @@ function PayStatement({ statement }: { statement: any }) {
               }),
             });
             setPaid(true);
+            onPaid?.();
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : "Payment failed.");
           } finally {
