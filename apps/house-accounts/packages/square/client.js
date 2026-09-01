@@ -35,6 +35,7 @@ export class SquareAdapter {
   retrievePayment(id) { return this.request(`/v2/payments/${encodeURIComponent(id)}`); }
   listPayments(query) { return this.request("/v2/payments", { query }); }
   searchCustomers(body) { return this.request("/v2/customers/search", { method: "POST", body }); }
+  retrieveCustomer(id) { return this.request(`/v2/customers/${encodeURIComponent(id)}`); }
   createCustomer(body) { return this.request("/v2/customers", { method: "POST", body }); }
   updateCustomer(id,body) { return this.request(`/v2/customers/${encodeURIComponent(id)}`, { method: "PUT", body }); }
   deleteCustomer(id) { return this.request(`/v2/customers/${encodeURIComponent(id)}`, { method: "DELETE" }); }
