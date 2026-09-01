@@ -12,7 +12,7 @@ import {
   X
 } from 'lucide-react';
 import { PRODUCTS, type Product } from '../data/products';
-import { C, F, BadgeRow } from '../components/brand';
+import { C, F, BadgeRow, BrandButton } from '../components/brand';
 import { useShop, money, priceOf } from '../lib/shop';
 import { minimumQuantityFor, PRINT_PRODUCTS } from '../lib/custom-order';
 
@@ -67,7 +67,7 @@ export default function ProductPanel({ product }: { product: Product }) {
      wide enough to keep the two-column layout and still short enough to push
      the CTA under, and a breakpoint would miss that. */
   const cabRef = useRef<HTMLElement | null>(null);
-  const addRef = useRef<HTMLButtonElement | null>(null);
+  const addRef = useRef<HTMLDivElement | null>(null);
   const [ctaOnScreen, setCtaOnScreen] = useState(true);
 
   /* A new product opens at the top of the panel. The cabinet is one scroll
@@ -313,24 +313,26 @@ export default function ProductPanel({ product }: { product: Product }) {
               </div>
             </div>
 
-            <button
-              ref={addRef}
-              type="button"
-              className={`cabinet__add brand-press${added ? ' is-added' : ''}`}
-              onClick={() => {
-                add(product, pieces * qty);
-                setAdded(true);
-              }}
-            >
-              {added ? (
-                <>
-                  <Check size={18} strokeWidth={3} style={{ marginRight: 8 }} />
-                  Added to the box
-                </>
-              ) : (
-                <>Add to the box — {money(total)}</>
-              )}
-            </button>
+            <div ref={addRef} className="cabinet__addAnchor">
+              <BrandButton
+                block
+                className="cabinet__brandAdd"
+                style={added ? { background: C.navy } : undefined}
+                onClick={() => {
+                  add(product, pieces * qty);
+                  setAdded(true);
+                }}
+              >
+                {added ? (
+                  <>
+                    <Check size={18} strokeWidth={3} />
+                    Added to the box
+                  </>
+                ) : (
+                  <>Add to the box — {money(total)}</>
+                )}
+              </BrandButton>
+            </div>
 
             <p className="cabinet__fineprint">
               {requiresPrintLeadTime ? `${qty} dozen units · one week's notice required` : `${pieces * qty} ${pieces * qty === 1 ? 'piece' : 'pieces'} · order by 4pm for next-day collection`}
@@ -437,9 +439,9 @@ export default function ProductPanel({ product }: { product: Product }) {
             </span>
           </span>
         </span>
-        <button
-          type="button"
-          className={`cabinet__add brand-press${added ? ' is-added' : ''}`}
+        <BrandButton
+          className="cabinet__buybarButton"
+          style={added ? { background: C.navy } : undefined}
           /* Not focusable while hidden, or a keyboard user tabs into a button
              that is translated off the bottom of the panel. */
           tabIndex={ctaOnScreen ? -1 : 0}
@@ -456,7 +458,7 @@ export default function ProductPanel({ product }: { product: Product }) {
           ) : (
             <>Add to the box</>
           )}
-        </button>
+        </BrandButton>
       </div>
 
       <button type="button" onClick={closeProduct} aria-label="Close" className="cabinet__close">
