@@ -946,7 +946,7 @@
   color: var(--navy);
 }
 .house-application-form .pin-field button { top:0; width:52px; min-height:52px; margin:0; padding:0; border-radius:0 16px 16px 0; background:transparent; color:var(--navy); }
-.authorized-purchaser-row button { min-height:auto; padding:8px 0; border-radius:0; background:transparent; color:var(--text-price); text-decoration:underline; }
+.authorized-purchaser-row button { min-height:auto; padding:8px 0; justify-self:start; border-radius:0; background:transparent; color:var(--text-price); text-align:left; text-decoration:underline; }
 .organization-settings { margin-top:34px; }
 .section-heading p { margin:0 0 6px; color:var(--text-price); font-family:var(--font-cta); font-size:var(--fs-label); font-weight:800; text-transform:uppercase; }
 .section-heading h2 { margin:0; color:var(--navy); }
