@@ -48,12 +48,17 @@ const organizationRoles: Record<string, [string, string][]> = {
     ["staff", "Staff"],
   ],
 };
-const day = (v: string) =>
-  new Date(v).toLocaleDateString("en-CA", {
+const day = (value: unknown) => {
+  if (!value) return "Date unavailable";
+  const raw = String(value);
+  const parsed = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T12:00:00` : raw);
+  if (Number.isNaN(parsed.getTime())) return "Date unavailable";
+  return parsed.toLocaleDateString("en-CA", {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
+};
 function PinField({name,value,onChange,placeholder,required=false}:{name?:string;value?:string;onChange?:(value:string)=>void;placeholder?:string;required?:boolean}){
   const [visible,setVisible]=useState(false);
   return <div className="pin-field"><input name={name} type={visible?"text":"password"} inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} value={value} onChange={onChange?event=>onChange(event.target.value):undefined} placeholder={placeholder} autoComplete="new-password" required={required}/><button type="button" onClick={()=>setVisible(current=>!current)} aria-label={visible?"Hide PIN":"Show PIN"}>{visible?<EyeOff/>:<Eye/>}</button></div>;
