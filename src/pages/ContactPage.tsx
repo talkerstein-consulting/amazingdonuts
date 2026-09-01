@@ -248,18 +248,13 @@ export default function ContactPage() {
                   </span>
                 </Detail>
 
-                <Detail icon={<Phone size={20} strokeWidth={2.2} />} label="Serious emergencies only">
-                  <span style={{ display: 'grid', gap: 4 }}>
-                    <a
-                      href={SHOP_ADDRESS.phoneHref}
-                      style={{ fontFamily: 'var(--font-cta)', fontWeight: 700, fontSize: 16, color: C.navy }}
-                    >
-                      {SHOP_ADDRESS.phone}
-                    </a>
-                    <small style={{ maxWidth: '32ch', fontFamily: F.text, fontSize: 13.5, lineHeight: 1.4, color: 'rgba(14,62,105,.62)' }}>
-                      Please email for everything else.
-                    </small>
-                  </span>
+                <Detail icon={<Phone size={20} strokeWidth={2.2} />} label="Phone">
+                  <a
+                    href={SHOP_ADDRESS.phoneHref}
+                    style={{ fontFamily: F.text, fontSize: 16, color: 'rgba(14,62,105,.62)' }}
+                  >
+                    {SHOP_ADDRESS.phone}
+                  </a>
                 </Detail>
               </div>
 
@@ -309,7 +304,8 @@ export default function ContactPage() {
                 </span>
                 <BrandButton
                   href={'https://www.google.com/maps/dir/?api=1&destination=' + MAP_QUERY}
-                  variant="outline"
+                  target="_blank"
+                  rel="noreferrer"
                 >
                   Get directions
                 </BrandButton>
