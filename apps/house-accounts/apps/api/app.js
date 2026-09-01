@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { adminCookieName, createSession, hashPassword, loadSession, logout, requireOwner, requireStaff, requireUser, verifyPassword } from "./auth.js";
 import { accountCredit, institutionalOrderStatus, postPayment, postSale, reserveCredit } from "./ledger.js";
-import { processNextSquareEvent } from "../worker/process-square.js";
+import { isInstitutionalTender, processNextSquareEvent } from "../worker/process-square.js";
 import { statementPdf } from "./statements.js";
 import { transaction } from "./db.js";
 import { deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery, validateFulfillmentSchedule } from "./delivery.js";
@@ -263,8 +263,8 @@ export function createApp({ pool, square, config }) {
     const run=(await pool.query("INSERT INTO reconciliation_runs(tenant_id,status) SELECT id,'running' FROM tenants WHERE slug='amazing-donuts' RETURNING *")).rows[0];
     const page=await square.listPayments({begin_time:new Date(Date.now()-35*86400000).toISOString(),sort_order:"ASC",limit:100});
     let queued=0,processed=0;
-    for(const payment of page.payments||[]){if(payment.status!=="COMPLETED"||!(payment.source_type==="EXTERNAL"||payment.external_details?.source?.toLowerCase().includes("institutional account")||payment.external_details?.source?.toLowerCase().includes("house account")))continue;const inserted=await pool.query(`INSERT INTO webhook_events(tenant_id,provider_event_id,event_type,payload,status) VALUES($1,$2,'payment.updated',$3,'pending') ON CONFLICT(provider,provider_event_id) DO NOTHING RETURNING id`,[run.tenant_id,`reconcile-${payment.id}`,JSON.stringify({data:{object:{payment:{id:payment.id}}}})]);queued+=inserted.rowCount;}
-    for(let index=0;index<100;index++){const item=await processNextSquareEvent(pool,square);if(!item)break;processed++;}
+    for(const payment of page.payments||[]){if(payment.status!=="COMPLETED"||!isInstitutionalTender(payment,config.institutionalTenderNames))continue;const inserted=await pool.query(`INSERT INTO webhook_events(tenant_id,provider_event_id,event_type,payload,status) VALUES($1,$2,'payment.updated',$3,'pending') ON CONFLICT(provider,provider_event_id) DO NOTHING RETURNING id`,[run.tenant_id,`reconcile-${payment.id}`,JSON.stringify({data:{object:{payment:{id:payment.id}}}})]);queued+=inserted.rowCount;}
+    for(let index=0;index<100;index++){const item=await processNextSquareEvent(pool,square,config.institutionalTenderNames);if(!item)break;processed++;}
     await pool.query("UPDATE reconciliation_runs SET status='completed',completed_at=now(),summary=$2 WHERE id=$1",[run.id,JSON.stringify({queued,processed})]);
     response.json({ok:true,queued,processed});
   }catch(error){next(error);}});

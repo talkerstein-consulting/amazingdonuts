@@ -1,7 +1,15 @@
 import { postSale } from "../api/ledger.js";
 import { transaction } from "../api/db.js";
 
-export async function processNextSquareEvent(pool, square) {
+const normalizeTender=(value)=>String(value||"").trim().toLowerCase();
+
+export function isInstitutionalTender(payment, acceptedSources=["Amazing Donuts Account"]){
+  if(payment?.source_type!=="EXTERNAL")return false;
+  const source=normalizeTender(payment.external_details?.source);
+  return acceptedSources.some((name)=>normalizeTender(name)===source);
+}
+
+export async function processNextSquareEvent(pool, square, acceptedSources) {
   const claimed = await transaction(pool, async (client) => {
     const result = await client.query(`SELECT * FROM webhook_events WHERE provider='square' AND status='pending' AND available_at<=now() ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1`);
     if (!result.rowCount) return null;
@@ -15,7 +23,7 @@ export async function processNextSquareEvent(pool, square) {
     const payment=(await square.retrievePayment(paymentId)).payment;
     const order=payment.order_id ? (await square.retrieveOrder(payment.order_id)).order : null;
     const account=await pool.query("SELECT * FROM accounts WHERE tenant_id=$1 AND square_customer_id=$2",[claimed.tenant_id,payment.customer_id||order?.customer_id]);
-    const houseTender=payment.source_type==="EXTERNAL" || payment.external_details?.source?.toLowerCase().includes("house account") || payment.external_details?.source?.toLowerCase().includes("institutional account");
+    const houseTender=isInstitutionalTender(payment,acceptedSources);
     if (!houseTender || !account.rowCount) {
       await pool.query("UPDATE webhook_events SET status='review',processed_at=now(),error=$2 WHERE id=$1",[claimed.id,!houseTender?"Payment is not a recognized institutional-account tender.":"No matching B2B customer was attached."]);
       return {status:"review"};
