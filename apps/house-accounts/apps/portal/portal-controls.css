@@ -158,6 +158,7 @@
   background: white;
   box-shadow: 0 12px 28px rgb(23 57 74 / 18%);
 }
+.range-panel-head{display:flex!important;align-items:center;justify-content:space-between;gap:16px!important}.range-panel-head strong{color:#17394a;font-size:12px}.range-panel-head button{width:34px!important;height:34px!important;min-height:34px!important;padding:0!important;display:grid!important;place-items:center;border:1px solid #c8d0d4!important;background:#fff!important;color:#17394a!important}.range-panel-head button:hover,.range-panel-head button:focus-visible{border-color:#17394a!important;background:#eef6f8!important}.range-panel-head button svg{width:17px;height:17px}
 .range-presets { display: flex !important; flex-wrap: wrap; gap: 6px !important; }
 .range-presets button {
   min-height: 30px !important;

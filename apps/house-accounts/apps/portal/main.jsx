@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import { nextDateRangeSelection } from "../../lib/date-range.js";
-import { Bell, BriefcaseBusiness, Building2, CalendarRange, Check, ChevronDown, ClipboardList, Copy, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
+import { Bell, BriefcaseBusiness, Building2, CalendarRange, Check, ChevronDown, ClipboardList, Copy, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, UserCog, Users, X } from "lucide-react";
 import "./portal.css";
 import "./portal-workspaces.css";
 import "./portal-notifications.css";
@@ -1446,12 +1446,28 @@ const localIsoDate = (value) => {
 };
 function StatementDateRange({ disabled }) {
   const [open, setOpen] = useState(false);
+  const fieldRef = useRef(null);
   const [selection, setSelection] = useState(undefined);
   const selectionRef = useRef(undefined);
   const [hoveredDay, setHoveredDay] = useState(undefined);
   const [displayMonth, setDisplayMonth] = useState(() => new Date());
   const [preset, setPreset] = useState("");
   const [calendarRevision, setCalendarRevision] = useState(0);
+  useEffect(() => {
+    if (!open) return;
+    const dismissOutside = (event) => {
+      if (!fieldRef.current?.contains(event.target)) setOpen(false);
+    };
+    const dismissWithEscape = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", dismissOutside);
+    document.addEventListener("keydown", dismissWithEscape);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside);
+      document.removeEventListener("keydown", dismissWithEscape);
+    };
+  }, [open]);
   const from = selection?.from ? localIsoDate(selection.from) : "";
   const through = selection?.to ? localIsoDate(selection.to) : "";
   const range = from && through ? `${from} - ${through}` : from ? `${from} - Select end date` : "";
@@ -1486,14 +1502,15 @@ function StatementDateRange({ disabled }) {
   };
   const choosingEnd = Boolean(selection?.from && !selection.to);
   return (
-    <div className="date-range-field">
+    <div className="date-range-field" ref={fieldRef}>
       <span className="field-label">Statement period</span>
       <label className="date-range-input">
         <CalendarRange />
         <input name="range" value={range} readOnly disabled={disabled} aria-expanded={open} aria-label="Statement period" placeholder="Select a date range" onClick={() => setOpen(true)} onFocus={() => setOpen(true)} />
       </label>
       {open ? (
-        <div className="date-range-panel">
+        <div className="date-range-panel" role="dialog" aria-label="Choose statement period">
+          <div className="range-panel-head"><strong>Choose statement period</strong><button type="button" onClick={() => setOpen(false)} aria-label="Close date picker" title="Close"><X/></button></div>
           <div className="range-presets" aria-label="Statement period presets">
             {[["30d", "30 days", 0, 30], ["2m", "2 months", 2, 0], ["3m", "3 months", 3, 0], ["6m", "6 months", 6, 0], ["12m", "12 months", 12, 0]].map(([id, label, months, days]) => (
               <button className={preset === id ? "active" : ""} type="button" key={id} onClick={() => applyPreset(id, months, days)}>{label}</button>
