@@ -22,15 +22,12 @@ import CartDrawer from '../shop/CartDrawer';
  * than a form that silently swallows what people type, which is what a POST to
  * nowhere would be.
  *
- * The map is an OpenStreetMap iframe, chosen because it needs no API key and
- * so has no key to leak or expire. Google's supported embed endpoint wants a
- * billed key; the directions button hands off to Google Maps instead, which
- * needs nothing.
+ * The map and directions both resolve the bakery name together with its full
+ * address, keeping the pin on the business rather than a generic street point.
  */
 
-/** A ~1km box around the shop — close enough to read the cross-streets. */
 const MAP_SRC =
-  'https://www.openstreetmap.org/export/embed.html?bbox=-79.4360%2C43.7250%2C-79.4230%2C43.7330&layer=mapnik&marker=43.7290%2C-79.4295';
+  `https://www.google.com/maps?width=100%25&height=460&hl=en&q=${MAP_QUERY}&t=&z=16&ie=UTF8&iwloc=B&output=embed`;
 
 /* The same hours the footer publishes. Saturday is closed for Shabbat. */
 const HOURS = [
@@ -202,8 +199,8 @@ export default function ContactPage() {
                 color: 'rgba(14,62,105,.72)'
               }}
             >
-              We are on Bathurst, north of Lawrence. Order online for same-day orders, email us for anything that needs
-              planning, or walk in and point at whatever looks good.
+              Email us first for questions, planning and order support. For same-day orders, order online or walk in and
+              point at whatever looks good.
             </p>
 
             <div
@@ -215,27 +212,18 @@ export default function ContactPage() {
               }}
             >
               <div style={{ display: 'grid', gap: 22 }}>
+                <Detail icon={<Mail size={20} strokeWidth={2.2} />} label="Email">
+                  <a href={'mailto:' + SHOP_ADDRESS.email} style={{ fontFamily: 'var(--font-cta)', fontWeight: 700, fontSize: 16, color: C.navy }}>
+                    {SHOP_ADDRESS.email}
+                  </a>
+                </Detail>
+
                 <Detail icon={<MapPin size={20} strokeWidth={2.2} />} label="Address">
                   <span style={{ fontFamily: F.text, fontSize: 16, lineHeight: 1.4, color: C.navy }}>
                     {SHOP_ADDRESS.street}
                     <br />
                     {SHOP_ADDRESS.city}
                   </span>
-                </Detail>
-
-                <Detail icon={<Phone size={20} strokeWidth={2.2} />} label="Phone">
-                  <a
-                    href={SHOP_ADDRESS.phoneHref}
-                    style={{ fontFamily: 'var(--font-cta)', fontWeight: 700, fontSize: 16, color: C.navy }}
-                  >
-                    {SHOP_ADDRESS.phone}
-                  </a>
-                </Detail>
-
-                <Detail icon={<Mail size={20} strokeWidth={2.2} />} label="Email">
-                  <a href={'mailto:' + SHOP_ADDRESS.email} style={{ fontFamily: F.text, fontSize: 16, color: C.navy }}>
-                    {SHOP_ADDRESS.email}
-                  </a>
                 </Detail>
 
                 <Detail icon={<Clock size={20} strokeWidth={2.2} />} label="Hours">
@@ -257,6 +245,20 @@ export default function ContactPage() {
                         <span>{h.hours}</span>
                       </span>
                     ))}
+                  </span>
+                </Detail>
+
+                <Detail icon={<Phone size={20} strokeWidth={2.2} />} label="Serious emergencies only">
+                  <span style={{ display: 'grid', gap: 4 }}>
+                    <a
+                      href={SHOP_ADDRESS.phoneHref}
+                      style={{ fontFamily: 'var(--font-cta)', fontWeight: 700, fontSize: 16, color: C.navy }}
+                    >
+                      {SHOP_ADDRESS.phone}
+                    </a>
+                    <small style={{ maxWidth: '32ch', fontFamily: F.text, fontSize: 13.5, lineHeight: 1.4, color: 'rgba(14,62,105,.62)' }}>
+                      Please email for everything else.
+                    </small>
                   </span>
                 </Detail>
               </div>
