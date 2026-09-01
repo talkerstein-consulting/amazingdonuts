@@ -814,16 +814,37 @@
 
 .no-orders {
   margin-top: 30px;
-  padding: 50px;
+  min-height: 330px;
+  padding: clamp(36px, 6vw, 72px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   border-radius: var(--radius-panel);
   background: var(--sand);
 }
 
 .no-orders svg {
-  width: 42px;
-  height: 42px;
+  width: 48px;
+  height: 48px;
+  margin: 0 0 20px;
+  flex: 0 0 auto;
   color: var(--navy);
+}
+
+.no-orders h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(32px, 3.2vw, 46px);
+  font-weight: 400;
+  line-height: 1;
+  color: var(--navy);
+}
+
+.no-orders p {
+  margin: 12px 0 0;
+  color: var(--text-body);
 }
 
 .no-orders a {
@@ -869,8 +890,8 @@
 .profile-message { grid-column:1/-1; margin:12px 0 0; color:var(--navy); font-weight:700; }
 .delete-account { margin-top:32px; padding:22px 24px; display:flex; align-items:center; justify-content:space-between; gap:24px; border-radius:var(--radius-panel); background:rgba(179,58,17,.07); box-shadow:inset 0 0 0 1.5px rgba(179,58,17,.22); }
 .delete-account p { margin:0 0 4px; color:var(--text-price); font-family:var(--font-cta); font-size:var(--fs-label); font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
-.delete-account h2 { margin:0 0 6px; color:var(--navy); }
-.delete-account h2,.section-heading h2 { font-family:var(--font-display); font-size:clamp(38px,4vw,58px); font-weight:400; line-height:.95; }
+.delete-account h3 { margin:0 0 6px; color:var(--navy); font-family:var(--font-display); font-size:clamp(28px,2.6vw,38px); font-weight:400; line-height:1; }
+.section-heading h2 { font-family:var(--font-display); font-size:clamp(38px,4vw,58px); font-weight:400; line-height:.95; }
 .delete-account span { color:var(--text-body); }
 .delete-account > button,.delete-account__confirm div button { flex:0 0 auto; min-height:44px; padding:0 18px; border:1.5px solid var(--text-price); border-radius:99px; background:transparent; color:var(--text-price); font-family:var(--font-cta); font-weight:800; cursor:pointer; }
 .delete-account__confirm { width:min(360px,100%); display:grid; gap:10px; }

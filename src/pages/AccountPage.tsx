@@ -353,7 +353,7 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
         <button>Save profile</button>
       </form>
       <section className="delete-account">
-        <div><p>Account access</p><h2>Delete account</h2><span>Permanently remove your login, Square customer profile, saved addresses, and wishlist. Completed transaction records are retained in anonymized form.</span></div>
+        <div><p>Account access</p><h3>Delete account</h3><span>Permanently remove your login, Square customer profile, saved addresses, and wishlist. Completed transaction records are retained in anonymized form.</span></div>
         {!deleteOpen?<button type="button" onClick={()=>setDeleteOpen(true)}>Delete account</button>:<div className="delete-account__confirm"><label><span>Type DELETE to confirm</span><input value={deleteConfirmation} onChange={event=>setDeleteConfirmation(event.target.value)} autoComplete="off"/></label>{deleteError&&<p role="alert">{deleteError}</p>}<div><button type="button" onClick={()=>{setDeleteOpen(false);setDeleteConfirmation("");setDeleteError("");}}>Cancel</button><button type="button" disabled={deleteConfirmation!=="DELETE"||deleting} onClick={async()=>{setDeleting(true);setDeleteError("");try{await api('/storefront/account',{method:'DELETE',body:JSON.stringify({confirmation:deleteConfirmation})});location.assign('/shop/');}catch(cause){setDeleteError(cause instanceof Error?cause.message:'Account could not be deleted.');setDeleting(false);}}}>{deleting?'Deleting...':'Permanently delete'}</button></div></div>}
       </section>
     </>
