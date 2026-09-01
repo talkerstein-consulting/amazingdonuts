@@ -422,7 +422,7 @@ function HouseAccount({ session, account, application, statementToken, onStateme
         {statementToken&&account&&!linkedStatement?<div className="statement-link-error" role="alert"><ReceiptText/><div><strong>We could not match this payment link</strong><span>The invoice may belong to another institutional account or the link may no longer be valid.</span></div></div>:null}
         {session.houseAccount.role === "account_admin" && account ? <OrganizationSettings account={account} /> : null}
         {!session.houseAccount.card || new URLSearchParams(location.search).has("replace-card") ? <SaveHouseCard session={session} onSaved={() => location.reload()} /> : null}
-        {session.houseAccount.role === "account_admin" ? <CustomerMemberManager session={session} account={account} /> : null}
+        {session.houseAccount.role === "account_admin" ? <CustomerMemberManager session={session} account={account} onChanged={onStatementPaid} /> : null}
         {account?.ledger?.length ? (
           <div className="customer-orders">
             <h2>Credit activity</h2>
@@ -587,10 +587,11 @@ function OrganizationSettings({account}:{account:any}){
   </form></section>;
 }
 
-function CustomerMemberManager({ session, account }: { session: any; account: any }) {
+function CustomerMemberManager({ session, account, onChanged }: { session: any; account: any; onChanged:()=>void }) {
   const initialType = organizationRoles[session.houseAccount.organizationType] ? session.houseAccount.organizationType : "Other business";
   const [organizationType, setOrganizationType] = useState(initialType);
   const [message, setMessage] = useState("");
+  const [editingId,setEditingId]=useState<string|null>(null);
   return (
     <section className="house-application-status">
       <Building2 />
@@ -606,6 +607,7 @@ function CustomerMemberManager({ session, account }: { session: any; account: an
             await api("/storefront/house-members", { method: "POST", body: JSON.stringify({ email: data.get("email"), organizationType, organizationRole: data.get("organizationRole"), role: data.get("role"), purchaseLimit: data.get("purchaseLimit") ? Math.round(Number(data.get("purchaseLimit")) * 100) : null, pin:data.get("pin") }) });
             setMessage("Member added.");
             event.currentTarget.reset();
+            onChanged();
           } catch (cause) {
             setMessage(cause instanceof Error ? cause.message : "Member could not be added.");
           }
@@ -665,6 +667,14 @@ function CustomerMemberManager({ session, account }: { session: any; account: an
                 </div>
                 <em>{String(member.organization_role).replace(/_/g, " ")}</em>
               </header>
+              {editingId===member.id?<form className="member-edit-form" onSubmit={async event=>{event.preventDefault();setMessage("");const data=new FormData(event.currentTarget);try{await api(`/storefront/house-members/${member.id}`,{method:"PATCH",body:JSON.stringify({organizationRole:data.get("organizationRole"),role:data.get("role"),purchaseLimit:data.get("purchaseLimit")?Math.round(Number(data.get("purchaseLimit"))*100):null,status:data.get("status"),pin:data.get("pin")})});setEditingId(null);setMessage("Member updated.");onChanged();}catch(cause){setMessage(cause instanceof Error?cause.message:"Member could not be updated.");}}}>
+                <label><span>Member role</span><select name="organizationRole" defaultValue={member.organization_role}>{organizationRoles[organizationType].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+                <label><span>Permissions</span><select name="role" defaultValue={member.role}><option value="purchaser">Can purchase</option><option value="account_admin">Account administrator</option><option value="viewer">View only</option></select></label>
+                <label><span>Purchase limit</span><MoneyField name="purchaseLimit" min="0" step="1" defaultValue={member.purchase_limit==null?"":Number(member.purchase_limit)/100}/></label>
+                <label><span>Reset PIN <small>Optional</small></span><PinField name="pin" placeholder="Leave unchanged"/></label>
+                <label><span>Status</span><select name="status" defaultValue={member.status}><option value="active">Active</option><option value="disabled">Disabled</option></select></label>
+                <div className="member-edit-actions"><button type="button" onClick={()=>setEditingId(null)}>Cancel</button><button>Save member</button></div>
+              </form>:<footer><span>{member.role==="account_admin"?"Account administrator":member.role==="viewer"?"View only":"Can purchase"}{member.purchase_limit!=null?` · ${cash(member.purchase_limit)} limit`:" · No order limit"}</span><button type="button" onClick={()=>setEditingId(member.id)}>Edit member</button></footer>}
             </article>
           ))}
         </div>
