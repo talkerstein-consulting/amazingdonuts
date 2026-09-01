@@ -389,7 +389,7 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
   return (
     <main className="dashboard">
       <section className="admin-grid">
-        <AccountList accounts={visible} account={account} query={query} setQuery={setQuery} setSelected={setSelected} />
+        <AccountList accounts={visible} account={account} query={query} setQuery={setQuery} setSelected={setSelected} canCreate={user.role === "owner"} demo={demo} onCreated={(created)=>{setAccounts([created,...accounts]);setSelected(created.id);}} />
         {account ? <AccountDetail account={account} staff demo={demo} /> : <div className="empty">No account selected.</div>}
       </section>
     </main>
@@ -543,13 +543,15 @@ function Listing({ eyebrow, title, children }) {
     </main>
   );
 }
-function AccountList({ accounts, account, query, setQuery, setSelected }) {
+function AccountList({ accounts, account, query, setQuery, setSelected, canCreate, demo, onCreated }) {
+  const [creating,setCreating]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState("");
+  const createAccount=async(event)=>{event.preventDefault();setBusy(true);setError("");const data=new FormData(event.currentTarget),input={organizationName:data.get("organizationName"),organizationType:data.get("organizationType"),billingContact:data.get("billingContact"),billingEmail:data.get("billingEmail"),phone:data.get("phone"),creditLimit:Math.round(Number(data.get("creditLimit")||0)*100),paymentTermsDays:Number(data.get("paymentTermsDays")||0),billingFrequency:data.get("billingFrequency"),organizationPin:data.get("organizationPin"),address:{addressLine1:data.get("addressLine1"),addressLine2:data.get("addressLine2"),locality:data.get("locality"),administrativeDistrictLevel1:data.get("province"),postalCode:data.get("postalCode"),country:"CA"}};try{const created=demo?{...demoAccount,id:crypto.randomUUID(),organization_name:input.organizationName,billing_contact:input.billingContact,billing_email:input.billingEmail,metadata:{organizationType:input.organizationType,address:input.address},purchasers:[]}:(await request("/admin/accounts",{method:"POST",body:JSON.stringify(input)})).account;onCreated(created);setCreating(false);}catch(cause){setError(cause.message);}finally{setBusy(false);}};
   return (
     <div className="account-list">
       <div className="section-head">
         <div>
-          <p>Portfolio</p>
-          <h2>Organizations</h2>
+          <span><p>Portfolio</p><h2>Organizations</h2></span>
+          {canCreate ? <button className="account-create-trigger" type="button" onClick={()=>setCreating(true)}><Plus/> Add account</button> : null}
         </div>
         <label className="search">
           <Search />
@@ -567,6 +569,7 @@ function AccountList({ accounts, account, query, setQuery, setSelected }) {
         </button>
       ))}
       {!accounts.length ? <div className="empty-row">No organizations found.</div> : null}
+      {creating ? <div className="account-create-backdrop" role="presentation" onMouseDown={(event)=>{if(event.target===event.currentTarget)setCreating(false);}}><section className="account-create-modal" role="dialog" aria-modal="true" aria-labelledby="create-account-title"><header><div><span>Institutional accounts</span><h2 id="create-account-title">Add an organization</h2></div><button type="button" onClick={()=>setCreating(false)} aria-label="Close">×</button></header><form onSubmit={createAccount}><label><span>Organization name</span><input name="organizationName" required/></label><label><span>Organization type</span><select name="organizationType">{Object.keys(organizationRoles).map(type=><option key={type}>{type}</option>)}</select></label><label><span>Billing contact</span><input name="billingContact" required/></label><label><span>Billing email</span><input name="billingEmail" type="email" required/></label><label><span>Phone</span><input name="phone" type="tel" onInput={event=>event.currentTarget.value=formatPhone(event.currentTarget.value)}/></label><label><span>Credit limit</span><div className="money-input"><span aria-hidden="true">$</span><input name="creditLimit" type="number" min="0" step=".01" required/></div></label><label><span>Terms</span><select name="paymentTermsDays" defaultValue="30"><option value="0">Due upon receipt</option><option value="15">Net 15</option><option value="30">Net 30</option><option value="45">Net 45</option><option value="60">Net 60</option></select></label><label><span>Invoice schedule</span><select name="billingFrequency" defaultValue="manual"><option value="manual">Manual</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label><label><span>Organization PIN</span><input name="organizationPin" type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength="4" maxLength="8" required/></label><label className="wide"><span>Street address</span><input name="addressLine1" required/></label><label><span>Unit</span><input name="addressLine2"/></label><label><span>City</span><input name="locality" defaultValue="Toronto" required/></label><label><span>Province</span><input name="province" defaultValue="ON" required/></label><label><span>Postal code</span><input name="postalCode" required/></label>{error?<p className="error wide">{error}</p>:null}<footer className="wide"><button type="button" className="secondary-button" onClick={()=>setCreating(false)}>Cancel</button><button disabled={busy}>{busy?"Creating...":"Create account"}</button></footer></form></section></div> : null}
     </div>
   );
 }
@@ -1172,6 +1175,11 @@ function AccountMemberForm({ account }) {
   return (
     <section className="settings-section team-settings">
       <header><div><span>Access</span><h3>Team members</h3></div><p>Add an existing website customer and control what they can do.</p></header>
+    <div className="account-member-list">
+      <div className="account-member-head"><span>Member</span><span>Organization role</span><span>Access</span><span>Order limit</span><span>Status</span></div>
+      {account.purchasers?.length ? account.purchasers.map(member=><article key={member.id}><div><strong>{member.display_name||`${member.first_name||""} ${member.last_name||""}`.trim()}</strong><small>{member.email}{member.phone?` · ${formatPhone(member.phone)}`:""}</small></div><span>{String(member.organization_role||"Staff").replaceAll("_"," ")}</span><span>{member.role==="account_admin"?"Administrator":member.role}</span><span>{member.purchase_limit==null?"No limit":cash(member.purchase_limit)}</span><span><b className={`status ${member.status}`}>{member.status}</b><small>{member.has_pin?"PIN set":"No PIN"}</small></span></article>) : <p className="empty-row">No team members are linked to this account yet.</p>}
+    </div>
+    <div className="team-add-heading"><span>Add another member</span><p>The customer must already have a website login.</p></div>
     <form
       className="settings-grid team-grid"
       onSubmit={async (event) => {
