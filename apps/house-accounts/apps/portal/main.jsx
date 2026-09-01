@@ -390,7 +390,7 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
     <main className="dashboard">
       <section className="admin-grid">
         <AccountList accounts={visible} account={account} query={query} setQuery={setQuery} setSelected={setSelected} canCreate={user.role === "owner"} demo={demo} onCreated={(created)=>{setAccounts([created,...accounts]);setSelected(created.id);}} />
-        {account ? <AccountDetail account={account} staff demo={demo} /> : <div className="empty">No account selected.</div>}
+        {account ? <AccountDetail account={account} staff demo={demo} onAccountChange={(updated)=>setAccounts((current)=>current.map((item)=>item.id===updated.id?updated:item))} /> : <div className="empty">No account selected.</div>}
       </section>
     </main>
   );
@@ -994,7 +994,7 @@ function Metric({ label, value, note, tone }) {
     </article>
   );
 }
-function AccountDetail({ account, staff, demo }) {
+function AccountDetail({ account, staff, demo, onAccountChange }) {
   const [tab, setTab] = useState(staff ? "statements" : "activity"),
     used = Number(account.credit.balance || account.credit.postedBalance || 0),
     limit = Number(account.credit.creditLimit || 0),
@@ -1033,7 +1033,7 @@ function AccountDetail({ account, staff, demo }) {
         {staff ? <button className={tab === "billing" ? "active" : ""} onClick={() => setTab("billing")}>Billing setup</button> : null}
         {staff ? <button className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>Team</button> : null}
       </nav>
-      {tab === "statements" ? <Statements account={account} staff={staff} demo={demo} /> : null}
+      {tab === "statements" ? <Statements account={account} staff={staff} demo={demo} onStatementIssued={(statement)=>onAccountChange?.({...account,statements:[statement,...(account.statements||[]).filter((item)=>item.id!==statement.id)]})} /> : null}
       {tab === "activity" ? <Activity entries={account.ledger} account={account} staff={staff} demo={demo} /> : null}
       {tab === "orders" ? <OrderTable orders={account.orders} /> : null}
       {staff && tab === "billing" ? (
@@ -1526,9 +1526,10 @@ function StatementDateRange({ disabled }) {
     </div>
   );
 }
-function Statements({ account, staff, demo }) {
+function Statements({ account, staff, demo, onStatementIssued }) {
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [message, setMessage] = useState("");
   const openStatement = account.statements.find((statement) => !["paid", "void"].includes(statement.status));
   const paymentLink = openStatement?.payment_token ? `${location.origin}/account/?statement=${openStatement.payment_token}` : "";
   const issue = async (event) => {
@@ -1542,6 +1543,7 @@ function Statements({ account, staff, demo }) {
     }
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       const scheduled = data.get("scheduledChargeAt");
       const { statement } = await request(`/admin/accounts/${account.id}/statements`, {
@@ -1552,10 +1554,12 @@ function Statements({ account, staff, demo }) {
           ...(scheduled ? { scheduledChargeAt: new Date(String(scheduled)).toISOString() } : {}),
         }),
       });
+      onStatementIssued?.(statement);
       await downloadStatement(statement);
-      location.reload();
+      setMessage(`${statement.statement_number || "Invoice"} was issued and added above.`);
     } catch (cause) {
       setError(cause.message);
+    } finally {
       setBusy(false);
     }
   };
@@ -1604,6 +1608,7 @@ function Statements({ account, staff, demo }) {
             <input type="datetime-local" name="scheduledChargeAt" disabled={busy} />
           </label>
           {error ? <p className="error review-error">{error}</p> : null}
+          {message ? <p className="success review-error" role="status">{message}</p> : null}
           <button disabled={busy}>{busy ? "Creating PDF..." : "Issue invoice"}</button>
         </form>
       ) : null}
