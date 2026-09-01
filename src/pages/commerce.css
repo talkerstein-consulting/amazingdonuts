@@ -964,6 +964,7 @@
 .save-card-choice small { margin-top:4px; color:var(--text-body); line-height:1.45; }
 
 .account-message {
+  margin: 24px 0 0;
   padding: 13px 16px;
   border-radius: 16px;
   background: var(--sand);
