@@ -688,7 +688,7 @@ function HouseApplicationDetail({ application, demo, onReviewed }) {
           <label>
             <span>Terms</span>
             <select name="terms" defaultValue="30">
-              <option value="0">Due now</option>
+              <option value="0">Due upon receipt</option>
               <option value="15">Net 15</option>
               <option value="30">Net 30</option>
               <option value="45">Net 45</option>
@@ -914,7 +914,7 @@ function ApplicationDetail({ application, demo, onReviewed }) {
           <label>
             <span>Terms</span>
             <select name="terms" defaultValue="30">
-              <option value="0">Due now</option>
+              <option value="0">Due upon receipt</option>
               <option value="15">Net 15</option>
               <option value="30">Net 30</option>
               <option value="45">Net 45</option>
@@ -1067,7 +1067,7 @@ function AccountDetail({ account, staff, demo }) {
           <label>
             <span>Terms</span>
             <select name="terms" defaultValue={account.payment_terms_days}>
-              <option value="0">Due now</option>
+              <option value="0">Due upon receipt</option>
               <option value="15">Net 15</option>
               <option value="30">Net 30</option>
               <option value="45">Net 45</option>
