@@ -11,6 +11,8 @@
     { "path": "/api/house/jobs/statements", "schedule": "37 6 * * *" }
   ],
   "redirects": [
+    { "source": "/kashruth", "destination": "/allergy-free/", "permanent": true },
+    { "source": "/kashruth/", "destination": "/allergy-free/", "permanent": true },
     { "source": "/accounts", "destination": "/admin-dashboard/", "permanent": true },
     { "source": "/accounts/", "destination": "/admin-dashboard/", "permanent": true },
     { "source": "/accounts/:path*", "destination": "/admin-dashboard/:path*", "permanent": true }

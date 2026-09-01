@@ -39,8 +39,8 @@ const PHOTOS = [
 ];
 
 const SOCIALS = [
-  { label: 'Instagram', Icon: Instagram, href: '#wild', bg: 'var(--pink)', fg: 'var(--navy)' },
-  { label: 'Facebook', Icon: FacebookSolid, href: '#wild', bg: 'var(--blue)', fg: 'var(--cream)' }
+  { label: 'Instagram', Icon: Instagram, href: 'https://www.instagram.com/amazingdonutsto/', bg: 'var(--pink)', fg: 'var(--navy)' },
+  { label: 'Facebook', Icon: FacebookSolid, href: 'https://www.facebook.com/amazingdonuts/', bg: 'var(--blue)', fg: 'var(--cream)' }
 ];
 
 export default function Social() {

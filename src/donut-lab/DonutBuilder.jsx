@@ -572,7 +572,7 @@ export default function DonutBuilder() {
                 <p className="bld__summary">{line}</p>
                 <div className="bld__acts">
                   <Wedge label="Add to the Box" family="dare" />
-                  <Wedge label="Call the Bakery" href="tel:+14163987546" family="sky" />
+                  <Wedge label="Email the Bakery" href="mailto:orders@amazingdonuts.com" family="sky" />
                 </div>
               </div>
             ) : null}

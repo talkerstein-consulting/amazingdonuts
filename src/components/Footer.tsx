@@ -30,8 +30,7 @@ const MENU_LINKS = [
    nowhere at all. */
 const COMPANY_LINKS = [
   { label: 'Contact', href: CONTACT_HREF },
-  { label: 'Allergy free', href: '/allergy-free/' },
-  { label: 'Kashruth', href: '/kashruth/' },
+  { label: 'Allergies & Kashruth', href: '/allergy-free/' },
   { label: 'Privacy policy', href: '/privacy-policy/' },
   { label: 'Shipping & returns', href: '/shipping-returns/' }
 ];
@@ -49,8 +48,6 @@ const SCHEDULE = [
 ];
 
 const CONTACT = {
-  phone: '(416) 398-7546',
-  phoneHref: 'tel:+14163987546',
   email: 'orders@amazingdonuts.com'
 };
 
@@ -310,11 +307,8 @@ export default function Footer({ ready }: { ready: boolean }) {
               })}
             </dl>
 
-            <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid rgba(251,247,239,.14)', display: 'flex', flexWrap: 'wrap', gap: '8px 20px' }}>
-              <a href={CONTACT.phoneHref} style={{ fontFamily: 'var(--font-cta)', fontWeight: 700, fontSize: 15, color: 'var(--cream)' }}>
-                {CONTACT.phone}
-              </a>
-              <a href={`mailto:${CONTACT.email}`} style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: 'rgba(251,247,239,.72)' }}>
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid rgba(251,247,239,.14)' }}>
+              <a href={`mailto:${CONTACT.email}`} style={{ fontFamily: 'var(--font-cta)', fontWeight: 700, fontSize: 15, color: 'var(--cream)' }}>
                 {CONTACT.email}
               </a>
             </div>
@@ -397,10 +391,10 @@ export default function Footer({ ready }: { ready: boolean }) {
         >
           <p style={{ margin: 0, fontSize: 14, color: 'rgba(14,62,105,.5)' }}>© 2026 Amazing Donuts</p>
           <div style={{ display: 'flex', gap: 4 }}>
-            <a href="#wild" aria-label="Facebook" className="footer-icon-btn" style={{ color: 'var(--navy)' }}>
+            <a href="https://www.facebook.com/amazingdonuts/" target="_blank" rel="noreferrer" aria-label="Amazing Donuts on Facebook" className="footer-icon-btn" style={{ color: 'var(--navy)' }}>
               <Facebook size={20} strokeWidth={2.2} />
             </a>
-            <a href="#wild" aria-label="Instagram" className="footer-icon-btn" style={{ color: 'var(--navy)' }}>
+            <a href="https://www.instagram.com/amazingdonutsto/" target="_blank" rel="noreferrer" aria-label="Amazing Donuts on Instagram" className="footer-icon-btn" style={{ color: 'var(--navy)' }}>
               <Instagram size={20} strokeWidth={2.2} />
             </a>
           </div>

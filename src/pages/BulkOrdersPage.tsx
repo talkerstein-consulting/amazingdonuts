@@ -1,4 +1,5 @@
-import { Suspense, lazy, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertTriangle,
   Building2,
@@ -17,6 +18,7 @@ import {
   UserRound,
   Users,
   Wheat,
+  X,
   type LucideIcon
 } from 'lucide-react';
 import '../index.css';
@@ -32,7 +34,6 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import AuthModal from '../shop/AuthModal';
 import CartDrawer from '../shop/CartDrawer';
-import KosherBadge from '../components/KosherBadge';
 import BrandDatePicker, { localDateValue } from '../components/BrandDatePicker';
 
 /* The same carousel the homepage uses, and deferred the same way: it pulls in
@@ -42,36 +43,7 @@ import BrandDatePicker, { localDateValue } from '../components/BrandDatePicker';
    reel gallery took bare URLs and could describe nothing. */
 const LenticularCarousel = lazy(() => import('../components/lenticular-carousel'));
 
-/**
- * Bulk orders: what the bakery can do at volume, proof that it does, and an
- * intake form that qualifies the enquiry before anyone picks up a phone.
- *
- * The three-up band below stands in for `@reactbits-pro/features-3`, which
- * could not be fetched — the pro registry needs REACTBITS_LICENSE_KEY and
- * there is no `.env.local` in this project. It is deliberately built as three
- * flat `{ Icon, title, body }` records so swapping the presentation for
- * features-3 is a render change and not a data change.
- */
-
-/* --- the three-up band --------------------------------------------------- */
-const FEATURES = [
-  {
-    Icon: CalendarClock,
-    title: 'Two business days for most orders',
-    body: "Most bulk orders need two business days' notice. Custom-printed items need at least one week. Tell us your date and we will confirm availability right away."
-  },
-  {
-    Icon: null,
-    corBadge: true,
-    title: 'Kosher, COR 483',
-    body: 'Pareve and Yoshon, certified, every day. The one question that usually decides whether a caterer is even an option is already answered.'
-  },
-  {
-    Icon: Truck,
-    title: 'Delivered or picked up',
-    body: 'Across Toronto in the morning, or ready on the counter at 7:30. Boxed so it arrives looking like it did when it left.'
-  }
-];
+/** Bulk ordering guidance, proof of past work, and an email-first intake form. */
 
 /**
  * UGC from `Reel covers/`, already converted to WebP for the homepage carousel.
@@ -235,6 +207,8 @@ function FieldLabel({ label, Icon }: { label: string; Icon: LucideIcon }) {
 }
 
 function IntakeForm() {
+  const reduceMotion = useReducedMotion();
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const [orderType, setOrderType] = useState<string>('');
   const [headCount, setHeadCount] = useState<string>('');
   const [products, setProducts] = useState<string[]>([]);
@@ -248,10 +222,25 @@ function IntakeForm() {
   const [submitState, setSubmitState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [submitMessage, setSubmitMessage] = useState('');
 
-  /* The qualifier that actually matters: a date inside the lead time is not a
-     rejection, it is a "phone us instead", and saying so on the form beats
-     letting someone submit and wait. Computed rather than validated on submit
-     so the warning appears as the date is picked. */
+  const closeSuccess = () => {
+    setSubmitState('idle');
+    setSubmitMessage('');
+  };
+
+  useEffect(() => {
+    if (submitState !== 'sent') return;
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && closeSuccess();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    closeButtonRef.current?.focus();
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [submitState]);
+
+  /* Surface short lead times while the customer can still add context. */
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -390,11 +379,11 @@ function IntakeForm() {
           >
             <AlertTriangle size={17} strokeWidth={2.3} aria-hidden="true" style={{ flex: 'none', marginTop: 2 }} />
             <span>
-              That is inside our {LEAD_DAYS}-day window. Send this anyway if you like, but call{' '}
-              <a href={SHOP_ADDRESS.phoneHref} style={{ fontWeight: 700, color: C.navy }}>
-                {SHOP_ADDRESS.phone}
+              That is inside our {LEAD_DAYS}-day window. Send this anyway and email{' '}
+              <a href={`mailto:${SHOP_ADDRESS.email}`} style={{ fontWeight: 700, color: C.navy }}>
+                {SHOP_ADDRESS.email}
               </a>{' '}
-              — short-notice orders get answered on the phone, not by email.
+              with anything time-sensitive so the bakery team can review it quickly.
             </span>
           </p>
         )}
@@ -446,9 +435,49 @@ function IntakeForm() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <BrandButton type="submit" disabled={submitState === 'sending'}>{submitState === 'sending' ? 'Sending...' : 'Send the enquiry'}</BrandButton>
         <span role="status" style={{ fontFamily: F.text, fontSize: 13.5, color: submitState === 'error' ? '#9d2424' : 'rgba(14,62,105,.7)' }}>
-          {submitMessage || 'Your request goes directly to the bakery team for review.'}
+          {submitState === 'error' ? submitMessage : 'Your request goes directly to the bakery team for review.'}
         </span>
       </div>
+
+      <AnimatePresence>
+        {submitState === 'sent' && (
+          <motion.div
+            className="bulk-success-backdrop"
+            role="presentation"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={(event) => event.target === event.currentTarget && closeSuccess()}
+          >
+            <motion.section
+              className="bulk-success-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="bulk-success-title"
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 40, scale: .94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 20, scale: .97 }}
+              transition={{ duration: reduceMotion ? .15 : .45, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <button ref={closeButtonRef} className="bulk-success-close" type="button" onClick={closeSuccess} aria-label="Close confirmation">
+                <X size={22} strokeWidth={2.4} />
+              </button>
+              <motion.img
+                className="bulk-success-donut"
+                src="/img/roll-donut.png"
+                alt=""
+                initial={reduceMotion ? false : { x: -180, rotate: -160, scale: .7 }}
+                animate={reduceMotion ? undefined : { x: 0, rotate: 0, scale: 1 }}
+                transition={{ duration: .85, delay: .08, ease: [0.22, 1, 0.36, 1] }}
+              />
+              <p>Enquiry received</p>
+              <h2 id="bulk-success-title">That was amazing.</h2>
+              <span>Our bakery team has your request and will reply by email with the next step.</span>
+              <BrandButton type="button" onClick={closeSuccess}>Done</BrandButton>
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </form>
   );
 }
@@ -500,67 +529,11 @@ export default function BulkOrdersPage() {
               have in mind. We’ll recommend the right mix and follow up with a clear quote.
             </p>
 
-            {/* --- three-up band (features-3 stand-in) --- */}
-            <div
-              style={{
-                display: 'grid',
-                gap: 'clamp(16px,2vw,24px)',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))'
-              }}
-            >
-              {FEATURES.map(({ Icon, title, body, corBadge }) => (
-                <article
-                  key={title}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 12,
-                    padding: 'clamp(20px,2.2vw,28px)',
-                    borderRadius: 28,
-                    background: 'var(--sand)'
-                  }}
-                >
-                  {corBadge ? (
-                    <KosherBadge badge="cor" style={{ alignSelf: 'flex-start', background: C.navy, color: 'var(--cream)' }} />
-                  ) : Icon ? (
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        width: 46,
-                        height: 46,
-                        borderRadius: 99,
-                        display: 'grid',
-                        placeItems: 'center',
-                        background: 'var(--cream)',
-                        color: C.navy
-                      }}
-                    >
-                      <Icon size={22} strokeWidth={2.2} />
-                    </span>
-                  ) : null}
-                  <h2
-                    style={{
-                      margin: 0,
-                      fontFamily: 'var(--font-display)',
-                      fontWeight: 400,
-                      fontSize: 26,
-                      lineHeight: 1.05
-                    }}
-                  >
-                    {title}
-                  </h2>
-                  <p style={{ margin: 0, fontFamily: F.text, fontSize: 15.5, lineHeight: 1.5, color: 'rgba(14,62,105,.78)' }}>
-                    {body}
-                  </p>
-                </article>
-              ))}
-            </div>
-
             {/* --- intake --- */}
             <section
               aria-label="Bulk order enquiry"
               style={{
-                marginTop: 'clamp(34px,4vw,60px)',
+                marginTop: 'clamp(26px,3vw,44px)',
                 padding: 'clamp(22px,2.8vw,40px)',
                 borderRadius: 32,
                 background: 'var(--sand)'
@@ -587,7 +560,7 @@ export default function BulkOrdersPage() {
                   color: 'rgba(14,62,105,.72)'
                 }}
               >
-                Four questions and a date. Enough for us to quote without a phone call first.
+                Four questions and a date. Enough for us to prepare a clear quote and reply by email.
               </p>
               <IntakeForm />
             </section>

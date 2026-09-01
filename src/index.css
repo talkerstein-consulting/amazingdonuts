@@ -1115,3 +1115,79 @@ html.lenis,
 .petite-row img:nth-child(even) {
   transform: translateY(-6%);
 }
+/* Bulk enquiry confirmation */
+.bulk-success-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(14, 62, 105, 0.72);
+}
+
+.bulk-success-modal {
+  position: relative;
+  width: min(100%, 560px);
+  overflow: hidden;
+  padding: clamp(34px, 6vw, 58px);
+  border-radius: 8px;
+  background: var(--cream);
+  box-shadow: 0 28px 80px rgba(5, 30, 52, 0.35);
+  color: var(--navy);
+  text-align: center;
+}
+
+.bulk-success-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.bulk-success-donut {
+  display: block;
+  width: clamp(150px, 38vw, 230px);
+  max-height: 190px;
+  margin: -12px auto 18px;
+  object-fit: contain;
+}
+
+.bulk-success-modal > p {
+  margin: 0 0 10px;
+  font-family: var(--font-label);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--pink-strong);
+}
+
+.bulk-success-modal > h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(42px, 8vw, 68px);
+  font-weight: 400;
+  line-height: .92;
+}
+
+.bulk-success-modal > span {
+  display: block;
+  max-width: 38ch;
+  margin: 18px auto 26px;
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.5;
+  color: rgba(14, 62, 105, 0.74);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bulk-success-donut { transform: none !important; }
+}

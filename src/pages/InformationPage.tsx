@@ -15,21 +15,14 @@ type Page = { eyebrow: string; title: string; intro: string; sections: { title: 
 
 const PAGES: Record<string, Page> = {
   '/allergy-free/': {
-    eyebrow: 'Menu information',
-    title: 'Allergy-free choices',
-    intro: 'Find the bakery options that fit your table before placing an order.',
+    eyebrow: 'Menu & certification',
+    title: 'Allergies & Kashruth',
+    intro: 'Review allergen guidance and kosher certification together before placing an order.',
     sections: [
       { title: 'Available options', body: 'Selected products are marked nut free, dairy free or sesame free in the shop. Use those product badges as your starting point.' },
-      { title: 'Shared kitchen', body: 'Our products are prepared in a working bakery that handles common allergens. Please contact the bakery before ordering if cross-contact is a concern.' }
-    ]
-  },
-  '/kashruth/': {
-    eyebrow: 'Certification',
-    title: 'Kashruth',
-    intro: 'Amazing Donuts is proudly kosher certified in Toronto.',
-    sections: [
+      { title: 'Shared kitchen', body: 'Our products are prepared in a working bakery that handles common allergens. Please email orders@amazingdonuts.com before ordering if cross-contact is a concern.' },
       { title: 'COR 483', body: 'Our certification is displayed throughout the site and on the bakery information provided with your order.' },
-      { title: 'Product details', body: 'Pareve and yoshon information is shown with the relevant products. Contact the bakery if you need confirmation for a specific order.' }
+      { title: 'Pareve & Yoshon', body: 'Pareve and yoshon information is shown with the relevant products. Email orders@amazingdonuts.com if you need confirmation for a specific order.' }
     ]
   },
   '/privacy-policy/': {
