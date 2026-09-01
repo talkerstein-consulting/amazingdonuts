@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type InputHTMLAttributes } from "react";
-import { ArrowLeft, Building2, CreditCard, Eye, EyeOff, Heart, LogOut, Package, ReceiptText, UserRound } from "lucide-react";
+import { ArrowLeft, Building2, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, ReceiptText, UserRound, X } from "lucide-react";
 import { PRODUCTS } from "../data/products";
 import AuthModal from "../shop/AuthModal";
 import CommerceLogo from "./CommerceLogo";
@@ -406,40 +406,13 @@ function HouseAccount({ session, account, application, statementToken, onStateme
         {account?.ledger?.length ? (
           <div className="customer-orders">
             <h2>Credit activity</h2>
-            {account.ledger.map((entry: any) => (
-              <article key={entry.id}>
-                <header>
-                  <div>
-                    <span>{day(entry.effective_at)}</span>
-                    <strong>{entry.description}</strong>
-                  </div>
-                  <em>{cash(entry.amount, entry.currency)}</em>
-                </header>
-              </article>
-            ))}
+            <div className="account-table-scroll"><table className="account-data-table activity-data-table"><thead><tr><th>Date</th><th>Order details</th><th className="money-column">Amount</th></tr></thead><tbody>{account.ledger.map((entry: any) => <tr key={entry.id}><td>{day(entry.effective_at)}</td><td><strong>{entry.description}</strong></td><td className="money-column">{cash(entry.amount, entry.currency)}</td></tr>)}</tbody></table></div>
           </div>
         ) : null}
         {account?.statements?.length ? (
           <div className="customer-orders">
             <h2>Statements</h2>
-            {account.statements.map((statement: any) => (
-              <article key={statement.id}>
-                <header>
-                  <div>
-                    <span>{day(statement.period_end)}</span>
-                    <strong>{statement.statement_number}</strong>
-                  </div>
-                  <em>{statement.status}</em>
-                </header>
-                <footer>
-                  <span>{cash(statement.closing_balance, statement.currency)} balance</span>
-                  <a href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer">
-                    Download PDF
-                  </a>
-                  {!["paid", "void"].includes(statement.status)&&statement.payment_token!==statementToken ? <PayStatement statement={statement} /> : null}
-                </footer>
-              </article>
-            ))}
+            <div className="account-table-scroll"><table className="account-data-table statement-data-table"><thead><tr><th>Period</th><th>Statement</th><th>Status</th><th className="money-column">Amount</th><th className="action-column">Download</th><th className="action-column">Payment</th></tr></thead><tbody>{account.statements.map((statement: any) => <tr key={statement.id}><td>{day(statement.period_end)}</td><td><strong>{statement.statement_number}</strong></td><td><span className={`statement-status statement-status--${statement.status}`}>{statement.status}</span></td><td className="money-column">{cash(statement.closing_balance, statement.currency)}</td><td className="action-column"><a className="table-icon-action" href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer" aria-label={`Download ${statement.statement_number}`} title="Download PDF"><Download/></a></td><td className="action-column">{!["paid", "void"].includes(statement.status)&&statement.payment_token!==statementToken ? <PayStatement statement={statement} /> : <span className="table-action-empty">—</span>}</td></tr>)}</tbody></table></div>
           </div>
         ) : (
           <div className="no-orders">
@@ -779,6 +752,12 @@ function PayStatement({ statement, expanded = false, onPaid }: { statement: any;
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [paid, setPaid] = useState(false);
+  useEffect(()=>{
+    if(!open||expanded)return;
+    const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setOpen(false)};
+    document.addEventListener('keydown',close);
+    return()=>document.removeEventListener('keydown',close);
+  },[open,expanded]);
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -810,11 +789,11 @@ function PayStatement({ statement, expanded = false, onPaid }: { statement: any;
   if (paid) return <div className="statement-payment-success"><CreditCard/><div><strong>Payment received</strong><span>This invoice is paid. A receipt has been sent by email.</span></div></div>;
   if (!open)
     return (
-      <button type="button" onClick={() => setOpen(true)}>
+      <button className="table-pay-action" type="button" onClick={() => setOpen(true)}>
         <CreditCard /> Pay now
       </button>
     );
-  return (
+  const paymentForm=(
     <div className="statement-payment">
       <div className="statement-payment-heading"><CreditCard/><div><strong>Pay securely by card</strong><span>Card details are encrypted and processed by Square.</span></div></div>
       <div id={`statement-card-${statement.id}`} className="square-card" />
@@ -856,4 +835,6 @@ function PayStatement({ statement, expanded = false, onPaid }: { statement: any;
       </button>
     </div>
   );
+  if(expanded)return paymentForm;
+  return <div className="statement-payment-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setOpen(false)}}><section className="statement-payment-modal" role="dialog" aria-modal="true" aria-labelledby={`pay-statement-${statement.id}`}><header><div><span>Invoice payment</span><h2 id={`pay-statement-${statement.id}`}>{statement.statement_number}</h2><p>{cash(statement.closing_balance,statement.currency)} due</p></div><button type="button" onClick={()=>setOpen(false)} aria-label="Close payment form" title="Close"><X/></button></header>{paymentForm}</section></div>;
 }
