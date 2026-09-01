@@ -927,6 +927,24 @@
 .house-application-form fieldset > p { margin:6px 0 10px; color:var(--text-body); }
 .authorized-purchaser-row { display:grid; grid-template-columns:1.1fr 1.1fr .8fr .7fr; gap:12px; align-items:end; padding:10px 0 18px; border-bottom:1px solid rgba(14,62,105,.12); }
 .house-application-form button { min-height:54px; margin-top:18px; padding:0 24px; border:0; border-radius:99px; background:var(--orange); color:#fff; font-family:var(--font-cta); font-size:var(--fs-body); font-weight:800; cursor:pointer; }
+.house-application-form .address-autocomplete__menu button {
+  min-height: auto;
+  margin: 0;
+  padding: 14px 16px;
+  border: 0;
+  border-bottom: 1px solid rgba(14,62,105,.1);
+  border-radius: 0;
+  background: #fff;
+  color: var(--navy);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 400;
+}
+.house-application-form .address-autocomplete__menu button:hover,
+.house-application-form .address-autocomplete__menu button:focus-visible {
+  background: var(--sand);
+  color: var(--navy);
+}
 .house-application-form .pin-field button { top:0; width:52px; min-height:52px; margin:0; padding:0; border-radius:0 16px 16px 0; background:transparent; color:var(--navy); }
 .authorized-purchaser-row button { min-height:auto; padding:8px 0; border-radius:0; background:transparent; color:var(--text-price); text-decoration:underline; }
 .organization-settings { margin-top:34px; }
