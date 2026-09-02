@@ -287,6 +287,17 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS orders_account_date_idx ON orders(account_id,ordered_at DESC);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS square_invoice_id TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS purchaser_user_id UUID REFERENCES users(id);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'house_account';
+INSERT INTO orders(tenant_id,account_id,purchaser_user_id,square_order_id,square_payment_id,square_customer_id,source,payment_method,status,subtotal,tax,total,currency,ordered_at,fulfillment,line_items,raw_square)
+SELECT so.tenant_id,COALESCE(so.account_id,m.account_id),so.user_id,so.square_order_id,so.square_payment_id,cp.square_customer_id,'online',so.payment_method,
+  CASE WHEN so.status IN ('cancelled','refunded') THEN so.status ELSE 'posted' END,
+  so.subtotal,so.tax,so.total,so.currency,so.ordered_at,so.fulfillment,so.line_items,so.raw_square
+FROM storefront_orders so
+JOIN LATERAL (SELECT au.account_id FROM account_users au JOIN accounts a ON a.id=au.account_id AND a.status='active' WHERE au.user_id=so.user_id AND au.status='active' ORDER BY au.account_id LIMIT 1) m ON true
+LEFT JOIN customer_profiles cp ON cp.tenant_id=so.tenant_id AND cp.user_id=so.user_id
+WHERE so.payment_method='card'
+ON CONFLICT(tenant_id,square_order_id) DO UPDATE SET purchaser_user_id=EXCLUDED.purchaser_user_id,payment_method=EXCLUDED.payment_method;
 
 CREATE TABLE IF NOT EXISTS journal_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -353,6 +364,7 @@ CREATE TABLE IF NOT EXISTS payment_allocations (
   tenant_id UUID NOT NULL REFERENCES tenants(id),
   account_id UUID NOT NULL REFERENCES accounts(id),
   statement_id UUID REFERENCES statements(id),
+  order_id UUID REFERENCES orders(id),
   square_payment_id TEXT,
   amount BIGINT NOT NULL CHECK (amount > 0),
   currency CHAR(3) NOT NULL DEFAULT 'CAD',
@@ -362,6 +374,8 @@ CREATE TABLE IF NOT EXISTS payment_allocations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (tenant_id,square_payment_id)
 );
+ALTER TABLE payment_allocations ADD COLUMN IF NOT EXISTS order_id UUID REFERENCES orders(id);
+CREATE INDEX IF NOT EXISTS payment_allocations_order_idx ON payment_allocations(order_id,received_at DESC);
 
 CREATE TABLE IF NOT EXISTS webhook_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

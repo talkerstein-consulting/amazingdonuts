@@ -391,7 +391,7 @@ function HouseAccount({ session, account, application, statementToken, onStateme
   const linkedStatement=statementToken&&account?.statements?.find((statement:any)=>statement.payment_token===statementToken);
   const actionableStatuses=["overdue","partially_paid","issued"];
   const outstandingStatement=[...(account?.statements||[])]
-    .filter((statement:any)=>["overdue","partially_paid","issued"].includes(statement.status)&&Number(statement.closing_balance)>0)
+    .filter((statement:any)=>["overdue","partially_paid","issued"].includes(statement.status)&&Number(statement.balance_due??statement.closing_balance)>0)
     .sort((left:any,right:any)=>{
       const priority:Record<string,number>={overdue:0,partially_paid:1,issued:2};
       return priority[left.status]-priority[right.status]||new Date(left.due_at||left.period_end).getTime()-new Date(right.due_at||right.period_end).getTime();
@@ -418,7 +418,7 @@ function HouseAccount({ session, account, application, statementToken, onStateme
             <p>A card on file is required before credit purchases are enabled.</p>
           )}
         </div>
-        {featuredStatement?<StatementPaymentPanel statement={featuredStatement} session={session} onPaid={onStatementPaid}/>:null}
+        {featuredStatement?<StatementPaymentPanel statement={{...featuredStatement,orders:(account?.orders||[]).filter((order:any)=>order.payment_method==='house_account'&&new Date(order.ordered_at)>=new Date(featuredStatement.period_start)&&new Date(order.ordered_at)<new Date(`${featuredStatement.period_end}T23:59:59`))}} session={session} onPaid={onStatementPaid}/>:null}
         {statementToken&&account&&!linkedStatement?<div className="statement-link-error" role="alert"><ReceiptText/><div><strong>We could not match this payment link</strong><span>The invoice may belong to another institutional account or the link may no longer be valid.</span></div></div>:null}
         {session.houseAccount.role === "account_admin" && account ? <OrganizationSettings account={account} /> : null}
         {!session.houseAccount.card || new URLSearchParams(location.search).has("replace-card") ? <SaveHouseCard session={session} onSaved={() => location.reload()} /> : null}
@@ -432,7 +432,7 @@ function HouseAccount({ session, account, application, statementToken, onStateme
         {account?.statements?.length ? (
           <div className="customer-orders">
             <h2>Statements</h2>
-            <div className="account-table-scroll"><table className="account-data-table statement-data-table"><thead><tr><th>Period</th><th>Statement</th><th>Status</th><th className="money-column">Amount</th><th className="action-column">Download</th><th className="action-column">Payment</th></tr></thead><tbody>{account.statements.map((statement: any) => <tr key={statement.id}><td>{day(statement.period_end)}</td><td><strong>{statement.statement_number}</strong></td><td><span className={`statement-status statement-status--${statement.status}`}>{statement.status}</span></td><td className="money-column">{cash(statement.closing_balance, statement.currency)}</td><td className="action-column"><a className="table-icon-action" href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer" aria-label={`Download ${statement.statement_number}`} title="Download PDF"><Download/></a></td><td className="action-column">{!["paid", "void"].includes(statement.status)&&statement.id!==featuredStatement?.id ? <PayStatement statement={statement} session={session} /> : <span className="table-action-empty">—</span>}</td></tr>)}</tbody></table></div>
+            <div className="account-table-scroll"><table className="account-data-table statement-data-table"><thead><tr><th>Period</th><th>Statement</th><th>Status</th><th className="money-column">Balance</th><th className="action-column">Download</th><th className="action-column">Payment</th></tr></thead><tbody>{account.statements.map((statement: any) => {const payable={...statement,orders:(account.orders||[]).filter((order:any)=>order.payment_method==='house_account'&&new Date(order.ordered_at)>=new Date(statement.period_start)&&new Date(order.ordered_at)<new Date(`${statement.period_end}T23:59:59`))};return <tr key={statement.id}><td>{day(statement.period_end)}</td><td><strong>{statement.statement_number}</strong></td><td><span className={`statement-status statement-status--${statement.status}`}>{statement.status}</span></td><td className="money-column">{cash(statement.balance_due??statement.closing_balance, statement.currency)}</td><td className="action-column"><a className="table-icon-action" href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer" aria-label={`Download ${statement.statement_number}`} title="Download PDF"><Download/></a></td><td className="action-column">{!["paid", "void"].includes(statement.status)&&statement.id!==featuredStatement?.id ? <PayStatement statement={payable} session={session} /> : <span className="table-action-empty">—</span>}</td></tr>})}</tbody></table></div>
           </div>
         ) : (
           <div className="no-orders">
@@ -772,8 +772,8 @@ function SaveHouseCard({ session, onSaved }: { session: any; onSaved: () => void
 
 function StatementPaymentPanel({statement,session,onPaid}:{statement:any;session:any;onPaid:()=>void}){
   const settled=['paid','void'].includes(statement.status);
-  const statusDetail=statement.status==='paid'?`Paid on ${day(statement.paid_at)}`:statement.status==='void'?'Invoice voided':`Due ${day(statement.due_at)}`;
-  return <section className="statement-payment-panel" aria-labelledby="statement-payment-title"><header><div><span>{settled?'Invoice receipt':'Invoice payment'}</span><h2 id="statement-payment-title">{settled?'Invoice':'Pay'} {statement.statement_number}</h2><p>{statement.organization_name||'Institutional account'} · {statusDetail}</p></div><strong>{cash(statement.closing_balance,statement.currency)}</strong></header><div className="statement-payment-summary"><div><span>Statement period</span><b>{day(statement.period_start)} – {day(statement.period_end)}</b></div><div><span>Status</span><b>{statusDetail}</b></div><a href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer"><ReceiptText/> Download invoice</a></div>{settled?<div className="statement-payment-success"><CreditCard/><div><strong>{statement.status==='paid'?'Payment received':'No payment required'}</strong><span>{statement.status==='paid'?'This invoice has been paid.':'This invoice has been voided.'}</span></div></div>:<PayStatement statement={statement} session={session} expanded onPaid={onPaid}/>}</section>;
+  const statusDetail=statement.status==='paid'?`Paid on ${day(statement.paid_at)}`:statement.status==='void'?'Invoice voided':statement.status==='partially_paid'?`${cash(statement.balance_due,statement.currency)} remaining · Due ${day(statement.due_at)}`:`Due ${day(statement.due_at)}`;
+  return <section className="statement-payment-panel" aria-labelledby="statement-payment-title"><header><div><span>{settled?'Invoice receipt':'Invoice payment'}</span><h2 id="statement-payment-title">{settled?'Invoice':'Pay'} {statement.statement_number}</h2><p>{statement.organization_name||'Institutional account'} · {statusDetail}</p></div><strong>{cash(statement.balance_due??statement.closing_balance,statement.currency)}</strong></header><div className="statement-payment-summary"><div><span>Statement period</span><b>{day(statement.period_start)} – {day(statement.period_end)}</b></div><div><span>Status</span><b>{statusDetail}</b></div><a href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer"><ReceiptText/> Download invoice</a></div>{settled?<div className="statement-payment-success"><CreditCard/><div><strong>{statement.status==='paid'?'Payment received':'No payment required'}</strong><span>{statement.status==='paid'?'This invoice has been paid.':'This invoice has been voided.'}</span></div></div>:<PayStatement statement={statement} session={session} expanded onPaid={onPaid}/>}</section>;
 }
 
 function PayStatement({ statement, session, expanded = false, onPaid }: { statement: any; session: any; expanded?: boolean; onPaid?: () => void }) {
@@ -784,6 +784,8 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
     [ready,setReady]=useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
+    [orderId,setOrderId]=useState(""),
+    [amount,setAmount]=useState(((Number(statement.balance_due??statement.closing_balance))/100).toFixed(2)),
     [paid, setPaid] = useState(false);
   useEffect(()=>{
     if(!open||expanded)return;
@@ -819,27 +821,33 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
       card.current = undefined;
     };
   }, [open, statement.id, useAnotherCard]);
-  if (paid) return <div className="statement-payment-success"><CreditCard/><div><strong>Payment received</strong><span>This invoice is paid. A receipt has been sent by email.</span></div></div>;
+  if (paid) return <div className="statement-payment-success"><CreditCard/><div><strong>Payment received</strong><span>Your balance and payment history have been updated.</span></div></div>;
   if (!open)
     return (
       <button className="table-pay-action" type="button" onClick={() => setOpen(true)}>
         <CreditCard /> Pay now
       </button>
     );
+  const selectedOrder=(statement.orders||[]).find((order:any)=>order.id===orderId),maximum=Number(selectedOrder?.balance_due??statement.balance_due??statement.closing_balance),amountCents=Math.round(Number(amount)*100);
   const finishPayment=async(sourceId:string)=>{
     setBusy(true);setError("");
     try{
-      await api(`/storefront/statements/${statement.id}/pay`,{method:"POST",body:JSON.stringify({sourceId,idempotencyKey:crypto.randomUUID()})});
+      if(!Number.isFinite(amountCents)||amountCents<1||amountCents>maximum)throw new Error(`Enter an amount between $0.01 and ${cash(maximum,statement.currency)}.`);
+      await api(`/storefront/statements/${statement.id}/pay`,{method:"POST",body:JSON.stringify({sourceId,idempotencyKey:crypto.randomUUID(),amount:amountCents,orderId:orderId||undefined})});
       setPaid(true);onPaid?.();
     }catch(cause){setError(cause instanceof Error?cause.message:"Payment failed.");}
     finally{setBusy(false);}
   };
   const paymentForm=(
     <div className="statement-payment">
+      <div className="statement-payment-options">
+        <label><span>Apply payment to</span><select value={orderId} onChange={event=>{const value=event.target.value;setOrderId(value);const order=(statement.orders||[]).find((item:any)=>item.id===value);setAmount((Number(order?.balance_due??statement.balance_due??statement.closing_balance)/100).toFixed(2));}}><option value="">Statement balance</option>{(statement.orders||[]).filter((order:any)=>Number(order.balance_due)>0).map((order:any)=><option key={order.id} value={order.id}>{day(order.ordered_at)} · {order.receipt_number||order.square_order_id} · {cash(order.balance_due,order.currency)}</option>)}</select></label>
+        <label><span>Payment amount</span><div className="statement-payment-amount"><b>$</b><input type="number" min="0.01" step="0.01" max={(maximum/100).toFixed(2)} value={amount} onChange={event=>setAmount(event.target.value)}/></div><small>Up to {cash(maximum,statement.currency)}</small></label>
+      </div>
       {savedCard&&!useAnotherCard?<>
         <div className="statement-payment-heading"><CreditCard/><div><strong>Pay with {String(savedCard.brand||'card').toUpperCase()} ending in {savedCard.last4}</strong><span>Use the card already authorized for this institutional account.</span></div></div>
         {error?<p className="checkout-error">{error}</p>:null}
-        <button type="button" disabled={busy} onClick={()=>void finishPayment("SAVED_CARD")}>{busy?"Processing...":`Pay ${cash(statement.closing_balance,statement.currency)}`}</button>
+        <button type="button" disabled={busy} onClick={()=>void finishPayment("SAVED_CARD")}>{busy?"Processing...":`Pay ${cash(amountCents||0,statement.currency)}`}</button>
         <button className="statement-payment-secondary" type="button" disabled={busy} onClick={()=>{setError("");setUseAnotherCard(true);}}>Pay with another card</button>
       </>:<>
         <div className="statement-payment-heading"><CreditCard/><div><strong>Pay with another card</strong><span>Card details are encrypted and processed by Square.</span></div></div>
@@ -855,7 +863,7 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
           try {
             if (!card.current) throw new Error("The secure card form is still loading.");
             const token = await card.current.tokenize({
-              amount: (Number(statement.closing_balance) / 100).toFixed(2),
+              amount: (amountCents / 100).toFixed(2),
               currencyCode: statement.currency,
               intent: "CHARGE",
               customerInitiated: true,
@@ -880,7 +888,7 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
           }
         }}
       >
-        {busy ? "Processing..." : `Pay ${cash(statement.closing_balance, statement.currency)}`}
+        {busy ? "Processing..." : `Pay ${cash(amountCents||0, statement.currency)}`}
         </button>
         {savedCard?<button className="statement-payment-secondary" type="button" disabled={busy} onClick={()=>{setError("");setUseAnotherCard(false);}}>Use saved card instead</button>:null}
       </>}
