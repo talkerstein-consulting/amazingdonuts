@@ -11,6 +11,7 @@ import { transaction } from "./db.js";
 import { deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery, validateFulfillmentSchedule } from "./delivery.js";
 import { syncInstitutionalPinNote } from "./square-customer-note.js";
 import { OAuth2Client } from "google-auth-library";
+import { validUberSignature } from "./uber-direct.js";
 
 const loginSchema = z.object({ email:z.string().email(), password:z.string().min(8), tenant:z.string().min(2) });
 const forgotPasswordSchema=z.object({email:z.string().email(),tenantSlug:z.string().min(2).default("amazing-donuts")});
@@ -53,13 +54,14 @@ const adminManagerStatusSchema=z.object({status:z.enum(["active","disabled"])});
 const wishlistProductSchema=z.string().regex(/^[a-z0-9][a-z0-9-]{0,119}$/);
 const organizationRoles={School:["principal","office_manager","teacher","staff"],Shul:["rabbi","president","administrator","staff"],Caterer:["owner","operations_manager","sales_coordinator","staff"],"Event planner":["owner","lead_planner","coordinator","staff"],"Corporate or office":["owner_executive","office_manager","department_manager","employee"],"Other business":["owner","manager","staff"]};
 
-export function createApp({ pool, square, config }) {
+export function createApp({ pool, square, uberDirect, config }) {
   const app = express();
   app.use(helmet({ contentSecurityPolicy:false }));
   app.use(express.json({ limit:"2mb", verify:(request,_response,buffer)=>{ request.rawBody=buffer; } }));
   app.use(async (request,_response,next)=>{ try { [request.user,request.adminUser]=await Promise.all([loadSession(pool,request),loadSession(pool,request,adminCookieName)]); next(); } catch(error){ next(error); } });
 
   app.get("/api/health", (_request,response)=>response.json({ ok:true, service:"house-account-platform", version:"0.1.0" }));
+  app.get("/api/admin/uber-direct/status",async(request,response,next)=>{try{requireOwner(request);if(!uberDirect?.configured)return response.json({configured:false,mode:config.uberDirectMode||"sandbox",autoDispatch:false});await uberDirect.accessToken();response.json({configured:true,connected:true,mode:config.uberDirectMode||"sandbox",autoDispatch:Boolean(config.uberDirectAutoDispatch),webhookUrl:`${config.siteUrl}/api/house/webhooks/uber`});}catch(error){next(error);}});
   app.get("/api/auth/google/config",(_request,response)=>response.json({enabled:googleConfigured(config)}));
   app.get("/api/auth/google/start",(request,response,next)=>{try{
     if(!googleConfigured(config))throw Object.assign(new Error("Google sign-in is not configured."),{status:503,code:"GOOGLE_AUTH_NOT_CONFIGURED"});
@@ -473,6 +475,12 @@ export function createApp({ pool, square, config }) {
     if(tenant.rowCount)await handleSquareNotification(pool,square,config,tenant.rows[0].id,event);
     response.status(202).json({accepted:true});
   } catch(error){ next(error); }});
+  app.post("/api/webhooks/uber",async(request,response,next)=>{try{
+    if(!validUberSignature(request.rawBody,request.get("x-uber-signature")||request.get("x-postmates-signature"),config.uberDirectWebhookSigningKey))throw Object.assign(new Error("Invalid Uber webhook signature."),{status:401,code:"INVALID_WEBHOOK_SIGNATURE"});
+    const event=request.body,eventId=String(event.event_id||event.id||"");if(!eventId)throw Object.assign(new Error("Uber event ID is required."),{status:400});
+    await pool.query(`INSERT INTO webhook_events(provider_event_id,event_type,payload,provider,status,processed_at) VALUES($1,$2,$3,'uber','completed',now()) ON CONFLICT(provider,provider_event_id) DO NOTHING`,[eventId,String(event.event_type||event.kind||"uber.event"),JSON.stringify(event)]);
+    response.status(200).send();
+  }catch(error){next(error);}});
 
   app.use((error,_request,response,_next)=>{ const validation=error instanceof z.ZodError,status=validation?400:error.status||500; if(status>=500) console.error(error); response.status(status).json({ error:{ code:validation?"VALIDATION_ERROR":error.code||"REQUEST_FAILED",message:validation?(error.issues[0]?.message||"Please check the highlighted information."):status>=500?"The account service is temporarily unavailable.":error.message,...(status<500&&error.details?{details:error.details}:{}),...(status<500&&error.issues?{details:error.issues}:{}) } }); });
   return app;
