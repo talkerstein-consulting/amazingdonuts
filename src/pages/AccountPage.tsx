@@ -59,6 +59,14 @@ const day = (value: unknown) => {
     day: "numeric",
   });
 };
+const statementOrders = (orders: any[] = [], statement: any) => {
+  const start = new Date(statement.period_start).getTime();
+  const endExclusive = new Date(statement.period_end).getTime() + 24 * 60 * 60 * 1000;
+  return orders.filter((order: any) => {
+    const orderedAt = new Date(order.ordered_at).getTime();
+    return order.payment_method === "house_account" && orderedAt >= start && orderedAt < endExclusive;
+  });
+};
 const cardErrorMessage = (message?: string) => {
   if (!message) return "Card authorization failed. Please check the card details and try again.";
   if (/verificationDetails|billingContact|must be a\(n\) object/i.test(message)) {
@@ -418,7 +426,7 @@ function HouseAccount({ session, account, application, statementToken, onStateme
             <p>A card on file is required before credit purchases are enabled.</p>
           )}
         </div>
-        {featuredStatement?<StatementPaymentPanel statement={{...featuredStatement,orders:(account?.orders||[]).filter((order:any)=>order.payment_method==='house_account'&&new Date(order.ordered_at)>=new Date(featuredStatement.period_start)&&new Date(order.ordered_at)<new Date(`${featuredStatement.period_end}T23:59:59`))}} session={session} onPaid={onStatementPaid}/>:null}
+        {featuredStatement?<StatementPaymentPanel statement={{...featuredStatement,orders:statementOrders(account?.orders,featuredStatement)}} session={session} onPaid={onStatementPaid}/>:null}
         {statementToken&&account&&!linkedStatement?<div className="statement-link-error" role="alert"><ReceiptText/><div><strong>We could not match this payment link</strong><span>The invoice may belong to another institutional account or the link may no longer be valid.</span></div></div>:null}
         {session.houseAccount.role === "account_admin" && account ? <OrganizationSettings account={account} /> : null}
         {!session.houseAccount.card || new URLSearchParams(location.search).has("replace-card") ? <SaveHouseCard session={session} onSaved={() => location.reload()} /> : null}
@@ -432,7 +440,7 @@ function HouseAccount({ session, account, application, statementToken, onStateme
         {account?.statements?.length ? (
           <div className="customer-orders">
             <h2>Statements</h2>
-            <div className="account-table-scroll"><table className="account-data-table statement-data-table"><thead><tr><th>Period</th><th>Statement</th><th>Status</th><th className="money-column">Balance</th><th className="action-column">Download</th><th className="action-column">Payment</th></tr></thead><tbody>{account.statements.map((statement: any) => {const payable={...statement,orders:(account.orders||[]).filter((order:any)=>order.payment_method==='house_account'&&new Date(order.ordered_at)>=new Date(statement.period_start)&&new Date(order.ordered_at)<new Date(`${statement.period_end}T23:59:59`))};return <tr key={statement.id}><td>{day(statement.period_end)}</td><td><strong>{statement.statement_number}</strong></td><td><span className={`statement-status statement-status--${statement.status}`}>{statement.status}</span></td><td className="money-column">{cash(statement.balance_due??statement.closing_balance, statement.currency)}</td><td className="action-column"><a className="table-icon-action" href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer" aria-label={`Download ${statement.statement_number}`} title="Download PDF"><Download/></a></td><td className="action-column">{!["paid", "void"].includes(statement.status)&&statement.id!==featuredStatement?.id ? <PayStatement statement={payable} session={session} /> : <span className="table-action-empty">—</span>}</td></tr>})}</tbody></table></div>
+            <div className="account-table-scroll"><table className="account-data-table statement-data-table"><thead><tr><th>Period</th><th>Statement</th><th>Status</th><th className="money-column">Balance</th><th className="action-column">Download</th><th className="action-column">Payment</th></tr></thead><tbody>{account.statements.map((statement: any) => {const payable={...statement,orders:statementOrders(account.orders,statement)};return <tr key={statement.id}><td>{day(statement.period_end)}</td><td><strong>{statement.statement_number}</strong></td><td><span className={`statement-status statement-status--${statement.status}`}>{statement.status}</span></td><td className="money-column">{cash(statement.balance_due??statement.closing_balance, statement.currency)}</td><td className="action-column"><a className="table-icon-action" href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer" aria-label={`Download ${statement.statement_number}`} title="Download PDF"><Download/></a></td><td className="action-column">{!["paid", "void"].includes(statement.status)&&statement.id!==featuredStatement?.id ? <PayStatement statement={payable} session={session} /> : <span className="table-action-empty">—</span>}</td></tr>})}</tbody></table></div>
           </div>
         ) : (
           <div className="no-orders">
@@ -835,7 +843,7 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
         <CreditCard /> Pay now
       </button>
     );
-  const selectedOrder=(statement.orders||[]).find((order:any)=>order.id===orderId),maximum=Number(selectedOrder?.balance_due??statement.balance_due??statement.closing_balance),amountCents=Math.round(Number(amount)*100);
+  const payableOrders=(statement.orders||[]).filter((order:any)=>Number(order.balance_due)>0),selectedOrder=payableOrders.find((order:any)=>order.id===orderId),maximum=Number(selectedOrder?.balance_due??statement.balance_due??statement.closing_balance),amountCents=Math.round(Number(amount)*100);
   const finishPayment=async(sourceId:string)=>{
     setBusy(true);setError("");
     try{
@@ -848,7 +856,7 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
   const paymentForm=(
     <div className="statement-payment">
       <div className="statement-payment-options">
-        <label><span>Apply payment to</span><select value={orderId} onChange={event=>{const value=event.target.value;setOrderId(value);const order=(statement.orders||[]).find((item:any)=>item.id===value);setAmount((Number(order?.balance_due??statement.balance_due??statement.closing_balance)/100).toFixed(2));}}><option value="">Statement balance</option>{(statement.orders||[]).filter((order:any)=>Number(order.balance_due)>0).map((order:any)=><option key={order.id} value={order.id}>{day(order.ordered_at)} · {order.receipt_number||order.square_order_id} · {cash(order.balance_due,order.currency)}</option>)}</select></label>
+        <label><span>Apply payment to</span><select value={orderId} onChange={event=>{const value=event.target.value;setOrderId(value);const order=payableOrders.find((item:any)=>item.id===value);setAmount((Number(order?.balance_due??statement.balance_due??statement.closing_balance)/100).toFixed(2));}}><option value="">Entire statement balance</option>{payableOrders.map((order:any)=><option key={order.id} value={order.id}>Order {order.receipt_number||String(order.square_order_id).slice(-8)} · {day(order.ordered_at)} · {cash(order.balance_due,order.currency)}</option>)}</select>{!payableOrders.length?<small>No individually payable orders were linked to this statement.</small>:<small>Select an order to pay it separately, or leave the entire statement selected.</small>}</label>
         <label><span>Payment amount</span><div className="statement-payment-amount"><b>$</b><input type="number" min="0.01" step="0.01" max={(maximum/100).toFixed(2)} value={amount} onChange={event=>setAmount(event.target.value)}/></div><small>Up to {cash(maximum,statement.currency)}</small></label>
       </div>
       {savedCard&&!useAnotherCard?<>
