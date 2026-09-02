@@ -862,8 +862,14 @@
 .house-application-form label small,.member-edit-form label small{display:block;color:var(--text-muted);font-size:13px;line-height:1.4;text-transform:none}
 .credit-increase-request{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:22px;padding-top:22px;border-top:1px solid rgba(14,62,105,.14)}.credit-increase-request>div{display:grid;gap:4px}.credit-increase-request>div span{color:var(--text-muted)}.credit-increase-request.is-open{display:grid;grid-template-columns:1fr;align-items:stretch}.credit-increase-request>form{display:grid;grid-template-columns:minmax(220px,.8fr) minmax(320px,1.2fr);align-items:start;gap:16px;width:100%}.credit-increase-request>form label{display:grid;gap:8px;min-width:0;font-family:var(--font-cta);font-size:var(--fs-label);font-weight:700;color:var(--navy)}.credit-increase-request input,.credit-increase-request textarea{width:100%;border:0;border-radius:16px;box-shadow:inset 0 0 0 2px rgba(14,62,105,.2);background:var(--cream);color:var(--navy);font:inherit;font-weight:400;outline:0}.credit-increase-request input{height:56px;padding:0 16px}.credit-increase-request .storefront-money-input input{padding-left:36px}.credit-increase-request textarea{min-height:112px;padding:14px 16px;resize:vertical;line-height:1.4}.credit-increase-request input:focus-visible,.credit-increase-request textarea:focus-visible{box-shadow:inset 0 0 0 3px var(--navy)}.credit-increase-request .member-edit-actions{grid-column:1/-1;margin-top:2px}
 .credit-increase-request>form>.member-edit-actions{display:flex;justify-content:flex-end;gap:10px}
+.credit-increase-request.is-open>form{grid-template-columns:minmax(220px,320px) minmax(0,1fr);column-gap:24px;row-gap:18px}
+.credit-increase-request.is-open>form label{align-content:start}
+.credit-increase-request.is-open .storefront-money-input{height:56px;align-self:start}
+.credit-increase-request.is-open .storefront-money-input input{height:56px;min-height:56px}
+.credit-increase-request.is-open textarea{height:96px;min-height:96px}
+.credit-increase-request.is-open>form>.member-edit-actions{padding-top:16px;border-top:1px solid rgba(14,62,105,.14)}
 @media(max-width:720px){.statement-payment-panel>header{display:grid}.statement-payment-summary{grid-template-columns:1fr}.statement-payment-summary a{margin-top:4px}.statement-payment{padding:18px}.statement-payment-options{grid-template-columns:1fr}}
-@media(max-width:720px){.credit-increase-request{align-items:stretch;flex-direction:column}.credit-increase-request>form{grid-template-columns:1fr}.credit-increase-request .member-edit-actions{grid-column:auto}}
+@media(max-width:720px){.credit-increase-request{align-items:stretch;flex-direction:column}.credit-increase-request>form,.credit-increase-request.is-open>form{grid-template-columns:1fr}.credit-increase-request .member-edit-actions{grid-column:auto}}
 
 .wishlist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:16px; margin-top:30px; }
 .wishlist-grid article { position:relative; min-width:0; padding:14px; border-radius:var(--radius-panel); background:var(--sand); }
