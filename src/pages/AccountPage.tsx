@@ -426,7 +426,7 @@ function HouseAccount({ session, account, application, statementToken, onStateme
             <p>A card on file is required before credit purchases are enabled.</p>
           )}
         </div>
-        {featuredStatement?<StatementPaymentPanel statement={{...featuredStatement,orders:statementOrders(account?.orders,featuredStatement)}} session={session} onPaid={onStatementPaid}/>:null}
+        {featuredStatement?<StatementPaymentPanel statement={{...featuredStatement,orders:(account?.orders||[]).filter((order:any)=>order.payment_method==="house_account"&&Number(order.balance_due)>0)}} session={session} onPaid={onStatementPaid}/>:null}
         {statementToken&&account&&!linkedStatement?<div className="statement-link-error" role="alert"><ReceiptText/><div><strong>We could not match this payment link</strong><span>The invoice may belong to another institutional account or the link may no longer be valid.</span></div></div>:null}
         {session.houseAccount.role === "account_admin" && account ? <OrganizationSettings account={account} /> : null}
         {!session.houseAccount.card || new URLSearchParams(location.search).has("replace-card") ? <SaveHouseCard session={session} onSaved={() => location.reload()} /> : null}
@@ -859,7 +859,8 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
     setBusy(true);setError("");
     try{
       if(!Number.isFinite(amountCents)||amountCents<1||amountCents>maximum)throw new Error(`Enter an amount between $0.01 and ${cash(maximum,statement.currency)}.`);
-      await api(`/storefront/statements/${statement.id}/pay`,{method:"POST",body:JSON.stringify({sourceId,idempotencyKey:crypto.randomUUID(),amount:amountCents,orderId:orderId||undefined})});
+      const path=orderId?`/storefront/orders/${orderId}/pay`:`/storefront/statements/${statement.id}/pay`;
+      await api(path,{method:"POST",body:JSON.stringify({sourceId,idempotencyKey:crypto.randomUUID(),amount:amountCents})});
       setPaid(true);onPaid?.();
     }catch(cause){setError(cause instanceof Error?cause.message:"Payment failed.");}
     finally{setBusy(false);}
@@ -867,7 +868,7 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
   const paymentForm=(
     <div className="statement-payment">
       <div className="statement-payment-options">
-        <label><span>Apply payment to</span><select value={orderId} onChange={event=>{const value=event.target.value;setOrderId(value);const order=payableOrders.find((item:any)=>item.id===value);setAmount((Number(order?.balance_due??statement.balance_due??statement.closing_balance)/100).toFixed(2));}}><option value="">Entire statement balance</option>{payableOrders.map((order:any)=><option key={order.id} value={order.id}>Order {order.receipt_number||String(order.square_order_id).slice(-8)} · {day(order.ordered_at)} · {cash(order.balance_due,order.currency)}</option>)}</select>{!payableOrders.length?<small>No individually payable orders were linked to this statement.</small>:<small>Select an order to pay it separately, or leave the entire statement selected.</small>}</label>
+        <label><span>Apply payment to</span><select value={orderId} onChange={event=>{const value=event.target.value;setOrderId(value);const order=payableOrders.find((item:any)=>item.id===value);setAmount((Number(order?.balance_due??statement.balance_due??statement.closing_balance)/100).toFixed(2));}}><option value="">Entire statement balance</option>{payableOrders.map((order:any)=><option key={order.id} value={order.id}>Order {order.receipt_number||order.square_order_id} · {day(order.ordered_at)} · {cash(order.balance_due,order.currency)}</option>)}</select>{!payableOrders.length?<small>No unpaid credit orders remain on this account.</small>:<small>Select any unpaid order, including current-period orders, or leave the statement selected.</small>}</label>
         <label><span>Payment amount</span><div className="statement-payment-amount"><b>$</b><input type="number" min="0.01" step="0.01" max={(maximum/100).toFixed(2)} value={amount} onChange={event=>setAmount(event.target.value)}/></div><small>Up to {cash(maximum,statement.currency)}</small></label>
       </div>
       {savedCard&&!useAnotherCard?<>
