@@ -697,7 +697,7 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
           })}
         </div>
       ) : null}
-      {canManage?<div className="credit-increase-request">
+      {canManage?<div className={`credit-increase-request${increaseOpen?" is-open":""}`}>
         <div><strong>Need more organization credit?</strong><span>Increasing the approved account limit requires a separate review.</span></div>
         {!increaseOpen?<button type="button" onClick={()=>setIncreaseOpen(true)}>Request more credit</button>:<form onSubmit={async event=>{event.preventDefault();setMessage("");const data=new FormData(event.currentTarget);try{await api("/storefront/credit-increase-requests",{method:"POST",body:JSON.stringify({requestedCreditLimit:Math.round(Number(data.get("requestedCreditLimit"))*100),reason:data.get("reason")})});setMessage("Credit increase request submitted for review.");setIncreaseOpen(false);}catch(cause){setMessage(cause instanceof Error?cause.message:"Request could not be submitted.");}}}><label><span>Requested total credit limit</span><MoneyField name="requestedCreditLimit" min={(Number(account.credit.creditLimit)/100+.01).toFixed(2)} step="1" required/></label><label><span>Reason for increase</span><textarea name="reason" minLength={10} maxLength={2000} required/></label><div className="member-edit-actions"><button type="button" onClick={()=>setIncreaseOpen(false)}>Cancel</button><button>Submit request</button></div></form>}
       </div>:null}
