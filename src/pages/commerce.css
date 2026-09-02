@@ -869,6 +869,9 @@
 .credit-increase-request.is-open .storefront-money-input input{background:#fff}
 .credit-increase-request.is-open textarea{height:56px;min-height:56px;background:var(--cream)}
 .credit-increase-request.is-open>form>.member-edit-actions{padding-top:16px;border-top:1px solid rgba(14,62,105,.14)}
+.credit-increase-request>form{grid-template-columns:minmax(0,1fr)}
+.credit-increase-request>form .storefront-money-input input{height:56px;min-height:56px;background:#fff}
+.credit-increase-request>form textarea{height:56px;min-height:56px;background:var(--cream)}
 @media(max-width:720px){.statement-payment-panel>header{display:grid}.statement-payment-summary{grid-template-columns:1fr}.statement-payment-summary a{margin-top:4px}.statement-payment{padding:18px}.statement-payment-options{grid-template-columns:1fr}}
 @media(max-width:720px){.credit-increase-request{align-items:stretch;flex-direction:column}.credit-increase-request>form,.credit-increase-request.is-open>form{grid-template-columns:1fr}.credit-increase-request .member-edit-actions{grid-column:auto}}
 
