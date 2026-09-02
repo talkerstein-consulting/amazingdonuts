@@ -371,7 +371,7 @@
 .signin-gate button,
 .place-order,
 .commerce-success a,
-.account-gate button,
+.account-gate > section > button,
 .no-orders a,
 .profile-form button {
   min-height: 56px;
@@ -391,7 +391,7 @@
 .signin-gate button:active,
 .place-order:active,
 .commerce-success a:active,
-.account-gate button:active,
+.account-gate > section > button:active,
 .no-orders a:active,
 .profile-form button:active {
   transform: scale(0.97);
@@ -1069,19 +1069,19 @@
   color: var(--navy);
 }
 
-.account-gate h1 {
+.account-gate > section > h1 {
   font-family: var(--font-display);
   font-size: var(--type-section);
   font-weight: 400;
   line-height: 0.92;
 }
 
-.account-gate p {
+.account-gate > section > p {
   max-width: 48ch;
   color: var(--text-body);
 }
 
-.account-gate button {
+.account-gate > section > button {
   margin-top: 16px;
 }
 
@@ -1128,7 +1128,7 @@
 .commerce-shell input:focus-visible,
 .commerce-shell textarea:focus-visible,
 .account-gate a:focus-visible,
-.account-gate button:focus-visible {
+.account-gate > section > button:focus-visible {
   outline: 3px solid var(--blue);
   outline-offset: 2px;
 }
