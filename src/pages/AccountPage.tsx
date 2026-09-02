@@ -430,7 +430,7 @@ function HouseAccount({ session, account, application, statementToken, onStateme
         {statementToken&&account&&!linkedStatement?<div className="statement-link-error" role="alert"><ReceiptText/><div><strong>We could not match this payment link</strong><span>The invoice may belong to another institutional account or the link may no longer be valid.</span></div></div>:null}
         {session.houseAccount.role === "account_admin" && account ? <OrganizationSettings account={account} /> : null}
         {!session.houseAccount.card || new URLSearchParams(location.search).has("replace-card") ? <SaveHouseCard session={session} onSaved={() => location.reload()} /> : null}
-        {session.houseAccount.role === "account_admin" ? <CustomerMemberManager session={session} account={account} onChanged={onStatementPaid} /> : null}
+        <CustomerMemberManager session={session} account={account} onChanged={onStatementPaid} />
         {account?.orders?.some((order:any)=>order.payment_method==="house_account"&&Number(order.balance_due)>0)?<div className="customer-orders"><h2>Outstanding credit orders</h2><div className="account-table-scroll"><table className="account-data-table outstanding-order-table"><thead><tr><th>Date</th><th>Order</th><th>Channel</th><th className="money-column">Balance</th><th className="action-column">Payment</th></tr></thead><tbody>{account.orders.filter((order:any)=>order.payment_method==="house_account"&&Number(order.balance_due)>0).map((order:any)=><tr key={order.id}><td>{day(order.ordered_at)}</td><td><strong>{order.receipt_number||String(order.square_order_id).slice(-8)}</strong></td><td>{order.source==="pos"?"In store":"Online"}</td><td className="money-column">{cash(order.balance_due,order.currency)}</td><td className="action-column"><PayOrder order={order} session={session} onPaid={onStatementPaid}/></td></tr>)}</tbody></table></div></div>:null}
         {account?.ledger?.length ? (
           <div className="customer-orders">
@@ -603,12 +603,13 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
   const [editingId,setEditingId]=useState<string|null>(null);
   const [increaseOpen,setIncreaseOpen]=useState(false);
   const availableCredit=Number(account?.credit?.available||0);
+  const canManage=session.houseAccount.role==="account_admin";
   return (
     <section className="house-application-status">
       <Building2 />
       <h2>Organization members</h2>
-      <p>Add people who already have an Amazing Donuts website account. Every member draws from the same {cash(availableCredit)} currently available to the organization.</p>
-      <form
+      <p>{canManage?"Add people who already have an Amazing Donuts website account. ":"Everyone authorized to use this institutional account is listed below. "}Every member draws from the same {cash(availableCredit)} currently available to the organization.</p>
+      {canManage?<form
         className="house-application-form"
         onSubmit={async (event) => {
           event.preventDefault();
@@ -665,11 +666,13 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
         </label>
         <button>Add member</button>
         {message ? <p className="wide">{message}</p> : null}
-      </form>
+      </form>:null}
       {account?.purchasers?.length ? (
-        <div className="customer-orders">
-          {account.purchasers.map((member: any) => (
-            <article key={member.id}>
+        <div className="customer-orders organization-member-list">
+          {account.purchasers.map((member: any) => {
+            const isCurrent=member.id===session.user.id||String(member.email).toLowerCase()===String(session.user.email).toLowerCase();
+            const isAdmin=member.role==="account_admin";
+            return <article key={member.id} className={`${isAdmin?'organization-member--admin ':''}${isCurrent?'organization-member--current':''}`.trim()}>
               <header>
                 <div>
                   <strong>
@@ -677,24 +680,27 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
                   </strong>
                   <span>{member.email}</span>
                 </div>
-                <em>{String(member.organization_role).replace(/_/g, " ")}</em>
+                <div className="organization-member-badges">
+                  {isAdmin?<span>Account admin</span>:null}
+                  {isCurrent?<strong>You</strong>:null}
+                </div>
               </header>
-              {editingId===member.id?<form className="member-edit-form" onSubmit={async event=>{event.preventDefault();setMessage("");const data=new FormData(event.currentTarget);try{await api(`/storefront/house-members/${member.id}`,{method:"PATCH",body:JSON.stringify({organizationRole:data.get("organizationRole"),role:data.get("role"),purchaseLimit:data.get("purchaseLimit")?Math.round(Number(data.get("purchaseLimit"))*100):null,status:data.get("status"),pin:data.get("pin")})});setEditingId(null);setMessage("Member updated.");onChanged();}catch(cause){setMessage(cause instanceof Error?cause.message:"Member could not be updated.");}}}>
+              {canManage&&editingId===member.id?<form className="member-edit-form" onSubmit={async event=>{event.preventDefault();setMessage("");const data=new FormData(event.currentTarget);try{await api(`/storefront/house-members/${member.id}`,{method:"PATCH",body:JSON.stringify({organizationRole:data.get("organizationRole"),role:data.get("role"),purchaseLimit:data.get("purchaseLimit")?Math.round(Number(data.get("purchaseLimit"))*100):null,status:data.get("status"),pin:data.get("pin")})});setEditingId(null);setMessage("Member updated.");onChanged();}catch(cause){setMessage(cause instanceof Error?cause.message:"Member could not be updated.");}}}>
                 <label><span>Member role</span><select name="organizationRole" defaultValue={member.organization_role}>{organizationRoles[organizationType].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
                 <label><span>Permissions</span><select name="role" defaultValue={member.role}><option value="purchaser">Can purchase</option><option value="account_admin">Account administrator</option><option value="viewer">View only</option></select></label>
                 <label><span>Purchase limit</span><MoneyField name="purchaseLimit" min="0" max={(availableCredit/100).toFixed(2)} step="1" defaultValue={member.purchase_limit==null?"":Number(member.purchase_limit)/100}/><small>Maximum {cash(availableCredit)} currently available account-wide.</small></label>
                 <label><span>Reset PIN <small>Optional</small></span><PinField name="pin" placeholder="Leave unchanged"/></label>
                 <label><span>Status</span><select name="status" defaultValue={member.status}><option value="active">Active</option><option value="disabled">Disabled</option></select></label>
                 <div className="member-edit-actions"><button type="button" onClick={()=>setEditingId(null)}>Cancel</button><button>Save member</button></div>
-              </form>:<footer><span>{member.role==="account_admin"?"Account administrator":member.role==="viewer"?"View only":"Can purchase"}{member.purchase_limit!=null?` · ${cash(member.purchase_limit)} personal cap`:" · Up to account availability"}</span><button type="button" onClick={()=>setEditingId(member.id)}>Edit member</button></footer>}
-            </article>
-          ))}
+              </form>:<footer><span>{member.role==="account_admin"?"Account administrator":member.role==="viewer"?"View only":"Can purchase"}{member.purchase_limit!=null?` · ${cash(member.purchase_limit)} personal cap`:" · Up to account availability"}</span>{canManage?<button type="button" onClick={()=>setEditingId(member.id)}>Edit member</button>:null}</footer>}
+            </article>;
+          })}
         </div>
       ) : null}
-      <div className="credit-increase-request">
+      {canManage?<div className="credit-increase-request">
         <div><strong>Need more organization credit?</strong><span>Increasing the approved account limit requires a separate review.</span></div>
         {!increaseOpen?<button type="button" onClick={()=>setIncreaseOpen(true)}>Request more credit</button>:<form onSubmit={async event=>{event.preventDefault();setMessage("");const data=new FormData(event.currentTarget);try{await api("/storefront/credit-increase-requests",{method:"POST",body:JSON.stringify({requestedCreditLimit:Math.round(Number(data.get("requestedCreditLimit"))*100),reason:data.get("reason")})});setMessage("Credit increase request submitted for review.");setIncreaseOpen(false);}catch(cause){setMessage(cause instanceof Error?cause.message:"Request could not be submitted.");}}}><label><span>Requested total credit limit</span><MoneyField name="requestedCreditLimit" min={(Number(account.credit.creditLimit)/100+.01).toFixed(2)} step="1" required/></label><label><span>Reason for increase</span><textarea name="reason" minLength={10} maxLength={2000} required/></label><div className="member-edit-actions"><button type="button" onClick={()=>setIncreaseOpen(false)}>Cancel</button><button>Submit request</button></div></form>}
-      </div>
+      </div>:null}
     </section>
   );
 }

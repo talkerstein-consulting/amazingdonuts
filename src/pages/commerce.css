@@ -825,6 +825,13 @@
   border-radius: var(--radius-chip);
   background: var(--cream);
 }
+.organization-member-list article{position:relative;box-shadow:inset 0 0 0 1.5px rgba(14,62,105,.12)}
+.organization-member-list .organization-member--admin{box-shadow:inset 5px 0 0 var(--pink),inset 0 0 0 1.5px rgba(14,62,105,.18)}
+.organization-member-list .organization-member--current{box-shadow:inset 0 0 0 3px var(--navy)}
+.organization-member-list .organization-member--admin.organization-member--current{box-shadow:inset 6px 0 0 var(--pink),inset 0 0 0 3px var(--navy)}
+.organization-member-badges{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:0!important}
+.organization-member-badges span,.organization-member-badges strong{display:inline-flex!important;align-items:center;min-height:30px;padding:4px 10px;border-radius:var(--radius-pill);font-family:var(--font-cta);font-size:var(--fs-label);font-style:normal;font-weight:800;line-height:1;background:var(--pink);color:var(--navy)}
+.organization-member-badges strong{background:var(--navy);color:#fff}
 .member-edit-form{padding:18px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;background:var(--cream)}
 .member-edit-form label{display:grid;gap:7px}.member-edit-form label>span{font-family:var(--font-cta);font-size:var(--fs-label);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--navy)}
 .member-edit-form input,.member-edit-form select{width:100%;min-height:52px;padding:0 16px;border:0;border-radius:16px;box-shadow:inset 0 0 0 2px rgba(14,62,105,.2);background:var(--cream);color:var(--navy);font:inherit;font-weight:400}
