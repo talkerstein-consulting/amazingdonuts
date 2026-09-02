@@ -775,6 +775,7 @@
 .account-data-table th{background:var(--sand);color:var(--text-muted);font-family:var(--font-label);font-size:var(--fs-label);font-weight:800;text-transform:uppercase}
 .account-data-table td{background:#fff}.account-data-table td strong{display:block;overflow-wrap:anywhere}
 .activity-data-table th:first-child{width:150px}.activity-data-table th:last-child{width:130px}
+.outstanding-order-table{min-width:780px}.outstanding-order-table th:nth-child(1){width:145px}.outstanding-order-table th:nth-child(3){width:120px}.outstanding-order-table th:nth-child(4){width:130px}.outstanding-order-table th:nth-child(5){width:140px}
 .statement-data-table{min-width:900px}.statement-data-table th:nth-child(1){width:135px}.statement-data-table th:nth-child(3){width:110px}.statement-data-table th:nth-child(4){width:130px}.statement-data-table th:nth-child(5){width:90px}.statement-data-table th:nth-child(6){width:120px}
 .money-column{text-align:right!important;white-space:nowrap;font-variant-numeric:tabular-nums}.action-column{text-align:center!important}
 .statement-status{display:inline-flex;padding:5px 8px;background:var(--sand);font-size:var(--fs-label);font-weight:800;text-transform:capitalize}.statement-status--paid{background:#e4f3ea;color:#176a45}.statement-status--overdue{background:#f8e5df;color:var(--text-price)}

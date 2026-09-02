@@ -257,6 +257,22 @@ export function createApp({ pool, square, uberDirect, config }) {
     response.status(201).json({payment:{id:payment.id,status:payment.status,amount:payment.appliedAmount},statement:{id:statement.id,status:payment.remainingBalance?"partially_paid":"paid",balance_due:payment.remainingBalance}});
   }catch(error){next(error);}});
 
+  app.post("/api/storefront/orders/:id/pay",async(request,response,next)=>{try{
+    const user=requireUser(request),input=settlementSchema.omit({orderId:true}).parse(request.body);
+    const order=(await pool.query(`SELECT o.*,a.square_customer_id FROM orders o JOIN accounts a ON a.id=o.account_id JOIN account_users au ON au.account_id=a.id AND au.user_id=$2 WHERE o.id=$1 AND o.tenant_id=$3 AND o.payment_method='house_account' AND au.status='active'`,[request.params.id,user.id,user.tenant_id])).rows[0];
+    if(!order)throw Object.assign(new Error("Credit order not found."),{status:404});
+    let sourceId=input.sourceId,paymentMethod="Card";
+    if(sourceId==="SAVED_CARD"){
+      const saved=(await pool.query("SELECT square_card_id,card_brand,last_4 FROM account_cards WHERE account_id=$1 AND status='active' ORDER BY created_at DESC LIMIT 1",[order.account_id])).rows[0];
+      if(!saved)throw Object.assign(new Error("The saved card is no longer available. Choose another card."),{status:409,code:"SAVED_CARD_UNAVAILABLE"});
+      sourceId=saved.square_card_id;paymentMethod=`Saved ${saved.card_brand||"card"} ending in ${saved.last_4}`;
+    }
+    const payment=await collectOrder(pool,square,config,order,sourceId,input.idempotencyKey,user.id,paymentMethod,input.amount);
+    const paidAmount=formatMoney(payment.appliedAmount,order.currency),reference=order.receipt_number||order.square_order_id;
+    await Promise.all([sendEmail(config,{to:user.email,subject:`Payment received for order ${reference}`,text:`We received your ${paidAmount} payment for order ${reference}. ${payment.remainingBalance?`${formatMoney(payment.remainingBalance,order.currency)} remains.`:"The order is now paid in full."}\n\nView your account: ${config.siteUrl}/account/`}),notifyOwners(config,"Institutional credit order payment received",`${order.account_id}\n${user.email}\nOrder ${reference}\n${paidAmount}`)]);
+    response.status(201).json({payment:{id:payment.id,status:payment.status,amount:payment.appliedAmount},order:{id:order.id,balance_due:payment.remainingBalance}});
+  }catch(error){next(error);}});
+
   app.get("/api/public/statements/:token",async(request,response,next)=>{try{const result=await pool.query(`SELECT s.id,s.statement_number,s.period_start,s.period_end,s.closing_balance,s.currency,s.due_at,s.status,a.organization_name,COALESCE(pa.paid_amount,0)::bigint AS paid_amount,GREATEST(0,s.closing_balance-COALESCE(pa.paid_amount,0))::bigint AS balance_due FROM statements s JOIN accounts a ON a.id=s.account_id LEFT JOIN (SELECT statement_id,SUM(amount)::bigint AS paid_amount FROM payment_allocations WHERE status='completed' GROUP BY statement_id) pa ON pa.statement_id=s.id WHERE s.payment_token=$1`,[request.params.token]);if(!result.rowCount)throw Object.assign(new Error("Payment link not found."),{status:404});const statement=result.rows[0],orders=await pool.query(`SELECT o.id,o.square_order_id,o.receipt_number,o.ordered_at,o.total,o.currency,GREATEST(0,o.total-COALESCE(pa.paid_amount,0))::bigint AS balance_due FROM orders o LEFT JOIN (SELECT order_id,SUM(amount)::bigint AS paid_amount FROM payment_allocations WHERE status='completed' GROUP BY order_id) pa ON pa.order_id=o.id WHERE o.account_id=(SELECT account_id FROM statements WHERE id=$1) AND o.payment_method='house_account' AND o.ordered_at::date BETWEEN $2 AND $3 ORDER BY o.ordered_at`,[statement.id,statement.period_start,statement.period_end]);response.json({statement:{...statement,orders:orders.rows}});}catch(error){next(error);}});
   app.post("/api/public/statements/:token/pay",async(request,response,next)=>{try{const input=settlementSchema.parse(request.body),result=await pool.query(`SELECT s.*,a.square_customer_id,a.billing_email FROM statements s JOIN accounts a ON a.id=s.account_id WHERE s.payment_token=$1`,[request.params.token]);if(!result.rowCount)throw Object.assign(new Error("Payment link not found."),{status:404});const statement=result.rows[0],payment=await collectStatement(pool,square,config,statement,input.sourceId,input.idempotencyKey,null,"Card",input.amount,input.orderId);await sendEmail(config,{to:statement.billing_email,subject:`Payment received for ${statement.statement_number}`,text:`We received ${formatMoney(payment.appliedAmount,statement.currency)} for statement ${statement.statement_number}.`});response.status(201).json({payment:{id:payment.id,status:payment.status,amount:payment.appliedAmount},statement:{status:payment.remainingBalance?"partially_paid":"paid",balance_due:payment.remainingBalance}});}catch(error){next(error);}});
 
@@ -617,6 +633,25 @@ async function collectStatement(pool,square,config,statement,sourceId,idempotenc
     await postPayment(client,{tenantId:statement.tenant_id,accountId:statement.account_id,paymentId:payment.id,amount,currency:statement.currency,description:order?`Payment for order ${order.receipt_number||order.square_order_id}`:`Payment for ${statement.statement_number}`,actorId});
     await client.query("UPDATE statements SET status=$2,paid_at=CASE WHEN $2='paid' THEN now() ELSE NULL END,scheduled_charge_at=CASE WHEN $2='paid' THEN NULL ELSE scheduled_charge_at END WHERE id=$1",[statement.id,remainingBalance?"partially_paid":"paid"]);
     return {...payment,appliedAmount:amount,remainingBalance};
+  });
+}
+
+async function collectOrder(pool,square,config,order,sourceId,idempotencyKey,actorId=null,paymentMethod="Card",requestedAmount){
+  const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(order.tenant_id):square;
+  return transaction(pool,async client=>{
+    await client.query("SELECT id FROM orders WHERE id=$1 FOR UPDATE",[order.id]);
+    const duplicate=await client.query("SELECT * FROM payment_allocations WHERE tenant_id=$1 AND metadata->>'idempotencyKey'=$2",[order.tenant_id,idempotencyKey]);
+    const paid=Number((await client.query("SELECT COALESCE(SUM(amount),0)::bigint AS total FROM payment_allocations WHERE order_id=$1 AND status='completed'",[order.id])).rows[0].total),remaining=Math.max(0,Number(order.total)-paid);
+    if(duplicate.rowCount)return {id:duplicate.rows[0].square_payment_id,status:"COMPLETED",appliedAmount:Number(duplicate.rows[0].amount),remainingBalance:remaining};
+    const amount=requestedAmount==null?remaining:Number(requestedAmount);
+    if(!remaining)throw Object.assign(new Error("This order is already paid."),{status:409});
+    if(amount>remaining)throw Object.assign(new Error(`Payment cannot exceed the order balance of ${formatMoney(remaining,order.currency)}.`),{status:400,code:"PAYMENT_EXCEEDS_BALANCE"});
+    const reference=order.receipt_number||order.square_order_id,statement=(await client.query(`SELECT id,closing_balance FROM statements WHERE account_id=$1 AND status IN ('issued','partially_paid','overdue') AND $2::timestamptz::date BETWEEN period_start AND period_end ORDER BY issued_at DESC LIMIT 1`,[order.account_id,order.ordered_at])).rows[0]||null;
+    const payment=(await tenantSquare.createPayment({idempotency_key:idempotencyKey,source_id:sourceId,amount_money:{amount,currency:order.currency},customer_id:order.square_customer_id,location_id:config.squareLocationId,reference_id:reference,note:`Payment for institutional credit order ${reference}`,autocomplete:true})).payment;
+    await client.query(`INSERT INTO payment_allocations(tenant_id,account_id,statement_id,order_id,square_payment_id,amount,currency,status,received_at,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,'completed',now(),$8) ON CONFLICT(tenant_id,square_payment_id) DO NOTHING`,[order.tenant_id,order.account_id,statement?.id||null,order.id,payment.id,amount,order.currency,JSON.stringify({idempotencyKey,paymentMethod,appliesTo:"order"})]);
+    await postPayment(client,{tenantId:order.tenant_id,accountId:order.account_id,paymentId:payment.id,amount,currency:order.currency,description:`Payment for order ${reference}`,actorId});
+    if(statement){const statementPaid=Number((await client.query("SELECT COALESCE(SUM(amount),0)::bigint AS total FROM payment_allocations WHERE statement_id=$1 AND status='completed'",[statement.id])).rows[0].total),statementRemaining=Math.max(0,Number(statement.closing_balance)-statementPaid);await client.query("UPDATE statements SET status=$2,paid_at=CASE WHEN $2='paid' THEN now() ELSE NULL END WHERE id=$1",[statement.id,statementRemaining?"partially_paid":"paid"]);}
+    return {...payment,appliedAmount:amount,remainingBalance:remaining-amount};
   });
 }
 
