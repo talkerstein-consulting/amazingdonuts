@@ -79,7 +79,7 @@ export default function AuthModal({ open, onClose, onSuccess }: { open: boolean;
               <div className="auth__artInner">
                 <img src="/img/logo-amazing-donuts.svg" alt="Amazing Donuts" className="auth__artLogo" />
                 <h2 className="auth__artHeading">
-                  Fresh since '97.
+                  Toronto-made since '97.
                   <br />
                   Sign in for the good stuff.
                 </h2>

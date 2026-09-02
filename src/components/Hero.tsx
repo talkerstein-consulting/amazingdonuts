@@ -38,9 +38,9 @@ export default function Hero({ ready }: { ready: boolean }) {
         {/* The donut sits mid-line, so the break lands after it: two lines,
             the second short. `flexBasis: 100%` is what forces that break —
             the h1 is a flex row, so it cannot be done with a <br>. */}
-        <span>Freshly made,</span>
+        <span>Made with care,</span>
         <img src="/img/heart-shape-donut-1.png" alt="Heart-shaped donut" style={{ height: 'clamp(0.62em,8vw,1em)', width: 'auto' }} />
-        <span>all day.</span>
+        <span>since '97.</span>
       </motion.h1>
 
       <motion.p
@@ -97,23 +97,6 @@ export default function Hero({ ready }: { ready: boolean }) {
           </div>
         </motion.div>
 
-        <img
-          src="/img/badge-made-fresh.svg"
-          alt="Made fresh since 1997"
-          className="hero-badge"
-          style={{
-            position: 'absolute',
-            /* Above the hero photo, under the sticky header (z 60) — so the
-               bar passes over the badge on scroll rather than the badge
-               riding on top of it. */
-            zIndex: 2,
-            right: 'clamp(10px,5vw,56px)',
-            top: 'clamp(56px,17vw,150px)',
-            width: 'clamp(104px,17vw,170px)',
-            height: 'auto',
-            filter: 'drop-shadow(0 10px 22px rgba(14,62,105,.22))'
-          }}
-        />
       </div>
     </section>
   );

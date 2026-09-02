@@ -149,15 +149,15 @@ const TIERS: { id: Tier; label: string; test: (p: Product) => boolean }[] = [
 const COLLECTION_COPY: Record<'all' | Category, { title: string; seo: string }> = {
   all: {
     title: 'Shop all',
-    seo: 'Every donut, muffin, cupcake, cookie and bread we prepare is hand-cut, decorated and made fresh daily in our own kosher kitchen in Toronto.'
+    seo: 'Every donut, muffin, cupcake, cookie and bread we prepare is hand-cut, decorated and made in our own kosher kitchen in Toronto.'
   },
   Donuts: {
     title: 'Donuts',
-    seo: 'Filled, glazed and sprinkled kosher donuts — sofganiyot, Boston creme, classic rings — fried and finished by hand each morning in Toronto.'
+    seo: 'Filled, glazed and sprinkled kosher donuts — sofganiyot, Boston creme and classic rings — prepared and finished by hand in Toronto.'
   },
   Muffins: {
     title: 'Muffins',
-    seo: 'Full-size kosher muffins baked fresh daily in Toronto, from everyday breakfast flavours to the ones worth a detour.'
+    seo: 'Full-size kosher muffins prepared in our Toronto bakery, from everyday breakfast flavours to the ones worth a detour.'
   },
   Cupcakes: {
     title: 'Cupcakes',
@@ -165,11 +165,11 @@ const COLLECTION_COPY: Record<'all' | Category, { title: string; seo: string }> 
   },
   Cookies: {
     title: 'Cookies',
-    seo: 'Kosher cookies baked every morning in Toronto — by the piece or by the box, for gifting, sharing or keeping to yourself.'
+    seo: 'Kosher cookies prepared in Toronto — by the piece or by the box, for gifting, sharing or keeping to yourself.'
   },
   Breads: {
     title: 'Breads',
-    seo: 'Challah and everyday kosher breads, baked fresh in Toronto — braided by hand and out of the oven in time for Shabbos.'
+    seo: 'Challah and everyday kosher breads, braided by hand in Toronto and prepared in time for Shabbos.'
   }
 };
 

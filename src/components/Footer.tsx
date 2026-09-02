@@ -216,7 +216,7 @@ export default function Footer({ ready }: { ready: boolean }) {
               Keep it amazing
             </h2>
             <p style={{ marginTop: 18, maxWidth: '38ch', fontSize: 'var(--type-body)', lineHeight: 1.4, color: 'rgba(251,247,239,.72)' }}>
-              Fresh donuts, cupcakes and custom orders — get the drop on new flavours before anyone else.
+              Donuts, cupcakes and custom orders — get the drop on new flavours before anyone else.
             </p>
 
             {/* Same pills as the certification bar. The kosher marks are
@@ -337,7 +337,7 @@ export default function Footer({ ready }: { ready: boolean }) {
               </a>
             </div>
             <p style={{ marginTop: 14, maxWidth: '26ch', fontSize: 15, lineHeight: 1.5, color: 'rgba(14,62,105,.65)' }}>
-              Kosher donuts, cupcakes and baked goods, made fresh every day since 1997.
+              Kosher donuts, cupcakes and baked goods, made in Toronto since 1997.
             </p>
           </div>
           {isDesktop ? (

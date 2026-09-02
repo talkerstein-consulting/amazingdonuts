@@ -267,7 +267,7 @@ export default function ProductPanel({ product }: { product: Product }) {
             </div>
 
             <p style={{ margin: '14px 0 0', fontFamily: F.text, fontSize: 15, lineHeight: 1.55, color: C.body }}>
-              Baked fresh the morning you collect it, in our own kitchen, and sold {byThePiece ? 'by the piece' : 'as a box'}.
+              Prepared and finished in our own kitchen, and sold {byThePiece ? 'by the piece' : 'as a box'}.
             </p>
 
             <div style={{ marginTop: 18 }}>
