@@ -9,7 +9,7 @@ export const statementDate = (value) => {
 };
 export const statementPaymentState=(entry,statementStatus)=>{
   const immediate=entry.paymentMethod&&entry.paymentMethod!=="house_account",paid=immediate||Number(entry.allocatedAmount)>=Number(entry.amount)||(statementStatus==="paid"&&entry.paymentMethod==="house_account");
-  return entry.paymentMethod?immediate?`Paid · ${String(entry.paymentMethod).replaceAll("_"," ")}`:paid?"On account · paid":entry.allocatedAmount?`On account · ${cash(entry.allocatedAmount,entry.currency)} paid`:"On account · unpaid":"Account activity";
+  return entry.paymentMethod?immediate?"Paid at checkout":paid?"On account · paid":entry.allocatedAmount?`On account · ${cash(entry.allocatedAmount,entry.currency)} paid`:"On account · unpaid":"Account activity";
 };
 
 export async function statementPdf(statement, tenant, account) {
@@ -40,7 +40,7 @@ export async function statementPdf(statement, tenant, account) {
     for(const payment of payments){const method=payment.metadata?.paymentMethod||"Card",reference=payment.square_payment_id||"Payment received",value=cash(payment.amount,payment.currency||statement.currency);page.drawLine({start:{x:42,y:y+8},end:{x:570,y:y+8},thickness:.5,color:rule});page.drawText(statementDate(payment.received_at),{x:42,y,size:8,font:regular,color:ink});page.drawText(String(method).slice(0,22),{x:160,y,size:8,font:regular,color:ink});page.drawText(String(reference).slice(0,28),{x:300,y,size:8,font:regular,color:ink});page.drawText(value,{x:570-value.length*4.7,y,size:8,font:regular,color:ink});y-=24;}
     y-=20;
   }
-  page.drawText("Transactions",{x:42,y,size:18,font:bold,color:ink}); y-=24; page.drawText("Date",{x:42,y,size:8,font:bold,color:ink}); page.drawText("Order details",{x:112,y,size:8,font:bold,color:ink}); page.drawText("Channel",{x:350,y,size:8,font:bold,color:ink}); page.drawText("Payment",{x:425,y,size:8,font:bold,color:ink}); page.drawText("Amount",{x:535,y,size:8,font:bold,color:ink}); y-=18;
+  page.drawText("Transactions",{x:42,y,size:18,font:bold,color:ink}); y-=16; page.drawText("Includes all account purchases. Paid-at-checkout orders are excluded from the balance due.",{x:42,y,size:7,font:regular,color:rgb(.35,.35,.35)});y-=18; page.drawText("Date",{x:42,y,size:8,font:bold,color:ink}); page.drawText("Order details",{x:112,y,size:8,font:bold,color:ink}); page.drawText("Channel",{x:350,y,size:8,font:bold,color:ink}); page.drawText("Payment",{x:425,y,size:8,font:bold,color:ink}); page.drawText("Amount",{x:535,y,size:8,font:bold,color:ink}); y-=18;
   const transactionRows=orderHistory.length?orderHistory.map(order=>({effectiveAt:order.ordered_at,reference:order.receipt_number||order.square_order_id,currency:order.currency,lines:order.line_items?.map(item=>({name:`${item.name||item.catalog_object_id} x ${item.quantity}`,amount:Number(item.total_money?.amount||Number(item.base_price_money?.amount||0)*Number(item.quantity))}))||[],amount:Number(order.total),source:order.source,paymentMethod:order.payment_method,purchaser:[order.first_name,order.last_name].filter(Boolean).join(" "),allocatedAmount:Number(order.allocated_amount||0)})):entries;
   for (const entry of transactionRows) {
     const lines = entry.lines?.length ? entry.lines : [{ name:entry.description, amount:entry.amount }];
