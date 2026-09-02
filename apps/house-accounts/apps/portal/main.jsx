@@ -389,7 +389,7 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
   return (
     <main className="dashboard">
       <section className="admin-grid">
-        <AccountList accounts={visible} account={account} query={query} setQuery={setQuery} setSelected={setSelected} canCreate={user.role === "owner"} demo={demo} onCreated={(created)=>{setAccounts([created,...accounts]);setSelected(created.id);}} />
+        <AccountList accounts={visible} account={account} query={query} setQuery={setQuery} setSelected={setSelected} canCreate={staff} demo={demo} onCreated={(created)=>{setAccounts([created,...accounts]);setSelected(created.id);}} />
         {account ? <AccountDetail account={account} staff demo={demo} onAccountChange={(updated)=>setAccounts((current)=>current.map((item)=>item.id===updated.id?updated:item))} /> : <div className="empty">No account selected.</div>}
       </section>
     </main>
