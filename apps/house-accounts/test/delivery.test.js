@@ -34,28 +34,31 @@ test("uses Square's taxable service-charge phase", () => {
   assert.equal(deliveryServiceCharge(500)[0].taxable, true);
 });
 
-test("accepts 15-minute fulfillment slots during Toronto business hours", () => {
+test("accepts 30-minute pickup and delivery windows", () => {
   const now = new Date("2026-09-01T00:00:00Z");
-  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T11:30:00Z" }, now));
-  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T20:00:00Z" }, now));
-  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-10-02T18:00:00Z" }, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ type:"pickup", scheduledAt: "2026-09-30T11:30:00Z" }, policy, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ type:"pickup", scheduledAt: "2026-09-30T19:30:00Z" }, policy, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ type:"delivery", scheduledAt: "2026-09-30T10:30:00Z" }, policy, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ type:"delivery", scheduledAt: "2026-09-30T20:00:00Z" }, policy, now));
 });
 
 test("accepts published opening and closing times in both Toronto daylight and standard time", () => {
   const now = new Date("2026-01-01T00:00:00Z");
-  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-07-06T11:30:00Z" }, now));
-  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-07-06T20:00:00Z" }, now));
-  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-12-07T12:30:00Z" }, now));
-  assert.doesNotThrow(() => validateFulfillmentSchedule({ scheduledAt: "2026-12-07T21:00:00Z" }, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ type:"pickup", scheduledAt: "2026-07-06T11:30:00Z" }, policy, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ type:"pickup", scheduledAt: "2026-07-06T19:30:00Z" }, policy, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ type:"pickup", scheduledAt: "2026-12-07T12:30:00Z" }, policy, now));
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ type:"pickup", scheduledAt: "2026-12-07T20:30:00Z" }, policy, now));
 });
 
 test("rejects fulfillment outside Toronto business hours", () => {
   const now = new Date("2026-09-01T00:00:00Z");
-  assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T11:15:00Z" }, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
-  assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T20:15:00Z" }, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
-  assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-10-03T15:00:00Z" }, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
+  assert.throws(() => validateFulfillmentSchedule({ type:"pickup", scheduledAt: "2026-09-30T11:00:00Z" }, policy, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
+  assert.throws(() => validateFulfillmentSchedule({ type:"pickup", scheduledAt: "2026-09-30T20:00:00Z" }, policy, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
+  assert.throws(() => validateFulfillmentSchedule({ type:"delivery", scheduledAt: "2026-10-03T15:00:00Z" }, policy, now), { code: "OUTSIDE_FULFILLMENT_HOURS" });
 });
 
-test("rejects fulfillment times outside 15-minute intervals", () => {
-  assert.throws(() => validateFulfillmentSchedule({ scheduledAt: "2026-09-30T15:07:00Z" }, new Date("2026-09-01T00:00:00Z")), { code: "INVALID_FULFILLMENT_INTERVAL" });
+test("rejects fulfillment times outside configured intervals", () => {
+  assert.throws(() => validateFulfillmentSchedule({ type:"pickup", scheduledAt: "2026-09-30T15:15:00Z" }, policy, new Date("2026-09-01T00:00:00Z")), { code: "INVALID_FULFILLMENT_INTERVAL" });
+  const custom = deliveryConfig({ FULFILLMENT_INTERVAL_MINUTES:"15" });
+  assert.doesNotThrow(() => validateFulfillmentSchedule({ type:"pickup", scheduledAt: "2026-09-30T15:15:00Z" }, custom, new Date("2026-09-01T00:00:00Z")));
 });

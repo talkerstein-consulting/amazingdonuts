@@ -5,6 +5,18 @@ const cents = (value, fallback) => {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
 };
 
+const minutes = (value, fallback) => {
+  const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return fallback;
+  const total = Number(match[1]) * 60 + Number(match[2]);
+  return total >= 0 && total <= 24 * 60 ? total : fallback;
+};
+
+const interval = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= 120 ? parsed : fallback;
+};
+
 export function deliveryConfig(env = process.env) {
   return {
     enabled: env.ENABLE_DELIVERY !== "false",
@@ -16,6 +28,11 @@ export function deliveryConfig(env = process.env) {
     feeAmount: cents(env.DELIVERY_FEE_AMOUNT, 500),
     freeThreshold: cents(env.DELIVERY_FREE_THRESHOLD, 10000),
     provider: "OWN_DRIVER",
+    schedule: {
+      intervalMinutes: interval(env.FULFILLMENT_INTERVAL_MINUTES, 30),
+      deliveryStart: minutes(env.DELIVERY_WINDOW_START, 6 * 60 + 30),
+      deliveryEnd: minutes(env.DELIVERY_WINDOW_END, 16 * 60 + 30),
+    },
   };
 }
 
@@ -32,7 +49,7 @@ export function validateDelivery(fulfillment, policy) {
   }
 }
 
-export function validateFulfillmentSchedule(fulfillment, now = new Date()) {
+export function validateFulfillmentSchedule(fulfillment, policy = deliveryConfig({}), now = new Date()) {
   const scheduled = new Date(fulfillment.scheduledAt);
   if (Number.isNaN(scheduled.getTime()) || scheduled <= now) {
     throw checkoutError("Choose a future fulfillment time.", "INVALID_FULFILLMENT_TIME");
@@ -46,14 +63,17 @@ export function validateFulfillmentSchedule(fulfillment, now = new Date()) {
   }).formatToParts(scheduled).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
   const hour = Number(parts.hour);
   const minute = Number(parts.minute);
-  if (minute % 15 !== 0) {
-    throw checkoutError("Choose a fulfillment time in a 15-minute interval.", "INVALID_FULFILLMENT_INTERVAL");
-  }
-  const windows = { Sun: [8 * 60, 13 * 60], Mon: [7 * 60 + 30, 16 * 60], Tue: [7 * 60 + 30, 16 * 60], Wed: [7 * 60 + 30, 16 * 60], Thu: [7 * 60 + 30, 16 * 60], Fri: [7 * 60 + 30, 14 * 60] };
-  const window = windows[parts.weekday];
+  const schedule = policy.schedule || deliveryConfig({}).schedule;
+  const pickupWindows = { Sun: [8 * 60, 13 * 60], Mon: [7 * 60 + 30, 16 * 60], Tue: [7 * 60 + 30, 16 * 60], Wed: [7 * 60 + 30, 16 * 60], Thu: [7 * 60 + 30, 16 * 60], Fri: [7 * 60 + 30, 14 * 60] };
+  const window = fulfillment.type === "delivery"
+    ? (parts.weekday === "Sat" ? undefined : [schedule.deliveryStart, schedule.deliveryEnd])
+    : pickupWindows[parts.weekday];
   const minutes = hour * 60 + minute;
-  if (!window || minutes < window[0] || minutes > window[1]) {
+  if (!window || minutes < window[0] || minutes + schedule.intervalMinutes > window[1]) {
     throw checkoutError("Choose a time during our published pickup and delivery hours.", "OUTSIDE_FULFILLMENT_HOURS");
+  }
+  if ((minutes - window[0]) % schedule.intervalMinutes !== 0) {
+    throw checkoutError(`Choose a fulfillment time in a ${schedule.intervalMinutes}-minute interval.`, "INVALID_FULFILLMENT_INTERVAL");
   }
 }
 
