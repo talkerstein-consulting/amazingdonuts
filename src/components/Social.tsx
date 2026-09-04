@@ -62,7 +62,10 @@ export default function Social() {
         {/* Straight under the copy, ahead of the gallery. */}
         <div className="wild-socials">
           {SOCIALS.map(({ label, Icon, href, bg, fg }) => (
-            <BrandButton key={label} href={href} block className="wild-social" style={{ background: bg, color: fg }}>
+            /* A new tab, and `noopener` with it: the destination must not get a
+               handle on this window, and the visitor must not lose the page
+               they were reading to reach a social profile. */
+            <BrandButton key={label} href={href} target="_blank" rel="noopener noreferrer" block className="wild-social" style={{ background: bg, color: fg }}>
               <span className="wild-social__label">
                 <Icon size={22} strokeWidth={2.4} />
                 {label}

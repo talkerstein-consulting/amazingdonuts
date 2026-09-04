@@ -278,8 +278,9 @@ nav a,
 }
 
 .footer-icon-btn {
-  width: 46px;
-  height: 46px;
+  flex: none;
+  width: 38px;
+  height: 38px;
   border-radius: 99px;
   display: flex;
   align-items: center;
@@ -321,11 +322,16 @@ nav a,
 }
 
 
-/* Two-up on phones; on wider screens the products fill the row instead of
-   stretching to half the page each. */
+/* Two-up on phones, four-up from 900px, and nothing in between.
+
+   This was `auto-fill, minmax(150px, 1fr)` from 700px, which let the column
+   count fall out of the available width — anywhere from three to six columns
+   depending on the viewport. The catalogue now slices each category to exactly
+   two full rows, and it cannot do that without knowing the count, so the
+   breakpoints are explicit and `useIsDesktop()` in `Catalog.tsx` mirrors them.
+   Change one and the other has to move with it. */
 @media (min-width: 700px) {
   .product-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
     gap: clamp(16px, 1.6vw, 24px) !important;
     padding: 8px clamp(12px, 1.4vw, 20px) clamp(16px, 1.8vw, 24px) !important;
   }
@@ -333,7 +339,6 @@ nav a,
 
 /* Desktop section headings run down the middle. */
 @media (min-width: 900px) {
-  .lanes-title,
   .favorites-title {
     text-align: center;
   }
@@ -471,46 +476,353 @@ nav a,
 }
 
 /* ==========================================================================
-   Certification marquee.
+   The certification band, under the hero.
+
+   It used to carry the Google score and the Canadian seal as well. Both have
+   moved into the hero — the score beside the CTA, the seal over the donut —
+   which is where a first-time visitor is actually deciding. What is left is the
+   loop, and it earns its place twice: the marks themselves, and the fact that
+   the hero's donut hangs into this band so the moving text cuts across it.
 
    The loop mixes two kinds of item — the lucide-drawn allergen pills and the
    supplied kosher SVGs — which have different intrinsic proportions. Centring
    each item in its own box (rather than letting it sit on the line box's
    baseline) is what keeps the two kinds on a shared centre line.
    ========================================================================== */
-.marquee .logoloop__item {
+.trust-band {
+  position: relative;
+  /* Above the hero, so it paints over the donut hanging into it. */
+  z-index: 4;
+  background: var(--navy);
+  padding: clamp(11px, 1.3vw, 16px) 0;
+  overflow: hidden;
+}
+
+/* --- The Google score, beside the hero's CTA ---------------------------
+   Not a button and not a second CTA: no fill, no ring, no arrow. It sits at
+   the CTA's height so the two share a baseline, and its job is to make the
+   button easier to press. */
+.review-score {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
+  padding: 0 4px;
+  min-height: 52px;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
 }
 
-.marquee .logoloop__list {
+.review-score:hover {
+  opacity: 0.72;
+}
+
+/* Not on phones. Its whole argument for existing is that it sits beside the
+   CTA at the moment someone is deciding whether to press it — and at this
+   width it does not: the buttons go full-width and it drops onto a line of its
+   own below them, which is just another row between the headline and the
+   donut. The aggregate is still stated in full further down the page. */
+@media (max-width: 640px) {
+  .review-score {
+    display: none;
+  }
+}
+
+.review-score--ink {
+  color: var(--navy);
+}
+
+.review-score--cream {
+  color: var(--cream);
+}
+
+.review-score__text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.review-score__text strong {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.review-score__source {
+  /* --text-muted is the palette's floor for words on Canvas; nothing here goes
+     lighter than that. */
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.review-score--cream .review-score__source {
+  color: var(--text-on-navy);
+}
+
+/* --- The stars ----------------------------------------------------------
+   Two stacked copies per star: an outline underneath, and a filled one clipped
+   to the fraction of that star the score has earned. A 4.3 shows four filled
+   and a third of the fifth, rather than rounding up to five, which would be a
+   different claim than the one the data supports. */
+.review-score__stars {
+  display: inline-flex;
+  gap: 1px;
+  flex: none;
+}
+
+.review-score__star {
+  position: relative;
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+}
+
+.review-score__star-base {
+  opacity: 0.32;
+}
+
+.review-score__star-fill {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: inline-flex;
+  /* The clipped copy must not shrink with its box, or a part-filled star would
+     be a narrow star instead of a partly-filled one. */
   align-items: center;
 }
 
-/* The SVG badges carry their own pill artwork, so centre the drawing inside
-   the box the loop gives it. */
-.marquee .logoloop__item img {
-  height: var(--logoloop-logoHeight);
-  width: auto;
-  object-fit: contain;
-  object-position: center;
+.review-score__star-fill svg {
+  flex: none;
+}
+
+/* --- The booked pickup slot, under the bar -----------------------------
+   One row, always: the slot, the way back to the gate that set it, and a way
+   to drop it. It had no rule at all, so the icon, the sentence, "Change" and
+   the close button each took a line of their own and the band was three deep.
+
+   Sticky at the header's own height so it rides under the bar rather than
+   scrolling out from under it — an appointment stays true while the visitor
+   shops. One below the header's z-index, so the bar's drawer and search still
+   pass over it. */
+.pickup-banner {
+  position: sticky;
+  top: var(--nav-h);
+  z-index: 59;
+  background: var(--orange);
+  /* Cream, not navy. The band is Signal orange and the bar above it is navy —
+     navy text on the orange read as a third colour wedged between them. */
+  color: var(--cream);
+}
+
+.pickup-banner__inner {
+  max-width: 1240px;
   margin: 0 auto;
+  padding: 8px clamp(18px, 4vw, 40px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-cta);
+  font-size: 13px;
+  line-height: 1;
 }
 
-.marquee .logoloop__node {
+/* The sentence takes the room that is left and gives it back before the two
+   controls are pushed off the end. */
+.pickup-banner__inner p {
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pickup-banner__inner strong {
+  font-weight: 700;
+}
+
+/* "Pickup booked" is the label; the slot itself is the fact. On a narrow
+   screen the label is the half worth losing. */
+@media (max-width: 560px) {
+  .pickup-banner__lead {
+    display: none;
+  }
+}
+
+.pickup-banner__inner a {
+  flex: none;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pickup-banner__inner button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 99px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.pickup-banner__inner button:hover {
+  background: rgba(251, 247, 239, 0.22);
+}
+
+/* The clock, which flexbox would otherwise squash along with the sentence. */
+.pickup-banner__inner > svg {
+  flex: none;
+}
+
+/* --- How many of this product are already in the box -------------------
+   Sits in the add knob in place of its plus. The knob still adds — a tick
+   would say "done" about something a visitor can add again — so this is a
+   count, not a state. */
+.product-knob__qty {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* --- The merchandising tag on a product photo -------------------------
+   Top-left of the photo bed, absolutely placed. It had no rule at all, so it
+   sat in flow under the picture and pushed the name down — which meant a
+   tagged card's heading sat lower than its untagged neighbours' and the row
+   of names no longer lined up. The add knob owns the top-right corner, so the
+   opposite one is free however long the label runs. */
+/* Over the picture's top-left corner, and out of the flow — the add knob owns
+   the top-right, so the opposite one is free however long the label runs. It is
+   positioned against the whole tile rather than against the photo box, which
+   comes to the same corner and lets the badge sit in the text markup where it
+   belongs. */
+.product-tag {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 8px;
+  pointer-events: none;
+}
+
+/* On a phone it comes back into the flow, above the name.
+   Two columns of tiles on a 375px screen leaves a photo about 160px wide, and
+   "BEST SELLER" laid across the top of it covers the donut it is meant to sell
+   — on the one product shot small enough that covering any of it matters. Above
+   the name it costs a line and hides nothing. */
+@media (max-width: 699px) {
+  .product-tag {
+    position: static;
+    display: block;
+    margin-bottom: 6px;
+    pointer-events: auto;
+  }
+}
+
+/* --- Open / closed, in the nav bar --------------------------------------
+   Plain text with a dot, not a pill: it states a fact about the shop and must
+   not look like something to press. The colour comes from the bar's current
+   theme, inline. */
+.nav-open {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 7px;
+  font-family: var(--font-cta);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.nav-open__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+/* Open is the state worth a live signal; closed keeps the dot flat. */
+.nav-open.is-open .nav-open__dot {
+  background: #35c07a;
+  opacity: 1;
+}
+
+.nav-open__detail {
+  opacity: 0.7;
+}
+
+/* --- The Proudly Canadian seal, over the donut -------------------------
+   Absolute so it overlaps the photo without taking a row of its own, and above
+   it in stacking. It must stay outside the donut's motion wrapper: that
+   wrapper animates a transform, and a transform would make a stacking context
+   the seal could not escape. */
+/* --- The Proudly Canadian seal, on the donut ---------------------------
+   A child of `.hero-photo`, so it is placed against the donut rather than
+   against the section and moves with it. Kept fully inside that box because
+   `.hero-photo` clips — which is also what stops the seal reaching up into the
+   centred CTA row it used to collide with. */
+.hero-seal {
+  position: absolute;
+  z-index: 3;
+  top: 4%;
+  right: 5%;
+  /* Sized off the donut, not the viewport, so it holds its proportion at
+     every width. Large on purpose: it is a mark of origin, and at 30% it read
+     as a sticker someone had left on the photo. */
+  width: 46%;
+  max-width: 190px;
+  height: auto;
+  pointer-events: none;
+  /* No drop-shadow. `.hero-photo` clips, and the seal sits in its top-right
+     corner — the shadow was being cut off square against the photo's edge,
+     which read as a crop mark rather than a shadow. */
+}
+
+@media (min-width: 900px) {
+  .hero-seal {
+    top: 3%;
+    right: 3%;
+    width: clamp(84px, 9vw, 124px);
+  }
 }
 
 /* --- Hero photo -----------------------------------------------------------
    As it was before the signup arc moved in: full width on phones, its lower
    half covered by the certification bar and the section below. */
+/* `position: relative` for the seal it now contains. */
 .hero-photo {
+  position: relative;
+  /* Lowest thing in the hero. Everything else in the section — headline, lede,
+     CTA row, review score, and the trust band that follows — paints over it. */
+  z-index: 0;
   overflow: hidden;
   border-radius: 32px 32px 0 0;
-  margin-bottom: -44%;
+  /* Only the bottom sliver is covered now. The band used to be pulled up over
+     nearly half the donut, which left a blue crescent rather than a donut. */
+  margin-bottom: -10%;
+  /* Half width on phones, centred.
+
+     Full-bleed, the donut alone was 375px of an 812px screen and pushed the
+     three "ways to buy" cards below the fold — they are the one decision the
+     homepage needs a visitor to make, so they have to be visible on arrival.
+     The room for this comes from the star rating, which is hidden at this
+     width — see `.review-score`. Measured, not guessed: change this and
+     re-measure `.lanes-row`'s bottom against `innerHeight`. */
+  width: 74%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* The curved signup arcs over the donut. It needs to sit above the photo in
@@ -540,11 +852,23 @@ nav a,
   pointer-events: none;
 }
 
-/* Desktop: narrower than the phone treatment, and pushed down so the curved
-   signup above it has room to breathe. */
+/* Desktop: narrower than the phone treatment, and shown nearly whole.
+
+   The hero plus the three "ways to buy" cards still has to fit one laptop
+   screen, and the donut is the only part of that whose height is
+   discretionary — but the height now comes out of its width rather than out of
+   how much of it the trust band swallows. Narrowing it to 52% buys back the
+   vertical room the old -56% margin was taking, and the donut actually reads
+   as a donut.
+
+   Both numbers resolve against the container's width (a percentage margin
+   always does, even a vertical one), so the visible slice stays near constant
+   as the viewport changes rather than drifting with it. Change one and
+   re-measure. */
 @media (min-width: 900px) {
   .hero-photo {
-    width: min(72%, 760px);
+    width: min(52%, 560px);
+    margin-bottom: -8%;
     margin-left: auto;
     margin-right: auto;
   }
@@ -576,16 +900,6 @@ nav a,
 /* The carousel's root is `flex-1 min-h-0`, so it fills the height it is given
    rather than deriving one — it needs a parent height, but a right-sized one:
    the first pass at 520px left a tall band of empty panel below the cards. */
-/* Under the "Loved by our regulars" CTA, in the rail. */
-.regulars-badge {
-  display: block;
-  /* SVG, so it scales past its 106px native size cleanly. */
-  width: clamp(132px, 15vw, 190px);
-  height: auto;
-  margin: clamp(20px, 2.4vw, 30px) 0 0;
-  pointer-events: none;
-}
-
 .wild-gallery {
   position: relative;
   height: clamp(380px, 34vw, 460px);
@@ -605,6 +919,205 @@ nav a,
   background: rgba(14, 62, 105, 0.06);
 }
 
+/* --- The three ways to buy ----------------------------------------------
+   Take out / Pick up / Bulk, side by side from 900px; the ScrollStack still
+   overlays them on phones, where there is no room for three columns.
+
+   These are small cards on purpose. They were photo cards — a square image bed
+   taking whatever height was left, which made each one about 620px tall and put
+   all three below the fold on a laptop, so the one decision the homepage most
+   needs a visitor to make was the one thing they had to scroll to find. Icon,
+   title, button: about a quarter of the height, and the donut photography
+   arrives on hover instead. */
+.lanes-row {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 clamp(18px, 4vw, 40px) clamp(16px, 1.8vw, 24px);
+  display: grid;
+  /* Three columns at every width. On a phone these become three narrow cards
+     side by side rather than a stack: the section's whole job is letting the
+     three ways to buy be compared at a glance, and stacking them hid two. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(8px, 1.6vw, 22px);
+  align-items: stretch;
+}
+
+.lane-card {
+  /* Positioned, but deliberately WITHOUT a z-index: that would make the card a
+     stacking context, and the donuts' `z-index: -1` would then be trapped
+     inside it and paint over the card's own background instead of behind it. */
+  position: relative;
+  /* Not clipped. The donuts rise out of the top of the card, so a card that
+     clips is a card with nothing to show. */
+  overflow: visible;
+  border-radius: 26px;
+  padding: clamp(12px, 1.3vw, 16px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Title at the top, button at the bottom: the names are the section's
+     signposts and should sit high on the card, not floated in its middle. */
+  justify-content: space-between;
+  text-align: center;
+  gap: clamp(10px, 1.2vw, 16px);
+  height: 100%;
+  width: 100%;
+}
+
+/* Above the donut, so the photo slides in behind the words rather than over
+   them. The card itself is the stacking context. */
+.lane-card__title,
+.lane-card__cta {
+  position: relative;
+  z-index: 1;
+}
+
+.lane-card__title {
+  margin: 0;
+  /* Much larger than the 22-28px these were: these three words are the only
+     headings the section has, so they carry the weight a section title would. */
+  font-size: clamp(26px, 3.4vw, 46px);
+  line-height: 0.92;
+}
+
+.lane-card__cta {
+  max-width: 260px;
+}
+
+@media (max-width: 640px) {
+  /* Three across a 375px screen leaves each card ~110px wide. The type is as
+     large as that width will carry and the padding is as small as it can be
+     without the words touching the edge — the card is a label, so the label
+     should be most of it. */
+  .lanes-row {
+    gap: 6px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .lane-card {
+    /* Taller than the name needs, because with the button gone the card IS the
+       tap target and a 42px pill is a mean one. There is room: the three cards
+       finish at 778 of an 812px fold. */
+    padding: 18px 4px;
+    border-radius: 18px;
+    gap: 6px;
+  }
+
+  .lane-card__title {
+    /* 7.4vw is "Delivery" — the longest of the three — filling the card at
+       375px. Anything larger breaks it across two lines. */
+    font-size: clamp(20px, 7.4vw, 30px);
+  }
+
+  /* No button. "Order now" in a 100px-wide outline pill was the same three
+     words on all three cards, wrapping or shrinking to fit and leaving the
+     name squeezed into the top half of the card. The name is the card now, and
+     the link under it stretches over the whole thing — a far bigger tap target
+     than the button was. */
+  .lane-card .lane-card__cta {
+    display: none;
+  }
+
+  .lane-card {
+    justify-content: center;
+  }
+
+  .lane-card__title a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+}
+
+/* --- The donuts that rise out of the card on hover ---------------------
+   They sit ABOVE the card in space and BEHIND it in paint: parked with their
+   bottoms tucked under the card's top edge, hidden by the card's own colour,
+   and sliding up out of it on hover so they appear over the certification
+   band above.
+
+   `z-index: -1` is what puts them behind the card's background. It works only
+   because `.lane-card` sets no z-index of its own, so these escape it and land
+   in the `#lanes` section's stacking context — behind the cards, and above the
+   trust band, which is an earlier sibling at the same level.
+
+   Transform and opacity only, so the whole thing runs on the compositor and
+   costs no layout. */
+/* The box the donuts live in, and the reason they are never seen at rest.
+
+   `z-index: -1` on the wrapper is what puts the whole group behind the card's
+   background. It works only because `.lane-card` sets no z-index of its own,
+   so this escapes it and lands in the `#lanes` section's stacking context —
+   behind the cards, and above the trust band, which is an earlier sibling at
+   the same level.
+
+   It clips, and its bottom edge sits well inside the card. That is what the
+   parked donuts hide behind: the card is shorter than they are, so parking
+   them "behind the card" left them hanging out below its bottom edge, in full
+   view, every time a visitor moved the mouse away. Now there is nowhere for
+   them to go but up.
+
+   How deep that edge sits is also how high the donuts finish. At a 26px tuck
+   they cleared the certification band entirely and floated well above the
+   card, reading as their own row rather than as something coming off it. The
+   deeper tuck keeps them on the card's shoulder, near the button they belong
+   to — and it is a percentage of the card's height rather than a fixed
+   distance, because the phone card is 62px tall and the desktop one 148px, and
+   68px of tuck would swallow the phone card whole. */
+.lane-card__peeks {
+  position: absolute;
+  z-index: -1;
+  left: 0;
+  right: 0;
+  bottom: 54%;
+  /* Taller than the tallest donut can be, so the clip only ever bites at the
+     bottom. */
+  height: 300px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.lane-card__peek {
+  /* Sized off the card, not the viewport: the cards are three-up at every
+     width, so a viewport-scaled donut is huge next to a 110px phone card and
+     small next to a 370px desktop one. Each donut scales this by its own
+     `--peek-scale`, so they are not all the same size. */
+  --peek-w: clamp(62px, 62%, 210px);
+  position: absolute;
+  /* Sitting on the wrapper's bottom edge, which is well inside the card, so
+     there is no seam between a donut and the colour it comes out of. */
+  bottom: 0;
+  width: calc(var(--peek-w) * var(--peek-scale, 1));
+  /* `left` is set per donut as its centre; this pulls it back by half. */
+  margin-left: calc(var(--peek-w) * var(--peek-scale, 1) / -2);
+  height: auto;
+  opacity: 0;
+  /* Pushed down past the wrapper's bottom edge, which clips it away. */
+  transform: translate3d(0, 100%, 0) rotate(0deg);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+}
+
+/* `:focus-within` as well as `:hover`: the card's only interactive element is
+   the button, so a keyboard visitor tabbing onto it should see what a mouse
+   visitor sees. */
+.lane-card:hover .lane-card__peek,
+.lane-card:focus-within .lane-card__peek {
+  opacity: 1;
+  /* `--peek-lift` raises some of them further than others, so the group lands
+     on an arc rather than a line. */
+  transform: translate3d(0, calc(var(--peek-lift, 0px) * -1), 0)
+    rotate(var(--peek-rot, 0deg));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lane-card__peek {
+    transition: opacity 0.2s ease;
+    /* Still appears, but it fades in where it lands instead of travelling. */
+    transform: translate3d(0, calc(var(--peek-lift, 0px) * -1), 0)
+      rotate(var(--peek-rot, 0deg));
+  }
+}
+
 /* --- "Loved by our regulars" --------------------------------------------
    Sticky rail beside two columns of quote cards. */
 .regulars-grid {
@@ -617,8 +1130,13 @@ nav a,
 }
 
 @media (min-width: 900px) {
+  /* 3fr/9fr, not the 4fr/8fr this was: every quote card now carries an
+     attached product strip, and at 8fr the strip's thumbnail, name, price and
+     add button had to share about 300px per column, which wrapped names like
+     "Twelve Custom Printed Donuts" onto three lines. The rail loses a twelfth
+     it was not using — it holds a lede, a rating line, a button and a badge. */
   .regulars-grid {
-    grid-template-columns: 4fr 8fr;
+    grid-template-columns: 3fr 9fr;
   }
   .regulars-rail {
     position: sticky;
@@ -680,12 +1198,54 @@ nav a,
   box-shadow: inset 0 0 0 1px rgba(14, 62, 105, 0.1);
 }
 
+/* The reviewed item, at the foot of its review.
+
+   Only the wrapper is styled here: everything inside is the cart drawer's line
+   item, so `.cart__line` in `shop.css` draws the sand bed and the radius, and
+   `ProductLine` draws the thumbnail, the name and the price. What this rule
+   does is undo the button the card is wrapped in and give it its distance from
+   the attribution above.
+
+   The block it replaces was about a hundred lines: a floated 112px photo bed,
+   a display name at up to 38px, a cleared price with a gutter reserved for an
+   add knob. All of it existed to make a second, larger version of an object
+   the site already had — which is how the two managed to drift apart twice. */
+ /* Scoped to the quote card so it outranks `.cart__line` — shop.css loads
+    after this file, so a bare `.regulars-product` ties on specificity and
+    loses, which is what left the card sand-on-sand. */
+.regulars-card .regulars-product {
+  width: 100%;
+  margin-top: clamp(16px, 1.8vw, 20px);
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  /* Shortbread on a sand quote card would vanish; the drawer's own ground is
+     the right one there and the wrong one here, so this is the single
+     inherited value the card overrides. */
+  background: var(--cream);
+  transition: box-shadow 0.18s ease;
+}
+
+.regulars-card .regulars-product:hover,
+.regulars-card .regulars-product:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.18);
+}
+
+/* The nesting is inverted from the drawer's — sand quote card, cream product
+   card — so the thumbnail bed takes the sand the card gave up, or it would be
+   cream on cream and the donut would float with no bed at all. */
+.regulars-card .regulars-product .cart__thumb {
+  background: var(--sand);
+}
+
+
+
 /* Section headings hold one line on phones. At 44px none of them is too wide
    for the column — what wrapped them was the ch cap each one carries for wider
-   screens, plus the balancer on the lanes title. Both are lifted here; the
+   screens. These are lifted here; the
    !important is for the caps that live in inline styles. */
 @media (max-width: 559px) {
-  .lanes-title,
   .favorites-title,
   .wild-title,
   .regulars-title {
@@ -787,7 +1347,6 @@ nav a,
   }
 
   /* Every section heading sits the same distance above what it introduces. */
-  .lanes-title,
   .favorites-title,
   .wild-title,
   .regulars-title,

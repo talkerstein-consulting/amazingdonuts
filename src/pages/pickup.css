@@ -1,0 +1,136 @@
+/* --- The pickup gate -----------------------------------------------------
+   One centred card on Canvas. Deliberately the only thing on the page: it is
+   a single question standing between the lane card and the catalogue, and
+   anything else here is something to read instead of answering it. */
+
+.pickup-page {
+  min-height: 70vh;
+  display: grid;
+  place-items: center;
+  padding: clamp(28px, 5vw, 72px) clamp(16px, 4vw, 40px);
+}
+
+.pickup-card {
+  width: 100%;
+  max-width: 560px;
+  padding: clamp(24px, 3.4vw, 44px);
+  border-radius: var(--radius-chip);
+  background: var(--sand);
+  box-shadow: inset 0 0 0 1px rgba(14, 62, 105, 0.1);
+}
+
+.pickup-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: var(--radius-pill);
+  background: var(--pink);
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.pickup-title {
+  margin: clamp(16px, 2vw, 22px) 0 0;
+  font-size: var(--type-section);
+  line-height: 0.92;
+  letter-spacing: -0.015em;
+  color: var(--navy);
+}
+
+.pickup-lede {
+  margin: clamp(10px, 1.4vw, 14px) 0 0;
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  line-height: 1.45;
+  color: var(--text-body);
+}
+
+/* Side by side once there is room for both to stay legible; the date picker
+   opens a calendar panel, so it needs most of a column to itself. */
+.pickup-fields {
+  margin: clamp(20px, 2.6vw, 30px) 0 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(14px, 1.8vw, 20px);
+}
+
+@media (min-width: 560px) {
+  .pickup-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.pickup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.pickup-field__label {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Matches the height and pill of the date picker's own trigger so the two
+   fields read as a pair rather than two unrelated controls. */
+.pickup-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  background: var(--cream);
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.12);
+  color: var(--navy);
+}
+
+.pickup-select select {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--navy);
+  cursor: pointer;
+  /* The native arrow would sit next to the clock icon and read as a second
+     control; the pill is the affordance. */
+  appearance: none;
+}
+
+.pickup-select select:disabled {
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+
+.pickup-hours {
+  margin: clamp(14px, 1.8vw, 18px) 0 clamp(20px, 2.4vw, 26px);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.pickup-skip {
+  display: block;
+  margin: 16px auto 0;
+  width: fit-content;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

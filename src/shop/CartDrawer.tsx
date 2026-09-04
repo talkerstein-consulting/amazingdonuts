@@ -5,6 +5,7 @@ import { C, F, SQUIRCLE } from '../components/brand';
 import { useShop, money } from '../lib/shop';
 import { SHOP_HREF } from '../lib/shop-href';
 import { customizationComplete, minimumQuantityFor } from '../lib/custom-order';
+import ProductLine from '../components/ProductLine';
 import CartCustomization from './CartCustomization';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -79,32 +80,8 @@ export default function CartDrawer() {
                 <ul className="cart__lines">
                   {lines.map(({ product, qty, customization }) => (
                     <li key={product.id} className="cart__line">
-                      <div className="cart__line-main"><span className="cart__thumb" style={{ clipPath: SQUIRCLE }}>
-                        <img src={product.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.14)' }} />
-                      </span>
-
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <p
-                          style={{
-                            margin: 0,
-                            fontFamily: F.display,
-                            fontWeight: 800,
-                            fontSize: 14,
-                            lineHeight: 1.25,
-                            color: C.navy,
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden'
-                          }}
-                        >
-                          {product.name}
-                        </p>
-                        <p style={{ margin: '4px 0 8px', fontFamily: F.text, fontWeight: 700, fontSize: 13, color: C.price }}>
-                          {product.price}
-                        </p>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <ProductLine product={product}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                           <div className="cart__stepper">
                             <button type="button" disabled={qty<=minimumQuantityFor(product.id)} onClick={() => setQty(product.id, qty - 1)} aria-label={`One fewer ${product.name}`}>
                               <Minus size={14} strokeWidth={2.6} />
@@ -123,7 +100,7 @@ export default function CartDrawer() {
                             <Trash2 size={16} strokeWidth={2.2} />
                           </button>
                         </div>
-                      </div></div>
+                      </ProductLine>
                       <CartCustomization productId={product.id} qty={qty} value={customization} onChange={next=>customize(product.id,next)}/>
                     </li>
                   ))}

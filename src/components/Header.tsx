@@ -5,21 +5,80 @@ import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useNavTheme } from '../lib/nav-theme';
 import { useShop } from '../lib/shop';
 import { CATEGORIES, PRODUCTS } from '../data/products';
+import { BEST_SELLERS } from '../data/product-tags';
 import { LAB_HREF } from '../lib/lab-href';
 import { HOME_HREF, onHomeClick } from '../lib/home-href';
 import { SHOP_HREF, shopHref } from '../lib/shop-href';
 import { CONTACT_HREF } from '../lib/routes';
+import { openState } from '../lib/pickup';
+import PickupBanner from './PickupBanner';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 /* 'Donuts' and 'Cupcakes' both pointed at #favorites - two labels, one
    destination, which is a menu that lies about how many places it can take
-   you. They are one 'Products' entry now. */
+   you. They are one entry now, labelled 'Shop all' to match the wording the
+   catalogue itself uses on every button that opens it. */
 const NAV_LINKS = [
-  { href: SHOP_HREF, label: 'Products' },
+  { href: SHOP_HREF, label: 'Shop all' },
   { href: LAB_HREF, label: 'Donut lab' },
   { href: CONTACT_HREF, label: 'Contact' }
 ];
+
+/**
+ * Whether the counter is serving, worn by the bar.
+ *
+ * This is what a visitor most wants from a bakery's header and what the bar was
+ * not answering: the booked pickup slot used to sit here, which is state the
+ * visitor already knows because they set it, and which now has its own band
+ * above the bar. "Open now" or "Closed" is the fact only the shop can tell them.
+ *
+ * Closed is never shown bare — "Closed" alone gives a visitor nothing to act on
+ * — but it is not shown at all either. The next opening is the whole message,
+ * and saying "Closed" before it only makes the line longer without adding a
+ * fact: "Opens Sun 8am" already says the counter is shut. The week's full hours
+ * used to hang off this in a hover panel; they live on the pickup page, which
+ * is where someone planning rather than checking is going anyway.
+ */
+function OpenStatus({ color }: { color: string }) {
+  /* Read once per mount. A live clock would need a timer on every page for a
+     line that changes twice a day, and the page is reloaded or navigated far
+     more often than the counter opens. */
+  const [state] = useState(openState);
+
+  /* One accessible sentence, and the visible spans are hidden from readers so
+     they do not hear it twice. A reader still gets the word "Closed", which the
+     visible line drops: the dot's colour carries that visually and a reader has
+     no dot. */
+  const spoken = state.open
+    ? `Open now until ${state.until}.`
+    : `Closed. Opens ${state.nextDay} at ${state.nextAt}.`;
+
+  return (
+    <span
+      className={`nav-open${state.open ? ' is-open' : ''}`}
+      /* No ring. It was a pill, and a bordered box in the bar read as a
+         button someone could press — this is a fact, not a control. */
+      style={{ color }}
+    >
+      {/* Colour is not the only signal: the dot is paired with the words, so
+          the state survives a reader who cannot tell green from grey. */}
+      <span className="nav-open__dot" aria-hidden="true" />
+      <span className="nav-open__label" aria-hidden="true">
+        {state.open ? (
+          <>
+            Open now <span className="nav-open__detail">until {state.until}</span>
+          </>
+        ) : (
+          <>
+            Opens {state.nextDay} {state.nextAt}
+          </>
+        )}
+      </span>
+      <span className="sr-only">{spoken}</span>
+    </span>
+  );
+}
 
 /**
  * Every nav entry is now a page of its own, so the active state is a lookup on
@@ -31,13 +90,8 @@ const PATH_LABEL: Record<string, string> = Object.fromEntries(
   NAV_LINKS.map((l) => [l.href, l.label])
 );
 
-/** The four cheapest-to-reach crowd pleasers, pulled from the live catalogue. */
-const BESTSELLERS = [
-  'zap-donut-pink-blue-white-sprinkles',
-  'boston-creme-donut-custard',
-  'chocolate-glazed-donut',
-  'challah-six-braid-friday-only'
-]
+/** The drawer promotes exactly what the grid tags, from the one shared list. */
+const BESTSELLERS = [...BEST_SELLERS]
   .map((id) => PRODUCTS.find((p) => p.id === id))
   .filter((p): p is (typeof PRODUCTS)[number] => Boolean(p));
 
@@ -145,6 +199,7 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
   };
 
   return (
+    <>
     <motion.header
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
@@ -252,6 +307,10 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
               least the browser's own timeline rather than a rAF loop competing
               with everything else on the page. Hover is a `:hover` rule for the
               same reason: no state, no re-render, nothing to get out of sync. */}
+          {/* Ahead of search and the box: it is a label on the bar, not a
+              control in the icon cluster. */}
+          {isDesktop && <OpenStatus color={theme.fg} />}
+
           {isDesktop && (
           <form
             ref={searchFormRef}
@@ -484,6 +543,13 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                   </motion.a>
                 ))}
 
+                {/* On a phone the bar has room for the logo, the box and the
+                    menu button and nothing else, so the status rides in the
+                    drawer with the rest of the nav. */}
+                <motion.div variants={drawerItem}>
+                  <OpenStatus color="var(--cream)" />
+                </motion.div>
+
                 <motion.button
                   variants={drawerItem}
                   type="button"
@@ -595,5 +661,12 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
         )}
       </AnimatePresence>
     </motion.header>
+
+    {/* Under the bar, not above it, and rendered here rather than by each page:
+        eight pages mount the header, and a band that appears on seven of them
+        is a bug waiting to be noticed. It renders nothing when no slot is
+        booked. */}
+    <PickupBanner />
+    </>
   );
 }

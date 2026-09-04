@@ -14,6 +14,15 @@ export const CAREERS_HREF = '/careers/';
 export const BULK_HREF = '/bulk-orders/';
 
 /**
+ * The pickup gate, asked before the catalogue rather than at checkout.
+ *
+ * Pointed at by the Pick up lane card and by the header's slot chip, which is
+ * how a chosen slot is edited — two references, so it is a constant like the
+ * others rather than a literal in each.
+ */
+export const PICKUP_HREF = '/pickup/';
+
+/**
  * The shop, as published on amazingdonuts.com and confirmed against the Google
  * listing. Used by the contact page for the map and the directions link.
  */

@@ -29,7 +29,12 @@ type Store = {
   closeProduct: () => void;
   openCart: () => void;
   closeCart: () => void;
-  add: (product: Product, qty?: number) => void;
+  /* `openCart` is what a caller says when the add is its own confirmation.
+     The cart drawer opening is how a link or a detail panel confirms an item
+     landed in the box; a grid tile confirms it in place, by turning its plus
+     into a stepper, and covering that with the drawer is what stopped anyone
+     from seeing it happen. */
+  add: (product: Product, qty?: number, opts?: { openCart?: boolean }) => void;
   setQty: (id: string, qty: number) => void;
   customize: (id: string, customization: Customization) => void;
   remove: (id: string) => void;
@@ -107,7 +112,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     [route.productId]
   );
 
-  const add = useCallback((p: Product, qty = 1) => {
+  const add = useCallback((p: Product, qty = 1, { openCart = true }: { openCart?: boolean } = {}) => {
     setLines((prev) => {
       qty=Math.max(qty,minimumQuantityFor(p.id));
       const at = prev.findIndex((l) => l.product.id === p.id);
@@ -116,7 +121,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       next[at] = { ...next[at], qty: next[at].qty + qty };
       return next;
     });
-    setCartOpen(true);
+    if (openCart) setCartOpen(true);
   }, []);
 
   const setQty = useCallback((id: string, qty: number) => {
@@ -172,4 +177,24 @@ export function useShop() {
   const ctx = useContext(ShopContext);
   if (!ctx) throw new Error('useShop must be used inside <ShopProvider>');
   return ctx;
+}
+
+/**
+ * How many of each product are in the box, by product id.
+ *
+ * Every product grid on the site marks what the visitor has already added, and
+ * each of them would otherwise scan `lines` once per tile — sixty tiles, sixty
+ * scans, on every cart change. One map, built once per change.
+ *
+ * A product with a customization can appear on more than one line (two custom
+ * dozens with different artwork are two lines), so the quantities add up
+ * rather than the last one winning.
+ */
+export function useBoxQty(): Record<string, number> {
+  const { lines } = useShop();
+  return useMemo(() => {
+    const by: Record<string, number> = {};
+    for (const line of lines) by[line.product.id] = (by[line.product.id] ?? 0) + line.qty;
+    return by;
+  }, [lines]);
 }

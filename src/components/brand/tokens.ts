@@ -12,6 +12,10 @@ export const C = {
   pink: '#FBBFEC',   // Bubblegum — party + seasonal surfaces
   blue: '#4790FE',   // Signal — special order, focus rings
   orange: '#FF6832', // Dare Devil — one hero moment per screen
+  /* Dare Devil at 12%, for the photo bed of a product already in the box. A
+     tint rather than the colour itself: the bed sits behind the product, and
+     the spec allows one hero moment per screen. */
+  orangeWash: '#FFEDE6',
   body: '#274866',   // body copy on canvas
   mute: '#35597C',   // the lightest colour allowed on words (6.8:1)
   price: '#B33A11'   // price text

@@ -391,10 +391,10 @@ export default function Footer({ ready }: { ready: boolean }) {
         >
           <p style={{ margin: 0, fontSize: 14, color: 'rgba(14,62,105,.5)' }}>© 2026 Amazing Donuts</p>
           <div style={{ display: 'flex', gap: 4 }}>
-            <a href="https://www.facebook.com/amazingdonuts/" target="_blank" rel="noreferrer" aria-label="Amazing Donuts on Facebook" className="footer-icon-btn" style={{ color: 'var(--navy)' }}>
+            <a href="https://www.facebook.com/amazingdonuts/" target="_blank" rel="noopener noreferrer" aria-label="Amazing Donuts on Facebook" className="footer-icon-btn" style={{ color: 'var(--navy)' }}>
               <Facebook size={20} strokeWidth={2.2} />
             </a>
-            <a href="https://www.instagram.com/amazingdonutsto/" target="_blank" rel="noreferrer" aria-label="Amazing Donuts on Instagram" className="footer-icon-btn" style={{ color: 'var(--navy)' }}>
+            <a href="https://www.instagram.com/amazingdonutsto/" target="_blank" rel="noopener noreferrer" aria-label="Amazing Donuts on Instagram" className="footer-icon-btn" style={{ color: 'var(--navy)' }}>
               <Instagram size={20} strokeWidth={2.2} />
             </a>
           </div>

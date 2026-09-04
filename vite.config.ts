@@ -48,6 +48,7 @@ export default defineConfig({
         main: path.resolve(__dirname, 'index.html'),
         donutLab: path.resolve(__dirname, 'donut-lab/index.html'),
         shop: path.resolve(__dirname, 'shop/index.html'),
+        pickup: path.resolve(__dirname, 'pickup/index.html'),
         contact: path.resolve(__dirname, 'contact/index.html'),
         careers: path.resolve(__dirname, 'careers/index.html'),
         bulkOrders: path.resolve(__dirname, 'bulk-orders/index.html'),

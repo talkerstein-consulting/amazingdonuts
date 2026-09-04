@@ -1059,21 +1059,23 @@
   .shop-banner__marks { justify-content: flex-start; }
 }
 
-/* --- category chips ----------------------------------------------------- */
-/* One row at every width, scrolling sideways when it runs out of room. The
-   rail it replaced cost a whole column on desktop to ask one question. */
+/* --- category chips -----------------------------------------------------
+   The scrolling half of the toolbar row. It carried the row's own gutter and
+   max-width while it was a row; now the toolbar carries both and this is just
+   the part that is allowed to run out of room. */
 .shop-chips {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  gap: 8px;
-  max-width: 1400px;
-  justify-content: center;
-  margin: clamp(48px, 6vw, 82px) auto 0;
-  padding: 0 var(--shop-gutter);
+  gap: 10px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  /* The chips carry a 2px inset ring at their widest state; without a little
+     vertical room the clipped overflow shaves it off the top and bottom. */
+  padding: 2px 0;
 }
 
 /* The row is self-evidently scrollable from its clipped last chip; a bar under
@@ -1149,8 +1151,13 @@
 
 /* The tier row is subordinate to the collection row above it: same pill, one
    size down, so it reads as a refinement rather than a second question. */
+/* Still its own line under the toolbar, so it takes back the gutter and the
+   width that `.shop-chips` gave up when it became a flex child. */
 .shop-chips--sub {
-  margin-top: 8px;
+  max-width: 1400px;
+  margin: 0 auto clamp(16px, 1.8vw, 24px);
+  padding: 0 var(--shop-gutter);
+  justify-content: flex-start;
 }
 
 .shop-chip--sub {
@@ -1164,13 +1171,222 @@
 .shop-chip--sub:hover { box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.45); }
 .shop-chip--sub.is-on { background: var(--navy); box-shadow: none; }
 
-.shop-count {
+/* --- the filter / sort row ----------------------------------------------
+   The counters and the order on one line. The rule beneath is drawn on the
+   padding box rather than on a full-bleed element, so it starts and ends
+   exactly where the tiles below it do.
+
+   `align-items: center` and not `stretch`: the chips scroll and the sort does
+   not, and a stretched sort pill would grow to whatever height the scrolling
+   half happened to be. */
+.shop-toolbar {
+  position: relative;
   max-width: 1400px;
-  margin: 14px auto 0;
+  margin: clamp(32px, 4vw, 56px) auto clamp(20px, 2.2vw, 30px);
+  padding: 0 var(--shop-gutter) clamp(12px, 1.4vw, 18px);
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1.6vw, 24px);
+}
+
+.shop-toolbar::after {
+  content: '';
+  position: absolute;
+  left: var(--shop-gutter);
+  right: var(--shop-gutter);
+  bottom: 0;
+  height: 1px;
+  background: rgba(14, 62, 105, 0.14);
+}
+
+/* What is left of the count line: only ever shown while a search is on, since
+   a page showing six of sixty products has to say why and offer a way back.
+   The bare total it replaced — "60 items" — was a number nobody shops by. */
+.shop-query {
+  max-width: 1400px;
+  margin: -6px auto clamp(16px, 1.8vw, 24px);
   padding: 0 var(--shop-gutter);
   font-family: var(--font-body);
   font-size: 14px;
   color: var(--text-muted);
+}
+
+.shop-query--empty {
+  color: var(--navy);
+}
+
+.shop-query__clear {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* --- the sort control ---------------------------------------------------
+   The trigger is a chip: same 44px height, same pill radius, same Shortbread
+   ground, same uppercase label scale as the collection row above it. It was a
+   34px transparent box, which made the one control on this line read as a
+   caption beside the count rather than a sibling of the filters it works with.
+
+   The word "Sort" sits outside the pill. It names the control; the pill holds
+   the answer, and putting both inside made a chip whose left half was inert. */
+.shop-sort {
+  position: relative;
+  /* Never squeezed by the chips beside it: the chip row is the half of this
+     line that is allowed to run out of room. */
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shop-sort__label {
+  flex: none;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.shop-sort__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-pill, 99px);
+  background: var(--sand);
+  color: var(--navy);
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 2px transparent;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.shop-sort__trigger > svg { flex: none; }
+.shop-sort__trigger:hover { box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.22); }
+.shop-sort__trigger:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--navy); }
+
+/* Open, the trigger takes the ink the same way a picked chip does — the panel
+   below it is a continuation of the control, not a separate object. */
+.shop-sort__trigger.is-open {
+  background: var(--navy);
+  color: var(--cream);
+  box-shadow: none;
+}
+
+.shop-sort__chevron {
+  margin-left: 2px;
+  transition: transform 0.2s ease;
+}
+
+.shop-sort__trigger.is-open .shop-sort__chevron { transform: rotate(180deg); }
+
+/* The panel. Right-aligned under the trigger because the control sits at the
+   right edge of the toolbar and a left-aligned menu would hang off the page.
+   `min-width` on the trigger's own width, so the panel is never narrower than
+   the thing it opened from. */
+.shop-sort__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  min-width: 232px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 20px;
+  background: var(--cream);
+  box-shadow:
+    inset 0 0 0 1.5px rgba(14, 62, 105, 0.12),
+    0 18px 40px rgba(14, 62, 105, 0.16);
+  animation: shop-sort-in 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shop-sort__menu:focus { outline: none; }
+
+@keyframes shop-sort-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Sentence case and body type, unlike the trigger: the closed control is a
+   label and shouts like one, an open list is something to read. */
+.shop-sort__opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 14px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--navy);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.shop-sort__optIcon { flex: none; color: rgba(14, 62, 105, 0.55); }
+.shop-sort__optLabel { flex: 1; }
+.shop-sort__tick { flex: none; color: var(--orange); }
+
+/* One highlight, driven by the keyboard and by the pointer alike — the row the
+   pointer is over sets the same state the arrow keys do, so there is never a
+   second, competing highlight to explain. */
+.shop-sort__opt.is-at {
+  background: var(--sand);
+}
+
+/* The chosen row keeps its weight whether or not it is the one highlighted. */
+.shop-sort__opt.is-on {
+  font-weight: 800;
+}
+
+.shop-sort__opt.is-on .shop-sort__optIcon { color: var(--navy); }
+
+/* On a phone the row runs out of width first, and the chips are the half that
+   has to keep its room — they are the question, the sort is the refinement. So
+   the sort collapses to its glyph: the five orders have five distinct icons,
+   the chevron says it is a menu, and the open panel spells every option out.
+
+   The value is clipped rather than `display: none`, because it is half the
+   trigger's accessible name — hiding it outright would leave a screen reader
+   with a button called "Sort". */
+@media (max-width: 620px) {
+  .shop-sort__label {
+    display: none;
+  }
+
+  .shop-sort__value {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .shop-sort__trigger {
+    padding: 0 12px;
+  }
+
+  /* Never wider than the viewport it drops into. */
+  .shop-sort__menu {
+    min-width: min(232px, calc(100vw - 2 * var(--shop-gutter)));
+  }
 }
 
 /* --- the custom-order banner -------------------------------------------- */
@@ -1424,4 +1640,46 @@
   .cabinet__buybar {
     transition-duration: 0.01ms;
   }
+}
+
+/* --- Counter dividers in the grid ---------------------------------------
+   Shown only while the catalogue is unfiltered, where the grid runs to 60-odd
+   items across five counters and was previously one undifferentiated wall of
+   donuts, muffins and bread with nothing to say where each began.
+
+   Spans every column, so it lands on a fresh row and the products either side
+   of it keep the grid's own alignment. Nothing here is sticky: five sticky
+   headings in one scroll fight each other for the top of the viewport. */
+.shop-divider {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: clamp(14px, 2vw, 26px) 0 0;
+  /* Clears the sticky navbar when a chip or a hash link jumps to a counter. */
+  scroll-margin-top: calc(var(--nav-h) + 24px);
+}
+
+/* The first divider opens the grid, so it needs no space above it. */
+.shop-divider:first-child {
+  margin-top: 0;
+}
+
+.shop-divider__name {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(26px, 3.4vw, 38px);
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* Takes the remaining width, so the row reads as a labelled rule across the
+   grid rather than a heading floating at its left edge. */
+.shop-divider__rule {
+  flex: 1;
+  min-width: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(14, 62, 105, 0.12);
 }

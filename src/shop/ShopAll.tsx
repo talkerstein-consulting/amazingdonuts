@@ -1,13 +1,29 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Plus, Donut, Dessert, Cake, Cookie, Wheat, LayoutGrid, ChevronRight } from 'lucide-react';
+import {
+  Donut,
+  Dessert,
+  Cake,
+  Cookie,
+  Wheat,
+  LayoutGrid,
+  ChevronRight,
+  Sparkles,
+  Flame,
+  ArrowUpNarrowWide,
+  ArrowDownWideNarrow,
+  ArrowDownAZ
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { CATEGORIES, PRODUCTS, type Category, type Product } from '../data/products';
 import { LAB_HREF } from '../lib/lab-href';
 import { useGridColumns } from '../hooks/useGridColumns';
 import { readShopParams } from '../lib/shop-href';
-import { C, F, SQUIRCLE, BadgeRow } from '../components/brand';
-import { useShop } from '../lib/shop';
+import { Badge, C, F, SQUIRCLE, BadgeRow } from '../components/brand';
+import { tagFor } from '../data/product-tags';
+import { useShop, useBoxQty } from '../lib/shop';
+import AddControl from '../components/AddControl';
+import SortMenu, { type SortOption } from './SortMenu';
 
 /**
  * The catalogue: banner, the card straddling its bottom edge, category chips,
@@ -136,10 +152,60 @@ const slide = (i: number) => ({
   }
 });
 
+/**
+ * What can sit in the grid.
+ *
+ * Three kinds rather than just products: the Lab promo has been a grid child
+ * since it became a full-width banner, and the counter dividers join it. Both
+ * span every column, so the grid's row flow does the placement and neither
+ * needs to know how many columns there are.
+ */
+type Tile =
+  | { kind: 'product'; product: Product }
+  | { kind: 'promo' }
+  | { kind: 'heading'; category: Category };
+
 /** `"$2.00"` → `2`. The catalogue stores price as display text. */
 const priceValue = (p: Product) => Number(p.price.replace(/[^0-9.]/g, '')) || 0;
 
 type Tier = 'classic' | 'special';
+
+/**
+ * How the grid is ordered.
+ *
+ * Sixty items, most of them $2.00 donuts that look alike in a thumbnail, is a
+ * lot to ask someone to read in catalogue order — and catalogue order is the
+ * order the scrape produced, which is nobody's shopping order. The pieces
+ * worth the most (the $75 letter cake, the $45 printed dozen, the $35 donut
+ * cake) sit wherever the CSV left them, well down a list most visitors never
+ * reach the end of.
+ *
+ * `featured` is still the default, because the hand-set tags and the run order
+ * are a merchandising decision rather than a default to overturn quietly. The
+ * other three are the ones people actually ask a bakery list for.
+ *
+ * Every comparator is total and stable: `sort` is called on a copy, and ties
+ * fall back to catalogue position so a re-sort never reshuffles equal items
+ * under the layout animation.
+ */
+type Sort = 'featured' | 'popular' | 'price-asc' | 'price-desc' | 'az';
+
+const SORTS: SortOption<Sort>[] = [
+  { id: 'featured', label: 'Featured', icon: Sparkles },
+  { id: 'popular', label: 'Most popular', icon: Flame },
+  { id: 'price-asc', label: 'Price: low to high', icon: ArrowUpNarrowWide },
+  { id: 'price-desc', label: 'Price: high to low', icon: ArrowDownWideNarrow },
+  { id: 'az', label: 'A – Z', icon: ArrowDownAZ }
+];
+
+/* Best sellers first, then the softer "popular" tag, then everything else —
+   the same two tiers the badges already show, so the sort agrees with what is
+   printed on the tiles rather than inventing a ranking of its own. */
+const TAG_RANK: Record<string, number> = { seller: 0, popular: 1 };
+const rankOf = (p: Product) => {
+  const tag = tagFor(p.id);
+  return tag ? TAG_RANK[tag] ?? 2 : 2;
+};
 
 const TIERS: { id: Tier; label: string; test: (p: Product) => boolean }[] = [
   { id: 'classic', label: 'Classic', test: (p) => priceValue(p) <= SPECIAL_OVER },
@@ -174,9 +240,10 @@ const COLLECTION_COPY: Record<'all' | Category, { title: string; seo: string }> 
 };
 
 export default function ShopAll() {
-  const { openProduct, add } = useShop();
+  const { openProduct } = useShop();
+  /* Which products are already in the box, so the grid can say so. */
+  const boxQty = useBoxQty();
   const openCatalogProduct = (product: Product) => openProduct(product.id);
-  const addCatalogProduct = (product: Product) => add(product);
   /* Opened from a homepage lane or the footer menu, the URL says which counter
      to show. Read in the lazy initialiser, not an effect: an effect would paint
      the unfiltered grid first and then visibly filter it. */
@@ -184,6 +251,7 @@ export default function ShopAll() {
   /* The header's search lands here as `?q=`. `readShopParams` has always
      returned it; nothing read it, so a search arrived and changed nothing. */
   const [query, setQuery] = useState(() => readShopParams().query);
+  const [sort, setSort] = useState<Sort>('featured');
   /** Only ever set while Donuts is the active collection. */
   const [tier, setTier] = useState<Tier | null>(() => {
     const params = readShopParams();
@@ -206,6 +274,20 @@ export default function ShopAll() {
     });
   }, [active, tier, query]);
 
+  /* Sorted separately from the filtering above so a re-sort does not re-run
+     the search. Catalogue position is the tiebreak throughout — see SORTS. */
+  const ordered = useMemo(() => {
+    if (sort === 'featured') return shown;
+    const at = new Map(PRODUCTS.map((p, i) => [p.id, i]));
+    const tie = (a: Product, b: Product) => at.get(a.id)! - at.get(b.id)!;
+    const copy = [...shown];
+    if (sort === 'popular') copy.sort((a, b) => rankOf(a) - rankOf(b) || tie(a, b));
+    else if (sort === 'price-asc') copy.sort((a, b) => priceValue(a) - priceValue(b) || tie(a, b));
+    else if (sort === 'price-desc') copy.sort((a, b) => priceValue(b) - priceValue(a) || tie(a, b));
+    else copy.sort((a, b) => a.name.localeCompare(b.name) || tie(a, b));
+    return copy;
+  }, [shown, sort]);
+
   /* Leaving Donuts has to drop the tier with it, or Muffins would come back
      silently filtered by a control that is no longer on screen. */
   const pickCategory = (next: Category | null) => {
@@ -217,16 +299,44 @@ export default function ShopAll() {
 
   const countFor = (category: Category) => PRODUCTS.filter((p) => p.category === category).length;
 
-  /* The grid is products plus one promo tile. Building the list up front means
-     the promo is a real grid child with a stable key, so it takes part in the
-     same layout animation as everything around it instead of jumping. */
-  const tiles = useMemo(() => {
-    const items = shown.map((product) => ({ kind: 'product' as const, product }));
+  /* Grouped only while the grid is showing everything.
+     A picked category is already one group and the banner above it says which,
+     so a heading there would repeat the page title. A search is a relevance
+     list that happens to span counters — cutting it into five labelled runs
+     would bury the best match under a subheading. */
+  const grouped = !active && !query;
+
+  /* The grid is products, one promo tile, and — when grouped — a divider ahead
+     of each counter's run. Building the whole list up front means every one of
+     them is a real grid child with a stable key, so they all take part in the
+     same layout animation instead of the dividers jumping while the tiles
+     animate around them. */
+  const tiles = useMemo<Tile[]>(() => {
+    const items: Tile[] = ordered.map((product) => ({ kind: 'product' as const, product }));
+
+    if (grouped) {
+      const out: Tile[] = [];
+      CATEGORIES.forEach((category) => {
+        /* Filtered out of the sorted list, so each counter's run carries the
+           chosen order inside it rather than the grid losing its grouping the
+           moment anything but Featured is picked. */
+        const inGroup = ordered.filter((p) => p.category === category);
+        if (!inGroup.length) return;
+        out.push({ kind: 'heading' as const, category });
+        inGroup.forEach((product) => out.push({ kind: 'product' as const, product }));
+        /* After the donuts, which is the counter the Lab actually customises
+           and the longest run on the page — far enough in to have earned the
+           interruption, and on a group boundary so it never splits a run. */
+        if (category === 'Donuts') out.push({ kind: 'promo' as const });
+      });
+      return out;
+    }
+
     // Nothing to customise on these counters — see NO_PROMO.
     if (active && NO_PROMO.has(active)) return items;
     const at = Math.min(columns * PROMO_ROW, items.length);
     return [...items.slice(0, at), { kind: 'promo' as const }, ...items.slice(at)];
-  }, [shown, columns, active]);
+  }, [ordered, columns, active, grouped]);
 
   /* Filtering the grid re-titles the page: picking Cookies makes this the
      cookies collection, not "Shop all" with a filter applied. */
@@ -298,9 +408,24 @@ export default function ShopAll() {
         </div>
       </section>
 
-      {/* --- category chips ---------------------------------------------- */}
+      {/* --- filters and sort --------------------------------------------- */}
+      {/* One row: the counters on the left, the order on the right. They were
+          two rows with an item count between them, which spent a whole line of
+          the page on a number nobody shops by — sixty is not a reason to buy
+          anything — and separated the two halves of a single question, which is
+          "show me these, in this order".
+
+          The rule under the row is the page's one structural line: above it,
+          everything that changes what the grid holds; below it, the grid. */}
+      <div className="shop-toolbar">
       {/* One row, scrolling sideways when it runs out of room. Same control at
-          every width, so there is no separate phone treatment to keep in sync. */}
+          every width, so there is no separate phone treatment to keep in sync.
+
+          Icon and name, not icon alone. Stripping the names did buy the row
+          enough width to fit on a phone without scrolling, and cost more than
+          it bought: five bakery glyphs are not five distinguishable words —
+          muffin and cupcake in particular — and on a phone there is no hover to
+          fall back on. The row scrolls; that is what it is built to do. */}
       <div className="shop-chips" role="group" aria-label="Filter by category">
         <button
           type="button"
@@ -308,7 +433,7 @@ export default function ShopAll() {
           aria-pressed={active === null}
           className={`shop-chip${active === null ? ' is-on' : ''}`}
         >
-          <LayoutGrid size={15} strokeWidth={2.5} aria-hidden="true" />
+          <LayoutGrid size={16} strokeWidth={2.5} aria-hidden="true" />
           All
           <span className="shop-chip__count">{PRODUCTS.length}</span>
         </button>
@@ -325,12 +450,15 @@ export default function ShopAll() {
             aria-pressed={active === category}
             className={`shop-chip${active === category ? ' is-on' : ''}`}
           >
-            <Icon size={15} strokeWidth={2.5} aria-hidden="true" />
+            <Icon size={16} strokeWidth={2.5} aria-hidden="true" />
             {category}
             <span className="shop-chip__count">{countFor(category)}</span>
           </button>
           );
         })}
+      </div>
+
+        <SortMenu value={sort} options={SORTS} onChange={setSort} />
       </div>
 
       {/* The tier row only exists while Donuts is up, so it is a second line
@@ -355,53 +483,26 @@ export default function ShopAll() {
         </div>
       )}
 
-      <p className="shop-count">
-        {shown.length === PRODUCTS.length
-          ? `${PRODUCTS.length} items`
-          : `${shown.length} of ${PRODUCTS.length} items`}
-        {query && (
-          <>
-            {' for '}
-            <strong style={{ color: C.navy }}>&ldquo;{query}&rdquo;</strong>{' '}
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                padding: 0,
-                cursor: 'pointer',
-                fontFamily: F.text,
-                fontSize: 'inherit',
-                color: C.mute,
-                textDecoration: 'underline'
-              }}
-            >
-              clear
-            </button>
-          </>
-        )}
-      </p>
+      {/* The search, and the way out of it. This is all that is left of the
+          count line: "60 items" said nothing, but a page silently showing six
+          products because a query is still in the header has to say why, and
+          has to offer a way back. */}
+      {query && (
+        <p className="shop-query">
+          Showing {shown.length} of {PRODUCTS.length} for{' '}
+          <strong style={{ color: C.navy }}>&ldquo;{query}&rdquo;</strong>{' '}
+          <button type="button" onClick={() => setQuery('')} className="shop-query__clear">
+            clear
+          </button>
+        </p>
+      )}
 
       {/* A search that matches nothing has to say so. Without this the grid
           just came up empty and read as a broken page. */}
       {query && shown.length === 0 && (
-        <p className="shop-count" style={{ color: C.navy }}>
+        <p className="shop-query shop-query--empty">
           Nothing matches &ldquo;{query}&rdquo;. Try a flavour, or{' '}
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              padding: 0,
-              cursor: 'pointer',
-              fontFamily: F.text,
-              fontSize: 'inherit',
-              color: C.mute,
-              textDecoration: 'underline'
-            }}
-          >
+          <button type="button" onClick={() => setQuery('')} className="shop-query__clear">
             see everything
           </button>
           .
@@ -412,7 +513,26 @@ export default function ShopAll() {
       <div className="shop-grid">
         <AnimatePresence mode="popLayout">
           {tiles.map((tile, i) =>
-            tile.kind === 'promo' ? (
+            tile.kind === 'heading' ? (
+              /* A divider, not a section: the products stay in one grid so the
+                 columns line up across every counter. Five separate grids
+                 would each solve their own last row and the page would step in
+                 and out as the runs ended on different counts. */
+              <motion.h2
+                key={`heading-${tile.category}`}
+                id={`counter-${tile.category.toLowerCase()}`}
+                layout
+                className="shop-divider"
+                {...slide(i)}
+              >
+                {/* The name and the rule, nothing else. The icon repeated the
+                    one already on this counter's chip a few rows up, and the
+                    count is a number nobody is shopping by — the products it
+                    counts start on the next line. */}
+                <span className="shop-divider__name">{tile.category}</span>
+                <span className="shop-divider__rule" aria-hidden="true" />
+              </motion.h2>
+            ) : tile.kind === 'promo' ? (
               <motion.article
                 key="promo"
                 layout
@@ -449,7 +569,7 @@ export default function ShopAll() {
               key={tile.product.id}
               layout
               {...slide(i)}
-              style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+              style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}
             >
               <div style={{ position: 'relative' }}>
                 <button
@@ -463,9 +583,13 @@ export default function ShopAll() {
                     border: 'none',
                     padding: 0,
                     cursor: 'pointer',
-                    background: C.canvas,
+                    /* See the homepage grid: the bed carries the state,
+                       because a ring on a squircle-clipped element is clipped
+                       away with it. */
+                    background: boxQty[tile.product.id] ? C.orange : C.canvas,
                     clipPath: SQUIRCLE,
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    transition: 'background .2s ease'
                   }}
                 >
                   <img
@@ -481,30 +605,7 @@ export default function ShopAll() {
                   />
                 </button>
 
-                <button
-                  type="button"
-                  className="brand-press"
-                  onClick={() => addCatalogProduct(tile.product)}
-                  aria-label={tile.product.id === 'twelve-custom-printed-donuts' ? 'Customize Twelve Custom Printed Donuts' : `Add ${tile.product.name} to box`}
-                  style={{
-                    position: 'absolute',
-                    top: -6,
-                    right: -6,
-                    zIndex: 2,
-                    width: 34,
-                    height: 34,
-                    borderRadius: 99,
-                    border: 'none',
-                    background: C.orange,
-                    color: '#fff',
-                    cursor: 'pointer',
-                    display: 'grid',
-                    placeItems: 'center',
-                    boxShadow: '0 4px 12px rgba(14,62,105,.22)'
-                  }}
-                >
-                  <Plus size={19} strokeWidth={3} />
-                </button>
+                <AddControl product={tile.product} />
               </div>
 
               <button
@@ -512,11 +613,24 @@ export default function ShopAll() {
                 onClick={() => openCatalogProduct(tile.product)}
                 style={{ border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer' }}
               >
+                {/* Markup-wise the tag belongs to the text, not to the photo,
+                    and `.product-tag` is what decides where it is drawn: over
+                    the picture's top-left corner on a wide grid, and in the
+                    flow above the name on a phone — see the rule. It cannot be
+                    two elements, because a duplicated badge is read twice. */}
+                {tagFor(tile.product.id) && (
+                  <span className="product-tag">
+                    <Badge badge={tagFor(tile.product.id)!} compact />
+                  </span>
+                )}
                 <h4
                   style={{
                     margin: 0,
                     fontFamily: F.display,
-                    fontWeight: 800,
+                    /* Karla at 800 made every product name shout; the card's job is
+                       to be scanned, and a grid of extra-bold names has no
+                       hierarchy left in it. */
+                    fontWeight: 400,
                     fontSize: 14,
                     lineHeight: 1.2,
                     color: C.navy,
@@ -529,7 +643,7 @@ export default function ShopAll() {
                 >
                   {tile.product.name}
                 </h4>
-                <span style={{ fontFamily: F.text, fontWeight: 700, fontSize: 13, color: C.price }}>{tile.product.price}</span>
+                <span style={{ fontFamily: F.text, fontWeight: 500, fontSize: 13, color: C.price }}>{tile.product.price}</span>
               </button>
             </motion.article>
             )

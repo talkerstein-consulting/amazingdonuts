@@ -1,16 +1,25 @@
 import { useMemo, useState } from 'react';
-import { ChevronDown, Plus, Search } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 import { CATEGORIES, PRODUCTS, type Category, type Product } from '../data/products';
-import { C, F, SQUIRCLE } from './brand';
-import { useShop } from '../lib/shop';
+import { tagFor } from '../data/product-tags';
+import { Badge, C, F, SQUIRCLE } from './brand';
+import { useIsDesktop } from '../hooks/useIsDesktop';
+import { useBoxQty, useShop } from '../lib/shop';
+import AddControl from './AddControl';
 import { shopHref } from '../lib/shop-href';
 
 /** One product inside an expanded category: squircle photo bed, name, price, add. */
 function ProductThumb({ product }: { product: Product }) {
-  const { add, openProduct } = useShop();
+  const { openProduct } = useShop();
+  const tag = tagFor(product.id);
+  /* Already in the box, and how many. The grid is the same grid whether the
+     box is empty or holds nine things, and without this a visitor scrolling
+     back through sixty products has no way to tell which ones they already
+     picked short of opening the cart. */
+  const inBox = useBoxQty()[product.id] ?? 0;
 
   return (
-    <article style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <article style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ position: 'relative' }}>
       <button
         type="button"
@@ -23,9 +32,13 @@ function ProductThumb({ product }: { product: Product }) {
           border: 'none',
           padding: 0,
           cursor: 'pointer',
-          background: C.canvas,
+          /* The bed carries the state, not a ring around it: the bed is
+             clipped to a squircle, and a border or box-shadow on a clipped
+             element is clipped away with it. */
+          background: inBox ? C.orange : C.canvas,
           clipPath: SQUIRCLE,
-          overflow: 'hidden'
+          overflow: 'hidden',
+          transition: 'background .2s ease'
         }}
       >
         <img
@@ -36,38 +49,26 @@ function ProductThumb({ product }: { product: Product }) {
         />
       </button>
 
-        <button
-          type="button"
-          className="brand-press"
-          onClick={() => add(product)}
-          aria-label={`Add ${product.name} to box`}
-          style={{
-            position: 'absolute',
-            top: -6,
-            right: -6,
-            zIndex: 2,
-            width: 34,
-            height: 34,
-            borderRadius: 99,
-            border: 'none',
-            background: C.orange,
-            color: '#fff',
-            cursor: 'pointer',
-            display: 'grid',
-            placeItems: 'center',
-            boxShadow: '0 4px 12px rgba(14,62,105,.22)'
-          }}
-        >
-          <Plus size={19} strokeWidth={3} />
-        </button>
+        <AddControl product={product} />
       </div>
 
       <div style={{ minWidth: 0 }}>
+        {/* See `.product-tag`: over the picture's top-left on a wide grid, in
+            the flow above the name on a phone. The add knob owns the photo's
+            top-right corner, so the opposite one is free at any label length. */}
+        {tag && (
+          <span className="product-tag">
+            <Badge badge={tag} compact />
+          </span>
+        )}
         <h4
           style={{
             margin: 0,
             fontFamily: F.display,
-            fontWeight: 800,
+            /* Karla at 800 made every product name shout; the card's job is to be
+               scanned, and a grid of extra-bold names has no hierarchy left in
+               it. Regular weight, with size and colour doing the work. */
+            fontWeight: 400,
             fontSize: 14,
             lineHeight: 1.2,
             color: C.navy,
@@ -80,30 +81,35 @@ function ProductThumb({ product }: { product: Product }) {
         >
           {product.name}
         </h4>
-        <span style={{ fontFamily: F.text, fontWeight: 700, fontSize: 13, color: C.price }}>{product.price}</span>
+        <span style={{ fontFamily: F.text, fontWeight: 500, fontSize: 13, color: C.price }}>{product.price}</span>
       </div>
     </article>
   );
 }
 
 /** M · category row — the chip scale, opening onto its products.
-    The open row shows three rows of the two-up grid and stops there; the rest
-    of the category lives behind Shop all. */
-const PREVIEW_LIMIT = 6;
+
+    The open row shows exactly two full rows of the grid and stops there; the
+    rest of the category lives behind Shop all. Two rows is a different number
+    of products at each width — eight on desktop's four-up grid, four on the
+    phone's two-up — so the limit has to be read at runtime rather than fixed.
+    It was a flat 6, which left a ragged half-row at both widths. */
+const PREVIEW_ROWS = 2;
 
 function CategoryRow({
   category,
   products,
+  columns,
   open,
   onToggle
 }: {
   category: Category;
   products: Product[];
+  columns: number;
   open: boolean;
   onToggle: () => void;
 }) {
-  const cover = products[0];
-  const shown = products.slice(0, PREVIEW_LIMIT);
+  const shown = products.slice(0, columns * PREVIEW_ROWS);
   const hidden = products.length - shown.length;
 
   return (
@@ -125,38 +131,24 @@ function CategoryRow({
           padding: 12
         }}
       >
+        {/* The name, and nothing else. It used to lead with a 72px cut-out of
+            the category's first product and carry an item count under it —
+            a picture of one donut standing in for a whole category, above a
+            number nobody is shopping by, and the grid of the real products is
+            already directly below. */}
         <span
           style={{
-            flex: 'none',
-            width: 72,
-            height: 72,
-            background: C.canvas,
-            clipPath: SQUIRCLE,
-            display: 'grid',
-            placeItems: 'center',
-            overflow: 'hidden'
+            flex: 1,
+            minWidth: 0,
+            fontFamily: 'var(--font-display)',
+            fontWeight: 400,
+            fontSize: 'clamp(28px,6vw,40px)',
+            lineHeight: 1,
+            textTransform: 'uppercase',
+            color: C.navy
           }}
         >
-          {cover && <img src={cover.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.14)' }} />}
-        </span>
-
-        <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-          {/* The site's heading face, at the M card's heading size. */}
-          <span
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontWeight: 400,
-              fontSize: 'clamp(28px,6vw,40px)',
-              lineHeight: 1,
-              textTransform: 'uppercase',
-              color: C.navy
-            }}
-          >
-            {category}
-          </span>
-          <span style={{ fontFamily: F.text, fontSize: 13, fontWeight: 700, letterSpacing: '.04em', color: C.mute }}>
-            {products.length} {products.length === 1 ? 'item' : 'items'}
-          </span>
+          {category}
         </span>
 
         <ChevronDown
@@ -222,7 +214,16 @@ function CategoryRow({
 
 export default function Catalog() {
   const [query, setQuery] = useState('');
-  const [openCategory, setOpenCategory] = useState<Category | null>(CATEGORIES[0]);
+  /* Every counter is open on arrival, and the set tracks what has been closed
+     rather than what is open. It used to hold a single `openCategory`, which
+     made the section an accordion: four of the five categories were collapsed
+     to a 72px strip, so the homepage showed one row of product and asked for a
+     click before it showed any more. Closing one is still possible — the
+     chevron is unchanged — it is just no longer the default. */
+  const [collapsed, setCollapsed] = useState<Set<Category>>(() => new Set());
+  /* Two rows of the grid, and the grid is four-up from 900px and two-up below
+     — the same breakpoint `.product-grid` uses in `index.css`. */
+  const columns = useIsDesktop() ? 4 : 2;
 
   const searching = query.trim().length > 0;
 
@@ -284,9 +285,17 @@ export default function Catalog() {
             key={category}
             category={category}
             products={products}
-            // A search opens every matching category; otherwise one at a time.
-            open={searching || openCategory === category}
-            onToggle={() => setOpenCategory((current) => (current === category ? null : category))}
+            columns={columns}
+            // A search force-opens every matching category, whatever was closed.
+            open={searching || !collapsed.has(category)}
+            onToggle={() =>
+              setCollapsed((current) => {
+                const next = new Set(current);
+                if (next.has(category)) next.delete(category);
+                else next.add(category);
+                return next;
+              })
+            }
           />
         ))}
 

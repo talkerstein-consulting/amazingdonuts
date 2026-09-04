@@ -13,7 +13,7 @@ import CartDrawer from './shop/CartDrawer';
 import AuthModal from './shop/AuthModal';
 import Header from './components/Header';
 import Hero from './components/Hero';
-import Marquee from './components/Marquee';
+import TrustBar from './components/TrustBar';
 import Lanes from './components/Lanes';
 import Catalog from './components/Catalog';
 import Features from './components/Features';
@@ -38,7 +38,7 @@ function Site({ ready, slideIn }: { ready: boolean; slideIn: boolean }) {
       >
         <Header onSignIn={() => setAuthOpen(true)} />
         <Hero ready={ready} />
-        <Marquee />
+        <TrustBar />
         <Lanes />
         <Catalog />
         <Features />

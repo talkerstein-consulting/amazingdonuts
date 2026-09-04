@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import {
   Flame,
+  Heart,
   PartyPopper,
   Award,
   CalendarCheck,
@@ -16,6 +17,7 @@ import { C, F } from './tokens';
 
 export type BadgeKey =
   | 'seller'
+  | 'popular'
   | 'party'
   | 'classic'
   | 'special'
@@ -39,6 +41,11 @@ type Spec = {
 
 export const BADGES: Record<BadgeKey, Spec> = {
   seller:  { label: 'Best Seller',   Icon: Flame,         bg: C.navy, fg: C.canvas },
+  /* The softer sibling of Best Seller, and deliberately a different fill
+     rather than a different word on the same pill: the two appear in the same
+     grid, and two navy pills would need reading to be told apart. Bubblegum is
+     light, so the label goes navy — same pairing Party Pack uses. */
+  popular: { label: 'Popular',       Icon: Heart,         bg: C.pink, fg: C.navy },
   party:   { label: 'Party Pack',    Icon: PartyPopper,   bg: C.pink, fg: C.navy },
   classic: { label: 'Classic',       Icon: Award,         bg: C.navy, fg: C.canvas },
   special: { label: 'Special Order', Icon: CalendarCheck, bg: C.blue, fg: '#fff', large: true },
