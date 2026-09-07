@@ -93,22 +93,6 @@ async function api(path: string, options?: RequestInit) {
 }
 
 type View = "orders" | "wishlist" | "profile" | "house";
-type SquareCard = {
-  attach: (selector: string) => Promise<void>;
-  tokenize: (details: unknown) => Promise<{
-    status: string;
-    token?: string;
-    errors?: { message?: string }[];
-  }>;
-  destroy: () => Promise<boolean>;
-};
-declare global {
-  interface Window {
-    Square?: {
-      payments: (appId: string, locationId: string) => { card: () => Promise<SquareCard> };
-    };
-  }
-}
 
 export default function AccountPage() {
   const resetToken = new URLSearchParams(location.search).get("reset");
