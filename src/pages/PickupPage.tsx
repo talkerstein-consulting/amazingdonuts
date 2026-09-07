@@ -26,6 +26,7 @@ import Footer from '../components/Footer';
 import AuthModal from '../shop/AuthModal';
 import CartDrawer from '../shop/CartDrawer';
 import ProductPanel from '../shop/ProductPanel';
+import { writeFulfillmentPreference } from '../lib/fulfillment';
 
 /**
  * "When would you like to pick up?" — the gate the Pick up lane card opens.
@@ -66,6 +67,7 @@ function Pickup() {
 
   const start = () => {
     if (!ready) return;
+    writeFulfillmentPreference('pickup');
     writePickup({ date, time });
     window.location.assign(SHOP_HREF);
   };

@@ -12,7 +12,9 @@ import {
   Flame,
   ArrowUpNarrowWide,
   ArrowDownWideNarrow,
-  ArrowDownAZ
+  ArrowDownAZ,
+  Store,
+  Truck
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { CATEGORIES, PRODUCTS, type Category, type Product } from '../data/products';
@@ -24,6 +26,10 @@ import { tagFor } from '../data/product-tags';
 import { useShop, useBoxQty } from '../lib/shop';
 import AddControl from '../components/AddControl';
 import SortMenu, { type SortOption } from './SortMenu';
+import { PRINT_PRODUCTS } from '../lib/custom-order';
+import { clearPickup, formatPickup, usePickup } from '../lib/pickup';
+import { useFulfillmentPreference, writeFulfillmentPreference } from '../lib/fulfillment';
+import { PICKUP_HREF } from '../lib/routes';
 
 /**
  * The catalogue: banner, the card straddling its bottom edge, category chips,
@@ -240,7 +246,15 @@ const COLLECTION_COPY: Record<'all' | Category, { title: string; seo: string }> 
 };
 
 export default function ShopAll() {
-  const { openProduct } = useShop();
+  const { openProduct, lines } = useShop();
+  const fulfillment = useFulfillmentPreference();
+  const pickup = usePickup();
+  const pickupLabel = formatPickup(pickup);
+  const needsPrintTime = lines.some((line) => PRINT_PRODUCTS.has(line.product.id));
+  const chooseFulfillment = (value: 'pickup' | 'delivery') => {
+    writeFulfillmentPreference(value);
+    if (value === 'delivery') clearPickup();
+  };
   /* Which products are already in the box, so the grid can say so. */
   const boxQty = useBoxQty();
   const openCatalogProduct = (product: Product) => openProduct(product.id);
@@ -406,6 +420,17 @@ export default function ShopAll() {
             />
           </div>
         </div>
+      </section>
+
+      <section className="shop-fulfillment" aria-label="Fulfillment preference">
+        <div className="shop-fulfillment__modes" role="group" aria-label="Choose pickup or delivery">
+          <button type="button" className={fulfillment === 'pickup' ? 'is-on' : ''} aria-pressed={fulfillment === 'pickup'} onClick={() => chooseFulfillment('pickup')}><Store size={17} aria-hidden="true" /> Pick up</button>
+          <button type="button" className={fulfillment === 'delivery' ? 'is-on' : ''} aria-pressed={fulfillment === 'delivery'} onClick={() => chooseFulfillment('delivery')}><Truck size={17} aria-hidden="true" /> Delivery</button>
+        </div>
+        <p>
+          {fulfillment === 'pickup' ? (pickupLabel ? <><strong>{pickupLabel}</strong><a href={PICKUP_HREF}>Change window</a></> : <><strong>Pick up from 3499 Bathurst Street</strong><a href={PICKUP_HREF}>Choose a window</a></>) : <><strong>Delivery selected</strong><span>Address and delivery window are confirmed at checkout.</span></>}
+          {needsPrintTime ? <small>Custom-printed items in your box require at least one week's notice.</small> : null}
+        </p>
       </section>
 
       {/* --- filters and sort --------------------------------------------- */}

@@ -1179,6 +1179,63 @@
    `align-items: center` and not `stretch`: the chips scroll and the sort does
    not, and a stretched sort pill would grow to whatever height the scrolling
    half happened to be. */
+.shop-fulfillment {
+  max-width: 1400px;
+  margin: clamp(22px, 3vw, 36px) auto 0;
+  padding: 0 var(--shop-gutter);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.shop-fulfillment__modes {
+  flex: 0 0 auto;
+  display: flex;
+  padding: 4px;
+  border-radius: 6px;
+  background: var(--sand);
+}
+
+.shop-fulfillment__modes button {
+  min-height: 40px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--navy);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 700 13px/1 var(--font-body);
+  cursor: pointer;
+}
+
+.shop-fulfillment__modes button.is-on {
+  background: var(--navy);
+  color: var(--cream);
+}
+
+.shop-fulfillment > p {
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--text-muted);
+  font: 400 14px/1.4 var(--font-body);
+}
+
+.shop-fulfillment > p strong { color: var(--navy); }
+.shop-fulfillment > p a { color: var(--navy); font-weight: 700; }
+.shop-fulfillment > p small { flex-basis: 100%; color: #a63b20; font: inherit; }
+
+@media (max-width: 640px) {
+  .shop-fulfillment { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .shop-fulfillment__modes { width: 100%; }
+  .shop-fulfillment__modes button { flex: 1; justify-content: center; }
+}
+
 .shop-toolbar {
   position: relative;
   max-width: 1400px;

@@ -15,7 +15,8 @@ import { formatNorthAmericanPhone } from '../lib/phone';
 /* The counter's hours and the label format now live with the pickup gate, which
    asks the same question earlier in the flow. Two copies of the opening hours
    is a wrong answer waiting for the first change to either. */
-import { HOURS_SUMMARY, PICKUP_HOURS, readPickup, timeLabel } from '../lib/pickup';
+import { clearPickup, HOURS_SUMMARY, PICKUP_HOURS, readPickup, timeLabel } from '../lib/pickup';
+import { readFulfillmentPreference, writeFulfillmentPreference } from '../lib/fulfillment';
 
 type Session = { user:null|{firstName:string;lastName:string;email:string}; profile:null|{default_phone?:string;default_address?:Partial<Address>}; houseAccount:null|{id:string;organizationName:string;status:string;credit:{available:number};creditEnabled:boolean;card?:{brand?:string;last4?:string}} };
 type SquareCard = { attach:(selector:string)=>Promise<void>; tokenize:(details:unknown)=>Promise<{status:string;token?:string;errors?:{message?:string}[]}>; destroy:()=>Promise<boolean> };
@@ -40,7 +41,7 @@ function Checkout(){
   const [authOpen,setAuthOpen]=useState(false);
   const [method,setMethod]=useState<'card'|'house_account'>('card');
   const [authorizationPin,setAuthorizationPin]=useState('');
-  const [fulfillment,setFulfillment]=useState<'pickup'|'delivery'>('pickup');
+  const [fulfillment,setFulfillment]=useState<'pickup'|'delivery'>(()=>readFulfillmentPreference());
   /* Pre-filled from the pickup gate when the visitor came through it, so the
      slot they chose before browsing is not asked for a second time. The gate
      stores nothing checkout would not otherwise compute, so a direct arrival
@@ -68,6 +69,7 @@ function Checkout(){
 
   const loadSession=()=>api('/storefront/session').then(async body=>{setSession(body);setPhone(formatNorthAmericanPhone(body.profile?.default_phone||''));if(body.user){const saved=await api('/storefront/addresses');setSavedAddresses(saved.addresses||[]);setAddress({...blankAddress,...(saved.addresses?.find((item:SavedAddress)=>item.isDefault)||body.profile?.default_address||{})});}if(!body.user)setAuthOpen(true)}).catch(cause=>setError(cause.message));
   useEffect(()=>{void loadSession();void api('/storefront/config').then(setConfig).catch(cause=>setError(cause.message))},[]);
+  useEffect(()=>{if(config?.delivery?.enabled===false&&fulfillment==='delivery'){setFulfillment('pickup');writeFulfillmentPreference('pickup')}},[config,fulfillment]);
   /* Dates, not datetimes. The rule being enforced is "not before the earliest
      open day"; the 09:00 in `scheduledMinimum` is an artifact of `nextOpen`
      picking an arbitrary hour, not an opening time — Sunday opens at 8. A full
@@ -101,7 +103,7 @@ function Checkout(){
       <div className="commerce-heading"><p>Secure checkout</p><h1>Finish your order</h1><span><LockKeyhole/> Sign-in is required. Guest checkout is not available.</span></div>
       {session?.user?<section className="signed-row"><div><strong>{session.user.firstName} {session.user.lastName}</strong><span>{session.user.email}</span></div><a href="/account/">Manage account</a></section>:<section className="signin-gate"><h2>Sign in to continue</h2><p>Your cart is saved while you sign in or create an account.</p><button type="button" onClick={()=>setAuthOpen(true)}>Sign in or create account</button></section>}
       <fieldset disabled={!session?.user||busy}><legend>Fulfillment</legend>
-        <div className="segment"><button type="button" className={fulfillment==='pickup'?'active':''} onClick={()=>setFulfillment('pickup')}><Store/> Pickup</button><button type="button" className={fulfillment==='delivery'?'active':''} disabled={config?.delivery?.enabled===false} onClick={()=>setFulfillment('delivery')}><Truck/> Delivery</button></div>
+        <div className="segment"><button type="button" className={fulfillment==='pickup'?'active':''} onClick={()=>{setFulfillment('pickup');writeFulfillmentPreference('pickup')}}><Store/> Pickup</button><button type="button" className={fulfillment==='delivery'?'active':''} disabled={config?.delivery?.enabled===false} onClick={()=>{setFulfillment('delivery');writeFulfillmentPreference('delivery');clearPickup()}}><Truck/> Delivery</button></div>
         {fulfillment==='delivery'&&config?.delivery&&<p className="delivery-policy">Local delivery is {money(config.delivery.feeAmount/100)} and free on merchandise orders of {money(config.delivery.freeThreshold/100)} or more. {money(config.delivery.minimumAmount/100)} minimum.</p>}
         <div className="fulfillment-schedule"><div className="checkout-date-field"><span>Date</span><BrandDatePicker value={scheduledAt.slice(0,10)} min={scheduledMinimum.slice(0,10)} onChange={value=>setScheduledAt(`${value}T09:00`)} ariaLabel="Choose a pickup or delivery date" disabledDay={day=>day.getDay()===6}/></div><label><span>Time window</span><select value={fulfillmentTimes.length?scheduledAt.slice(11,16):''} disabled={!fulfillmentTimes.length} onChange={event=>setScheduledAt(`${scheduledAt.slice(0,10)}T${event.target.value}`)} required>{fulfillmentTimes.length?fulfillmentTimes.map(slot=><option value={slot.value} key={slot.value}>{slot.label}</option>):<option value="">Closed</option>}</select></label>{requiresPrintLeadTime&&<small>Custom-printed items require at least one week's notice.</small>}<small className="schedule-hours">{fulfillment==='pickup'?HOURS_SUMMARY:`Delivery windows run ${timeLabel(schedule.deliveryStart)}–${timeLabel(schedule.deliveryEnd)} Sunday through Friday. Saturday closed.`} Times are in {schedule.intervalMinutes}-minute windows.</small></div>
         <label><span>Phone</span><input type="tel" value={phone} onChange={event=>setPhone(formatNorthAmericanPhone(event.target.value))} autoComplete="tel" required/></label>

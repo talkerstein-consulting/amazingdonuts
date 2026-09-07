@@ -3,6 +3,8 @@ import { BrandButton } from './brand';
 import { SHOP_HREF } from '../lib/shop-href';
 import { BULK_HREF, PICKUP_HREF } from '../lib/routes';
 import { useNavClaimAtMidpoint } from '../lib/nav-theme';
+import { writeFulfillmentPreference, type FulfillmentPreference } from '../lib/fulfillment';
+import { clearPickup } from '../lib/pickup';
 
 /* The three ways to buy, not the three product tiers. The lanes used to be
    Classic / Special / Donut lab, which split the catalogue three ways and then
@@ -26,6 +28,7 @@ const LANES = [
     bg: 'var(--pink)',
     text: 'var(--navy)',
     title: 'Delivery',
+    fulfillment: 'delivery' as FulfillmentPreference,
     images: [
       '/products/donuts/zap-donut-pink-blue-white-sprinkles.png',
       '/products/donuts/barbie-donut-pink-white-sprinkles.png',
@@ -38,6 +41,7 @@ const LANES = [
     bg: 'var(--blue)',
     text: 'var(--sand)',
     title: 'Pick up',
+    fulfillment: 'pickup' as FulfillmentPreference,
     images: [
       '/products/donuts/hava-nagilla-donut-blue-white-sprinkles.png',
       '/products/donuts/star-of-david-donut-special-order.png',
@@ -53,6 +57,7 @@ const LANES = [
     bg: 'var(--orange)',
     text: 'var(--navy)',
     title: 'Bulk',
+    fulfillment: null,
     images: [
       '/products/donuts/chocolate-marble-donut.png',
       '/products/donuts/chocolate-glazed-donut.png',
@@ -88,6 +93,12 @@ const FAN_3 = [
 const CTA = 'Order now';
 
 function LaneCard({ lane }: { lane: (typeof LANES)[number] }) {
+  const rememberFulfillment = () => {
+    if (lane.fulfillment) {
+      writeFulfillmentPreference(lane.fulfillment);
+      if (lane.fulfillment === 'delivery') clearPickup();
+    }
+  };
   return (
     <article className="lane-card" style={{ background: lane.bg, color: lane.text }}>
       {/* The lane's donuts, parked behind the card and hidden by it, rising
@@ -131,7 +142,7 @@ function LaneCard({ lane }: { lane: (typeof LANES)[number] }) {
           which is both a bigger tap target than a 100px button and the reason
           the button can go. */}
       <h2 className="lane-card__title" style={{ color: lane.text }}>
-        <a href={lane.href} style={{ color: 'inherit', textDecoration: 'none' }}>
+        <a href={lane.href} onClick={rememberFulfillment} style={{ color: 'inherit', textDecoration: 'none' }}>
           {lane.title}
         </a>
       </h2>
@@ -141,6 +152,7 @@ function LaneCard({ lane }: { lane: (typeof LANES)[number] }) {
         variant="outline"
         block
         className="lane-card__cta"
+        onClick={rememberFulfillment}
         /* The knob stays Harbour per the spec; only the ring and label take the
            lane's contrast colour, since navy on Signal blue would not clear AA. */
         style={{ boxShadow: `inset 0 0 0 2px ${lane.border}`, color: lane.border }}
