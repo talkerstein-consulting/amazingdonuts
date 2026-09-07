@@ -442,10 +442,28 @@
 }
 
 .apple-pay-button,
-#google-pay-button {
+#google-pay-button,
+.google-pay-slot,
+.wallet-unavailable {
   width: 100%;
   min-height: 48px;
 }
+
+.google-pay-slot { position: relative; }
+
+.wallet-unavailable {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 7px 14px;
+  border: 2px solid rgba(14, 62, 105, 0.22);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--navy);
+}
+
+.wallet-unavailable strong { font-size: 0.92rem; }
+.wallet-unavailable small { margin-top: 1px; opacity: 0.72; }
 
 .apple-pay-button {
   display: inline-block;
