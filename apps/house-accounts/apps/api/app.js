@@ -57,7 +57,10 @@ const organizationRoles={School:["principal","office_manager","teacher","staff"]
 
 export function createApp({ pool, square, uberDirect, config }) {
   const app = express();
-  app.use(helmet({ contentSecurityPolicy:false }));
+  app.use(helmet({
+    contentSecurityPolicy:false,
+    crossOriginOpenerPolicy:{policy:"same-origin-allow-popups"}
+  }));
   app.use(express.json({ limit:"2mb", verify:(request,_response,buffer)=>{ request.rawBody=buffer; } }));
   app.use(async (request,_response,next)=>{ try { [request.user,request.adminUser]=await Promise.all([loadSession(pool,request),loadSession(pool,request,adminCookieName)]); next(); } catch(error){ next(error); } });
 
