@@ -444,28 +444,9 @@ nav a,
   align-self: stretch;
 }
 
-/* Desktop hero: headline, lede and buttons run down the middle, and the donut
-   gives back some of the width it takes on phones. */
+/* Desktop hero. The copy column keeps its own left edge — see `.hero--split`,
+   which does the two-column work; nothing here re-centres it. */
 @media (min-width: 900px) {
-  .hero-title {
-    justify-content: center;
-    text-align: center;
-  }
-  .hero-lede {
-    /* !important: the element carries an inline margin shorthand. */
-    margin-left: auto !important;
-    margin-right: auto !important;
-    text-align: center;
-  }
-  .hero-ctas {
-    justify-content: center;
-  }
-  /* Centred with the headline and lede above it, rather than left against a
-     column of centred text. */
-  .hero-lanes {
-    margin-left: auto;
-    margin-right: auto;
-  }
   /* Badge sits higher and further in from the right edge. */
   .hero-badge {
     top: clamp(40px, 8vw, 96px) !important;
@@ -502,6 +483,110 @@ nav a,
   background: var(--navy);
   padding: clamp(11px, 1.3vw, 16px) 0;
   overflow: hidden;
+}
+
+/* ==========================================================================
+   The hero, as a split.
+
+   One column of copy against the donut, rather than a centred stack with the
+   donut underneath it. The copy column is the important half and takes the
+   larger share; the art column is given a minimum so the donut never shrinks
+   to a garnish, and the whole thing collapses to one column on a phone with
+   the art last.
+   ========================================================================== */
+.hero--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(6px, 2vw, 28px);
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .hero--split {
+    grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
+    gap: clamp(24px, 4vw, 64px);
+    /* Enough room that the whole column — headline through rating — is above
+       the fold on a laptop, without the section forcing a scroll of its own on
+       a short window. */
+    min-height: min(64vh, 560px);
+  }
+}
+
+.hero__copy {
+  /* The one reading edge. Everything in this column starts here: the headline,
+     the lede, the first button, the stars. */
+  text-align: left;
+}
+
+/* Two authored lines, so the donut always opens the second one. */
+.hero-title {
+  margin: 0;
+  font-size: var(--type-hero);
+  /* Tighter than the display step so the two lines close up. */
+  line-height: 0.82;
+  letter-spacing: -0.015em;
+}
+
+.hero-title__line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: clamp(8px, 1vw, 16px);
+}
+
+/* Sized off the type, not the viewport, so it stays proportionate to the line
+   it sits on at every width. */
+.hero-title__donut {
+  height: 0.86em;
+  width: auto;
+  flex: none;
+}
+
+.hero-lede {
+  margin: clamp(12px, 1.4vw, 18px) 0 0;
+  /* Wider than the old 34ch: the lede names the counters, and the list needs
+     the room to sit on two lines rather than four. */
+  max-width: 46ch;
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  line-height: 1.45;
+  color: rgba(14, 62, 105, 0.75);
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(10px, 1.2vw, 14px);
+  margin-top: clamp(18px, 2.2vw, 28px);
+}
+
+/* Full width, side by side, on the narrowest screens — two half-width pills
+   with a gap between them are two small targets where there is room for two
+   big ones. */
+@media (max-width: 420px) {
+  .hero__actions > * {
+    flex: 1 1 100%;
+  }
+}
+
+.hero__proof {
+  margin-top: clamp(10px, 1.4vw, 16px);
+}
+
+/* The hero's rating stays on a phone, unlike the trust band's.
+
+   The band hides it because at that width it drops onto a line of its own
+   below the buttons, which was a spare row between the headline and the
+   donut. Here that line IS the layout — the copy column is a single stack and
+   the rating is the last thing in it. */
+@media (max-width: 640px) {
+  .hero__proof .review-score {
+    display: inline-flex;
+  }
+}
+
+.review-score__count {
+  color: var(--text-muted);
 }
 
 /* --- The Google score, under the hero's two lane cards ------------------
@@ -886,6 +971,14 @@ nav a,
   }
 }
 
+/* On desktop the photo owns its grid track, so the phone's 74% would leave it
+   floating in the middle of a column that is already the right width. */
+@media (min-width: 900px) {
+  .hero__art .hero-photo {
+    width: 100%;
+  }
+}
+
 /* --- Hero photo -----------------------------------------------------------
    As it was before the signup arc moved in: full width on phones, its lower
    half covered by the certification bar and the section below. */
@@ -900,14 +993,9 @@ nav a,
   /* Only the bottom sliver is covered now. The band used to be pulled up over
      nearly half the donut, which left a blue crescent rather than a donut. */
   margin-bottom: -10%;
-  /* Half width on phones, centred.
-
-     Full-bleed, the donut alone was 375px of an 812px screen and pushed the
-     three "ways to buy" cards below the fold — they are the one decision the
-     homepage needs a visitor to make, so they have to be visible on arrival.
-     The room for this comes from the star rating, which is hidden at this
-     width — see `.review-score`. Measured, not guessed: change this and
-     re-measure `.hero-lanes`'s bottom against `innerHeight`. */
+  /* Phones stack, so the donut gets the column to itself but not all of it:
+     full-bleed it was 375px of an 812px screen and pushed the two CTAs below
+     the fold, and those are the one decision the homepage needs. */
   width: 74%;
   margin-left: auto;
   margin-right: auto;

@@ -14,7 +14,7 @@ import { RATING } from '../data/reviews';
  * `tone` is which ground it is sitting on. On Canvas it takes the ink; the
  * navy variant stays for the trust band's own use of it.
  */
-export default function ReviewScore({ tone = 'ink' }: { tone?: 'ink' | 'cream' }) {
+export default function ReviewScore({ tone = 'ink', count = false }: { tone?: 'ink' | 'cream'; count?: boolean }) {
   const score = Number(RATING.score);
 
   return (
@@ -37,10 +37,12 @@ export default function ReviewScore({ tone = 'ink' }: { tone?: 'ink' | 'cream' }
 
       <span className="review-score__text">
         <strong>{RATING.score}</strong>
-        {/* The mark is the attribution. The review count used to follow it and
-            was the third number in a row beside the CTA — the score and the
-            stars already say the same thing, and the count is on the reviews
-            page this links to. */}
+        {/* The mark is the attribution. The count is opt-in: in the trust band
+            it would be a third number in a row of them, but in the hero it is
+            the half of the rating that carries the weight — a 4.3 from four
+            people and a 4.3 from eighty-one are not the same claim, and the
+            second one is the one worth making. */}
+        {count && <span className="review-score__count">({RATING.count})</span>}
         <GoogleG size={15} />
       </span>
     </span>

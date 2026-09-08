@@ -275,7 +275,12 @@ export function createApp({ pool, square, uberDirect, config }) {
 
     const {orderDraft,calculated}=await prepareSquareOrder(tenantSquare,config,input,null);
     const created=(await tenantSquare.createOrder({idempotency_key:`order-${input.idempotencyKey}`,order:{...orderDraft,customer_id:customerId}})).order;
-    const payment=(await tenantSquare.createPayment({idempotency_key:`payment-${input.idempotencyKey}`,source_id:input.sourceId,amount_money:created.total_money,order_id:created.id,location_id:config.squareLocationId,customer_id:customerId,autocomplete:true})).payment;
+    /* `buyer_email_address` and `buyer_phone_number` are optional on
+       CreatePayment and worth setting: Square sends its own receipt off them,
+       which gives a guest a second confirmation from a party the bakery does
+       not have to be. A signed-in customer gets that through their account,
+       so only this lane needs it. */
+    const payment=(await tenantSquare.createPayment({idempotency_key:`payment-${input.idempotencyKey}`,source_id:input.sourceId,amount_money:created.total_money,order_id:created.id,location_id:config.squareLocationId,customer_id:customerId,buyer_email_address:email,buyer_phone_number:normalizeNorthAmericanPhone(input.guest.phone)||undefined,autocomplete:true})).payment;
 
     /* `user_id` NULL, `guest_contact` set — see migration 007, whose CHECK is
        what guarantees an order always has one identity or the other. The same

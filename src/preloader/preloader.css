@@ -28,34 +28,50 @@
   will-change: height, transform;
 }
 
-/* Wrapper owns the fade; the inner stage owns the fit transform, so the two
-   never fight over the same property. */
-.pre__stageWrap {
-  position: absolute;
-  inset: 0;
-  will-change: opacity;
-}
+/* One letter of the wordmark.
 
-/* Authored 1920x1080 space — everything inside uses stage coordinates. */
-.pre__stage {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform-origin: 0 0;
-  will-change: transform;
-}
+   `transform-box: fill-box` is the load-bearing line: without it an SVG
+   transform-origin resolves against the whole viewBox, so every letter would
+   scale from the same far-left point and the word would fan open instead of
+   thirteen letters each popping in place.
 
-.pre__crumb {
-  position: absolute;
+   The overshoot in the curve is the "fun" — a letter that arrives at exactly
+   100% reads as a fade-in with extra steps. 1.7 past the end is enough to see
+   and not enough to wobble.
+
+   `backwards` holds the from-state during the delay, so a letter is invisible
+   until its turn rather than painting once and then starting. */
+.pre__letter {
+  transform-box: fill-box;
+  transform-origin: 50% 62%;
+  animation: pre-pop 460ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
   will-change: transform, opacity;
 }
 
-.pre__donut {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform-origin: 50% 50%;
-  will-change: transform, opacity;
+/* The return load: the word is already made. */
+.pre__letter.is-static {
+  animation: none;
+}
+
+@keyframes pre-pop {
+  from {
+    opacity: 0;
+    /* Up from nothing and slightly low, so the letters land rather than
+       simply appear. */
+    transform: scale(0.3) translateY(14%);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Nothing pops if the visitor asked for less motion — the wordmark is just
+   there, and the panel leaves. */
+@media (prefers-reduced-motion: reduce) {
+  .pre__letter {
+    animation: none;
+  }
 }
 
 /* Positioned by transform from the top-left so the flight to the navbar is a
