@@ -9,13 +9,22 @@
      so they scale on the x axis instead. */
 
 .bbtn {
+  /* Every measurement the button is built from, in one place. The knob used
+     to be 42px hardcoded in four rules — the knob itself, both chevron cells,
+     the track's rest offset and the burst's origin — so making it smaller
+     anywhere meant finding all of them and keeping them in step. Narrowing the
+     button is now a matter of changing these. */
   --bbtn-pad-l: 30px;
+  --bbtn-pad-r: 8px;
+  --bbtn-gap: 18px;
+  --bbtn-knob: 42px;
+  --bbtn-h: 58px;
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 18px;
-  height: 58px;
-  padding: 0 8px 0 var(--bbtn-pad-l);
+  gap: var(--bbtn-gap);
+  min-height: var(--bbtn-h);
+  padding: 0 var(--bbtn-pad-r) 0 var(--bbtn-pad-l);
   border: none;
   border-radius: var(--radius-pill);
   cursor: pointer;
@@ -29,6 +38,19 @@
   text-transform: uppercase;
   transform-origin: center;
   transition: padding-left 140ms ease, transform 140ms ease, filter 140ms ease;
+}
+
+/* The label, and the only part of the button allowed to give.
+
+   `min-width: 0` is the load-bearing line: a flex item will not shrink below
+   its own min-content width by default, so a label wider than the space left
+   over pushed the button's content past its box rather than wrapping. With
+   this it wraps, and `min-height` above lets the pill grow to hold it — so
+   however long the label and however narrow the column, the text stays inside
+   the button. */
+.bbtn__label {
+  min-width: 0;
+  text-align: left;
 }
 
 .bbtn:hover:not(:disabled) {
@@ -61,8 +83,8 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: var(--bbtn-knob);
+  height: var(--bbtn-knob);
   border-radius: 50%;
   background: var(--navy);
   color: var(--cream);
@@ -76,7 +98,7 @@
 .bbtn__track {
   display: flex;
   flex-direction: row;
-  transform: translateX(-42px);
+  transform: translateX(calc(-1 * var(--bbtn-knob)));
 }
 
 .bbtn:hover:not(:disabled) .bbtn__track {
@@ -87,8 +109,8 @@
 .bbtn__cell {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: var(--bbtn-knob);
+  height: var(--bbtn-knob);
 }
 
 /* Fired by adding the class on click; 420ms matches the burst's first half so
@@ -112,7 +134,7 @@
 .bbtn__burst {
   position: absolute;
   top: 50%;
-  right: calc(8px + 21px);
+  right: calc(var(--bbtn-pad-r) + var(--bbtn-knob) / 2);
   width: 0;
   height: 0;
   pointer-events: none;
@@ -138,6 +160,28 @@
   to {
     opacity: 0;
     transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(calc(var(--rot) + 140deg)) scale(1);
+  }
+}
+
+/* Phones, where the button is often half a column wide.
+
+   The chrome — left padding, gap, knob — was 98px of a 167px button in the
+   hero's two-column row, leaving 69px for a label that wanted 77. It got worse
+   on a narrower phone, not better: at 320px each column is 139px. Shrinking
+   the chrome to 60px buys back most of it, and the wrapping label above covers
+   whatever is left, so there is no width at which this overflows.
+
+   The knob stays well over the size it needs to be legible; it is decoration
+   beside a label that is doing the work. */
+@media (max-width: 560px) {
+  .bbtn {
+    --bbtn-pad-l: 16px;
+    --bbtn-pad-r: 6px;
+    --bbtn-gap: 8px;
+    --bbtn-knob: 36px;
+    /* Room for a second line without the pill looking padded on one. */
+    padding-block: 9px;
+    font-size: 16px;
   }
 }
 

@@ -563,9 +563,25 @@ nav a,
 /* Full width, side by side, on the narrowest screens — two half-width pills
    with a gap between them are two small targets where there is room for two
    big ones. */
-@media (max-width: 420px) {
+/* Two columns, not two stacked bars.
+
+   Full-width each, they were two heavy pills eating the space between the
+   lede and the rating and pushing the proof off the first screen. Side by side
+   they are still comfortably past the 44px touch target, and the pair reads as
+   one choice with two answers rather than a primary action with an also-ran
+   underneath it.
+
+   `min-width: 0` is what makes the split hold: a flex item will not shrink
+   below its content, and "Order delivery" is wide enough to force a wrap
+   without it. */
+@media (max-width: 560px) {
+  .hero__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
   .hero__actions > * {
-    flex: 1 1 100%;
+    min-width: 0;
   }
 }
 
@@ -2214,6 +2230,7 @@ html.lenis,
   max-width: 100%;
   white-space: nowrap;
 }
+
 
 /* Nothing here drives the button from the card any more.
 

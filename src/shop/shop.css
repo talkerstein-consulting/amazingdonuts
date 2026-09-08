@@ -3187,10 +3187,11 @@ a.cabinet__iconBtn { text-decoration: none; }
 
    `order` rather than reordering the JSX, because the phone arrangement is the
    one the markup describes and both bars share the same two children. */
-@media (min-width: 900px) {
-  .cabinet__addAnchor .cabinet__save { order: 2; }
-  .cabinet__addAnchor .cabinet__brandAdd { order: 1; }
-}
+/* Both widths now keep the markup's order — heart, then add — so the pair
+   reads the same on a phone and a desktop. The desktop used to swap them,
+   putting the buy button first and the heart on the trailing edge; one
+   arrangement is easier to learn than two, and the heart on the leading edge
+   is where the sticky bar has always had it. */
 
 /* The sticky bar keeps the markup's order at every width: heart, then add, and
    the pair pinned to the bar's trailing corner.

@@ -170,23 +170,63 @@
    Six or twelve of the finished donut on the stage, in place of one large
    one — see the note in StableBuilder. Sized by count rather than by a fixed
    grid: a dozen at half-dozen spacing overflows the square. */
+/* The batch, stacked as a pyramid.
+
+   Rows rather than a grid: a grid can only make rectangles, and the rows here
+   are deliberately different lengths — see `pyramid()`. Each row is centred on
+   the one below it and pulled up over it, so the donuts nest the way they do
+   on a tray instead of sitting in tidy ranks. */
 .sb-batch {
   position: absolute;
   inset: 6%;
-  display: grid;
-  place-content: center;
-  gap: 2%;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
+  /* Stretch, not centre: the rows have to span the stage so the donuts' own
+     percentage widths have something real to resolve against. A shrink-to-fit
+     row and a percentage child are circular, and the donuts collapsed. Each
+     row centres its own contents instead. */
+  align-items: stretch;
+  justify-content: center;
+}
+
+.sb-batch__row {
+  display: flex;
+  justify-content: center;
+  /* Overlap the row above by a fixed FRACTION OF A DONUT, not of the stage.
+
+     A bare percentage margin resolves against the containing block's width,
+     which is the stage — so one value gave the six a 37% overlap and the
+     twelve a 58% one, and the dozen came out as a crushed clump with only a
+     third of each donut showing. Scaling it off `--sb-donut` makes the two
+     stacks the same shape at different sizes, which is the whole point of
+     them being pyramids. */
+  margin-top: calc(var(--sb-donut) * -0.3);
+}
+
+.sb-batch__row:first-child {
+  margin-top: 0;
+}
+
+/* One donut's width, as a share of the stage, and the number every other
+   measurement in the stack is derived from. Sized off the widest row so the
+   whole thing fits at either count: the six is three across, the twelve is
+   five. */
+.sb-batch {
+  --sb-donut: 30%;
 }
 
 .sb-batch[data-count='12'] {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1%;
+  --sb-donut: 19%;
 }
 
 .sb-batch__one {
   position: relative;
   aspect-ratio: 1;
+  width: var(--sb-donut);
+  /* A slight horizontal overlap as well — a row of touching circles reads as a
+     chain; overlapped, they read as donuts leaning on each other. Same
+     fraction-of-a-donut logic as the rows above. */
+  margin-inline: calc(var(--sb-donut) * -0.05);
 }
 
 /* --- Desktop breathing room ---------------------------------------------

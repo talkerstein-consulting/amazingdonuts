@@ -31,6 +31,32 @@ import './claw-sequence.css';
 /** The claw sequence's own length — see `claw-sequence.css`, which owns it. */
 const CLAW_MS = 4300;
 
+/**
+ * How many donuts sit on each row of the stack, bottom row last.
+ *
+ * Six is 1-2-3 and twelve is 3-4-5: the widest row that leaves a clean
+ * triangle above it. Both are exact, so no row is ever short a donut, and both
+ * are the same shape — which is the point, since the two quantities are the
+ * same offer at two sizes.
+ *
+ * Anything else falls back to rows of three, which is what the tiled version
+ * did for every count. Nothing reaches that today — the two quantities above
+ * are the only ones over one — but a third option added to `QUANTITIES` should
+ * render something rather than nothing.
+ */
+const PYRAMIDS = new Map<number, number[]>([
+  [6, [1, 2, 3]],
+  [12, [3, 4, 5]]
+]);
+
+function pyramid(count: number): number[] {
+  const known = PYRAMIDS.get(count);
+  if (known) return known;
+  const rows: number[] = [];
+  for (let left = count; left > 0; left -= 3) rows.push(Math.min(3, left));
+  return rows.reverse();
+}
+
 const QUANTITIES: { label: string; count: number }[] = [
   { label: 'Just one', count: 1 },
   { label: 'Half dozen · 6', count: 6 },
@@ -844,19 +870,30 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
               dozen" means, and answering it with a single donut beside a pill
               reading "6" asks the visitor to take the number on trust.
 
+              Stacked as a pyramid rather than tiled into a block. A 3x2 and a
+              4x3 grid are both rectangles, and a rectangle of donuts is a
+              contact sheet — it says "here are six pictures of the same
+              thing". A pyramid is how a counter actually stacks them, and the
+              two counts then read as the same object in two sizes rather than
+              two different diagrams.
+
               Only on this step: the claw sequence carries one donut away, and
               every offset in it is measured against a single full-size stack. */}
           {showBatch ? (
             <div className="sb-batch" data-count={s.qty}>
-              {Array.from({ length: s.qty }, (_, n) => (
-                <span key={n} className="sb-batch__one">
-                  {stageLayers.map((l, m) => (
-                    <ArtLayer key={m} img={l.img} opacity={l.opacity} mask={l.mask} />
+              {pyramid(s.qty).map((row, r) => (
+                <div key={r} className="sb-batch__row">
+                  {Array.from({ length: row }, (_, n) => (
+                    <span key={n} className="sb-batch__one">
+                      {stageLayers.map((l, m) => (
+                        <ArtLayer key={m} img={l.img} opacity={l.opacity} mask={l.mask} />
+                      ))}
+                      {topSrc && !sprinkle.bare && (
+                        <SprinkleLayer src={topSrc} sprinkle={sprinkle} />
+                      )}
+                    </span>
                   ))}
-                  {topSrc && !sprinkle.bare && (
-                    <SprinkleLayer src={topSrc} sprinkle={sprinkle} />
-                  )}
-                </span>
+                </div>
               ))}
             </div>
           ) : (
