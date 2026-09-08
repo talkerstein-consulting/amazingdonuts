@@ -205,6 +205,52 @@
   font: inherit;
 }
 
+/* The question the schedule answers, said out loud.
+
+   The fieldset's own legend reads "Fulfillment", which names the section but
+   asks nothing — and the two fields under it were a bare Date and Time window
+   floating beneath a segmented control. This is the heading the pickup gate
+   used to carry ("When are you collecting?"), brought here with the question
+   itself, and it changes with the mode because the two are not the same
+   question: one books an appointment at a counter, the other asks when
+   somebody should be home. */
+.schedule-legend {
+  margin: 18px 0 10px;
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: var(--fs-body);
+  letter-spacing: -0.01em;
+  color: var(--navy);
+}
+
+/* Where the order is being collected from — pickup only, because delivery
+   states its address in the fields directly below.
+
+   The gate said this, and it is the half of the pickup question that is not a
+   field: a day and a window mean nothing without the counter they are at, and
+   this bakery has customers who assume the wrong one. */
+.pickup-where {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(14, 62, 105, 0.06);
+  color: var(--navy);
+  font-size: var(--fs-small);
+  line-height: 1.45;
+}
+
+.pickup-where svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  stroke-width: 2.3;
+}
+
 .fulfillment-schedule {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

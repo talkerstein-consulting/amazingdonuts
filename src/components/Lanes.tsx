@@ -1,7 +1,6 @@
 import type { CSSProperties } from 'react';
 import { BrandButton } from './brand';
 import { SHOP_HREF } from '../lib/shop-href';
-import { PICKUP_HREF } from '../lib/routes';
 import { writeFulfillmentPreference, type FulfillmentPreference } from '../lib/fulfillment';
 import { clearPickup } from '../lib/pickup';
 
@@ -46,10 +45,12 @@ export const LANES = [
       '/products/donuts/star-of-david-donut-special-order.png',
       '/products/donuts/candy-donut-round-sprinkles.png'
     ],
-    /* The only card that does not go straight to the catalogue: pick-up needs
-       a day and a window first, and the gate hands the visitor on to the shop
-       once it has them. */
-    href: PICKUP_HREF,
+    /* Straight to the catalogue, like every other lane. It used to divert
+       through a gate that asked for the day and window before letting anyone
+       shop — an interstitial between "I want donuts" and the donuts, asking
+       for an appointment against a bag that did not exist yet. The question
+       is now asked at checkout, where the order is known. */
+    href: SHOP_HREF,
     border: 'var(--navy)'
   }
 ];

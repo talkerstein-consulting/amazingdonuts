@@ -1,11 +1,19 @@
 import { Clock, Truck, X } from 'lucide-react';
-import { clearPickup, formatPickup, isClosed, localDate, pickupSlots, usePickup, writePickup } from '../lib/pickup';
+import {
+  clearPickup,
+  firstOpenDate,
+  formatPickup,
+  isClosed,
+  localDate,
+  pickupSlots,
+  usePickup,
+  writePickup
+} from '../lib/pickup';
 import {
   clearFulfillmentPreference,
   useFulfillmentChoice,
   writeFulfillmentPreference
 } from '../lib/fulfillment';
-import { PICKUP_HREF } from '../lib/routes';
 
 /**
  * How this order is being collected, as a band across the very top of the page.
@@ -41,8 +49,8 @@ import { PICKUP_HREF } from '../lib/routes';
  * duplicate.
  */
 
-/** How far ahead the day list runs. Two weeks of open days is the horizon the
-    gate itself offers, and past that the bakery would rather take a call. */
+/** How far ahead the day list runs. Two weeks of open days, and past that the
+    bakery would rather take a call. */
 const HORIZON_DAYS = 21;
 
 function openDays() {
@@ -92,11 +100,18 @@ export default function PickupBanner() {
               claiming numbers the server has not sent yet. */}
           <span className="pickup-banner__note">Local delivery · fee and minimum shown at checkout</span>
 
-          {/* Switching is a change of plan, not an edit of a field, so it goes
-              back to the lanes rather than offering a control here. */}
-          <a className="pickup-banner__swap" href={PICKUP_HREF}>
+          {/* A button, mirroring the pickup band's "Switch to delivery". It
+              was a link back to the lanes, from a page the visitor had chosen
+              to be on — switching how an order is collected is a change of
+              state, and there is no longer a gate to route through to make
+              it. */}
+          <button
+            type="button"
+            className="pickup-banner__swap"
+            onClick={() => writeFulfillmentPreference('pickup')}
+          >
             Switch to pickup
-          </a>
+          </button>
 
           <button
             type="button"
@@ -112,20 +127,35 @@ export default function PickupBanner() {
     );
   }
 
-  /* Pickup chosen, but no usable slot on file. Reachable by choosing pickup at
-     checkout, or by a stored slot going stale overnight — and a band that said
-     "Pickup" with no time would be the least useful version of itself. */
+  /* Pickup chosen, no slot on file — which is now the ordinary case rather
+     than an edge one, since nothing asks for a time before checkout does.
+
+     So the band states where the time gets settled instead of pretending a
+     booking is missing. The control beside it is an offer, not a requirement:
+     one press seeds the soonest open window and turns this into the booked
+     band below, with its two selects. Anyone who ignores it is asked at
+     checkout, which is the point of having moved the question there. */
   if (!booked) {
     return (
       <div className="pickup-banner">
         <div className="pickup-banner__inner">
           <Clock size={15} strokeWidth={2.6} aria-hidden="true" />
           <span className="pickup-banner__lead">Pickup</span>
-          <span className="pickup-banner__note">No time chosen yet</span>
+          <span className="pickup-banner__note">Time chosen at checkout</span>
 
-          <a className="pickup-banner__swap" href={PICKUP_HREF}>
-            Choose a time
-          </a>
+          <button
+            type="button"
+            className="pickup-banner__swap"
+            onClick={() => {
+              /* Tomorrow at the earliest — the counter does not take same-day
+                 pickups, which is the floor checkout applies too. */
+              const date = firstOpenDate(new Date(Date.now() + 86400000));
+              const first = pickupSlots(date)[0];
+              if (first) writePickup({ date, time: first.value });
+            }}
+          >
+            Pick a time now
+          </button>
 
           <button
             type="button"

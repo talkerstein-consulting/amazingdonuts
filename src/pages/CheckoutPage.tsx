@@ -12,10 +12,18 @@ import { customizationComplete, PRINT_PRODUCTS, type Customization } from '../li
 import BrandDatePicker from '../components/BrandDatePicker';
 import AddressAutocomplete, { type Address, type SavedAddress } from '../components/AddressAutocomplete';
 import { formatNorthAmericanPhone } from '../lib/phone';
-/* The counter's hours and the label format now live with the pickup gate, which
-   asks the same question earlier in the flow. Two copies of the opening hours
-   is a wrong answer waiting for the first change to either. */
-import { clearPickup, HOURS_SUMMARY, PICKUP_HOURS, readPickup, timeLabel } from '../lib/pickup';
+/* The counter's hours and the label format live in `lib/pickup` rather than
+   here, because the band on every shopping page reads them too. Two copies of
+   a bakery's opening hours is a wrong answer waiting for the first change to
+   either.
+
+   This page is now where the pickup appointment is actually made. It used to
+   be asked on a gate between the homepage and the catalogue, before there was
+   a bag to collect; the schedule block below is that questionnaire, and when
+   pickup is the answer it says which counter the order is being collected
+   from. */
+import { clearPickup, HOURS_SUMMARY, PICKUP_HOURS, readPickup, SLOT_MINUTES, timeLabel } from '../lib/pickup';
+import { SHOP_ADDRESS } from '../lib/routes';
 import { readFulfillmentPreference, writeFulfillmentPreference } from '../lib/fulfillment';
 type Session = { user:null|{firstName:string;lastName:string;email:string}; profile:null|{default_phone?:string;default_address?:Partial<Address>}; houseAccount:null|{id:string;organizationName:string;status:string;credit:{available:number};creditEnabled:boolean;card?:{brand?:string;last4?:string}} };
 let squareScriptPromise:Promise<void>|undefined;
@@ -42,10 +50,10 @@ function Checkout(){
   const [method,setMethod]=useState<''|'card'|'house_account'>('');
   const [authorizationPin,setAuthorizationPin]=useState('');
   const [fulfillment,setFulfillment]=useState<'pickup'|'delivery'>(()=>readFulfillmentPreference());
-  /* Pre-filled from the pickup gate when the visitor came through it, so the
-     slot they chose before browsing is not asked for a second time. The gate
-     stores nothing checkout would not otherwise compute, so a direct arrival
-     still falls back to the next open day. */
+  /* Pre-filled from the band when a slot was picked while shopping, so a
+     visitor who set one is not asked twice. Nothing sets it by default any
+     more, so the ordinary path through here is the fallback: the next open
+     day, chosen on this page. */
   const [scheduledAt,setScheduledAt]=useState(()=>{const chosen=readPickup();return chosen?`${chosen.date}T${chosen.time}`:tomorrow()});
   const [phone,setPhone]=useState('');
   const [address,setAddress]=useState<Address>(blankAddress);
@@ -105,7 +113,7 @@ function Checkout(){
       <fieldset disabled={!session?.user||busy}><legend>Fulfillment</legend>
         <div className="segment"><button type="button" className={fulfillment==='pickup'?'active':''} onClick={()=>{setFulfillment('pickup');writeFulfillmentPreference('pickup')}}><Store/> Pickup</button><button type="button" className={fulfillment==='delivery'?'active':''} disabled={config?.delivery?.enabled===false} onClick={()=>{setFulfillment('delivery');writeFulfillmentPreference('delivery');clearPickup()}}><Truck/> Delivery</button></div>
         {fulfillment==='delivery'&&config?.delivery&&<p className="delivery-policy">Local delivery is {money(config.delivery.feeAmount/100)} and free on merchandise orders of {money(config.delivery.freeThreshold/100)} or more. {money(config.delivery.minimumAmount/100)} minimum.</p>}
-        <div className="fulfillment-schedule"><div className="checkout-date-field"><span>Date</span><BrandDatePicker value={scheduledAt.slice(0,10)} min={scheduledMinimum.slice(0,10)} onChange={value=>setScheduledAt(`${value}T09:00`)} ariaLabel="Choose a pickup or delivery date" disabledDay={day=>day.getDay()===6}/></div><label><span>Time window</span><select value={fulfillmentTimes.length?scheduledAt.slice(11,16):''} disabled={!fulfillmentTimes.length} onChange={event=>setScheduledAt(`${scheduledAt.slice(0,10)}T${event.target.value}`)} required>{fulfillmentTimes.length?fulfillmentTimes.map(slot=><option value={slot.value} key={slot.value}>{slot.label}</option>):<option value="">Closed</option>}</select></label>{requiresPrintLeadTime&&<small>Custom-printed items require at least one week's notice.</small>}<small className="schedule-hours">{fulfillment==='pickup'?HOURS_SUMMARY:`Delivery windows run ${timeLabel(schedule.deliveryStart)}–${timeLabel(schedule.deliveryEnd)} Sunday through Friday. Saturday closed.`} Times are in {schedule.intervalMinutes}-minute windows.</small></div>
+        <h2 className="schedule-legend">{fulfillment==='pickup'?'When are you collecting?':'When should we deliver?'}</h2><div className="fulfillment-schedule">{fulfillment==='pickup'&&<p className="pickup-where"><Store/> <span>Collecting from <strong>{SHOP_ADDRESS.street}</strong>, {SHOP_ADDRESS.city}. We will have your bag boxed and waiting.</span></p>}<div className="checkout-date-field"><span>Date</span><BrandDatePicker value={scheduledAt.slice(0,10)} min={scheduledMinimum.slice(0,10)} onChange={value=>setScheduledAt(`${value}T09:00`)} ariaLabel="Choose a pickup or delivery date" disabledDay={day=>day.getDay()===6}/></div><label><span>Time window</span><select value={fulfillmentTimes.length?scheduledAt.slice(11,16):''} disabled={!fulfillmentTimes.length} onChange={event=>setScheduledAt(`${scheduledAt.slice(0,10)}T${event.target.value}`)} required>{fulfillmentTimes.length?fulfillmentTimes.map(slot=><option value={slot.value} key={slot.value}>{slot.label}</option>):<option value="">Closed</option>}</select></label>{requiresPrintLeadTime&&<small>Custom-printed items require at least one week's notice.</small>}<small className="schedule-hours">{fulfillment==='pickup'?`${HOURS_SUMMARY} Windows are ${SLOT_MINUTES} minutes long.`:`Delivery windows run ${timeLabel(schedule.deliveryStart)}–${timeLabel(schedule.deliveryEnd)} Sunday through Friday. Saturday closed. Times are in ${schedule.intervalMinutes}-minute windows.`}</small></div>
         <label><span>Phone</span><input type="tel" value={phone} onChange={event=>setPhone(formatNorthAmericanPhone(event.target.value))} autoComplete="tel" required/></label>
         {fulfillment==='delivery'&&<div className="address-fields">{savedAddresses.length>0&&<label className="saved-address-select"><span>Saved address</span><select value={savedAddresses.find(item=>sameAddress(item,address))?.id||''} onChange={event=>{const selected=savedAddresses.find(item=>item.id===event.target.value);if(selected)setAddress(addressValue(selected));}}><option value="">Use another address</option>{savedAddresses.map(item=><option key={item.id} value={item.id}>{item.label}{item.isDefault?' · Default':''}</option>)}</select></label>}<label><span>Street address</span><AddressAutocomplete address={address} onChange={setAddress} enabled={config?.placesEnabled} required/></label><label><span>Unit</span><input value={address.addressLine2} onChange={event=>setAddress({...address,addressLine2:event.target.value})} autoComplete="address-line2"/></label><label><span>City</span><input value={address.locality} onChange={event=>setAddress({...address,locality:event.target.value})} autoComplete="address-level2" required/></label><label><span>Postal code</span><input value={address.postalCode} onChange={event=>setAddress({...address,postalCode:event.target.value.toUpperCase()})} autoComplete="postal-code" required/></label>{!savedAddresses.some(item=>sameAddress(item,address))&&<div className="save-address-row"><label className="no-contact"><input type="checkbox" checked={saveAddress} onChange={event=>setSaveAddress(event.target.checked)}/><span>Save this address</span></label>{saveAddress&&<><label><span>Label</span><input value={addressLabel} onChange={event=>setAddressLabel(event.target.value)} placeholder="Home, Work..." required/></label><label><span>Type</span><select value={addressType} onChange={event=>setAddressType(event.target.value as typeof addressType)}><option value="home">Home</option><option value="work">Work</option><option value="other">Other</option></select></label></>}</div>}<label className="delivery-instructions"><span>Drop-off instructions</span><textarea value={deliveryInstructions} onChange={event=>setDeliveryInstructions(event.target.value)} maxLength={500} rows={3}/></label><label className="no-contact"><input type="checkbox" checked={noContact} onChange={event=>setNoContact(event.target.checked)}/><span>No-contact delivery</span></label></div>}
       </fieldset>
