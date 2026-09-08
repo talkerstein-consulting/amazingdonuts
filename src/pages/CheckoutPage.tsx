@@ -9,6 +9,7 @@ import '../shop/shop.css';
 import './commerce.css';
 import './delivery.css';
 import { customizationComplete, PRINT_PRODUCTS, type Customization } from '../lib/custom-order';
+import CheckoutFix from '../shop/CheckoutFix';
 import BrandDatePicker from '../components/BrandDatePicker';
 import AddressAutocomplete, { type Address, type SavedAddress } from '../components/AddressAutocomplete';
 import { formatNorthAmericanPhone } from '../lib/phone';
@@ -187,7 +188,20 @@ function Checkout(){
           here is your bag, here is the total, here is how you would like to
           settle it, here is the button. */}
       <aside className="order-summary">
-<p>Your bag</p><h2>{lines.reduce((total,line)=>total+line.qty,0)} items</h2>{lines.map(line=><div className="summary-line" key={line.product.id}><img src={line.product.img} alt=""/><span><strong>{line.product.name}</strong><small>Qty {line.qty}</small></span><b>{money(Number(line.product.price.replace(/[^0-9.]/g,''))*line.qty)}</b></div>)}<div className="summary-breakdown"><span>Merchandise</span><b>{quote?money((quote.order.subtotal-(quote.delivery?.fee||0))/100):money(subtotal)}</b>{quote?.delivery&&<><span>Delivery</span><b>{quote.delivery.free?'Free':money(quote.delivery.fee/100)}</b></>}{quote&&<><span>HST</span><b>{money(quote.order.tax/100)}</b></>}</div><div className="summary-total"><span>{quote?'Total':'Estimated subtotal'}</span><strong>{money(quote?payable:subtotal)}</strong></div><small>{quote?.delivery?'The bakery assigns the driver after payment. Square does not dispatch the courier.':'Square confirms catalog pricing, HST, discounts, and the final total before payment.'}</small></aside>
+<p>Your bag</p><h2>{lines.reduce((total,line)=>total+line.qty,0)} items</h2>{lines.map(line=>{
+  /* The line that is holding the order up, marked on the line itself.
+     The place-order button knew one of these existed and said so, but it
+     could not say WHICH — and the bag it sent people back to could not
+     answer the question either, because a bag row reads a spec back rather
+     than asking for it. The ring is Signal, the same colour every other
+     "this needs you" on the site uses, and the question follows underneath
+     it in place. */
+  const blocked=!customizationComplete(line.product.id,line.qty,line.customization);
+  return <div className={`summary-item${blocked?' summary-item--attention':''}`} key={line.product.id}>
+    <div className="summary-line"><img src={line.product.img} alt=""/><span><strong>{line.product.name}</strong><small>Qty {line.qty}</small></span><b>{money(Number(line.product.price.replace(/[^0-9.]/g,''))*line.qty)}</b></div>
+    {blocked&&<CheckoutFix productId={line.product.id} qty={line.qty} value={line.customization} onChange={next=>customize(line.product.id,next)}/>}
+  </div>;
+})}<div className="summary-breakdown"><span>Merchandise</span><b>{quote?money((quote.order.subtotal-(quote.delivery?.fee||0))/100):money(subtotal)}</b>{quote?.delivery&&<><span>Delivery</span><b>{quote.delivery.free?'Free':money(quote.delivery.fee/100)}</b></>}{quote&&<><span>HST</span><b>{money(quote.order.tax/100)}</b></>}</div><div className="summary-total"><span>{quote?'Total':'Estimated subtotal'}</span><strong>{money(quote?payable:subtotal)}</strong></div><small>{quote?.delivery?'The bakery assigns the driver after payment. Square does not dispatch the courier.':'Square confirms catalog pricing, HST, discounts, and the final total before payment.'}</small></aside>
       <fieldset className="payment-panel" form="checkout" disabled={!ready||busy}><legend>Payment</legend>
         {/* Apple Pay and Google Pay are choices in the list now, not a strip
             above it labelled "express checkout". They are ways to pay, exactly
@@ -213,7 +227,7 @@ function Checkout(){
       {(quoteError||error)&&<p className="checkout-error" role="alert">{quoteError||error}</p>}
       {/* Outside the form element, attached to it by `form`: the button belongs
           under the total it quotes, and the total lives in this column. */}
-      <button className="place-order" form="checkout" disabled={!ready||!lines.length||!customReady||!quote||!method||busy}>{busy?'Uploading artwork and placing order...':guestBlockedByPrint?'Sign in to order printed items':!identified?'Add your name and email':!customReady?'Finish custom items in your cart':!method?'Choose how to pay':quote?`Place order · ${money(payable)}`:'Calculating Square total...'}</button>
+      <button className="place-order" form="checkout" disabled={!ready||!lines.length||!customReady||!quote||!method||busy}>{busy?'Uploading artwork and placing order...':guestBlockedByPrint?'Sign in to order printed items':!identified?'Add your name and email':!customReady?'Finish the highlighted item':!method?'Choose how to pay':quote?`Place order · ${money(payable)}`:'Calculating Square total...'}</button>
 
     </div></div>
     <AuthModal open={authOpen} onClose={()=>setAuthOpen(false)} onSuccess={loadSession}/>

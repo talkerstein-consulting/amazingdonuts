@@ -184,9 +184,15 @@ function Cabinet({ product }: { product: Product }) {
   const remaining = Math.max(0, qty - assigned);
   const printReady =
     !isPrint || (Boolean(printIcing) && Boolean(printSprinkleChoice) && artworks.length > 0 && remaining === 0);
-  /* Both gates behind one name, so the two add buttons and the label they share
+  /* A cake with no shape is not an order. The gate was missing entirely: the
+     glyph starts empty and nothing required one, so an ordinary add put a line
+     in the bag that `customizationComplete` rejects — and checkout then refused
+     to proceed over an item whose question had never been asked out loud. */
+  const glyphReady = !isGlyph || glyph.trim().length > 0;
+
+  /* Every gate behind one name, so the two add buttons and the label they share
      each ask one question. */
-  const ready = petiteReady && printReady;
+  const ready = petiteReady && printReady && glyphReady;
 
   const addArtwork = async (file?: File) => {
     if (!file) return;
