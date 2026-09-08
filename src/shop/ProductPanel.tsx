@@ -869,7 +869,10 @@ function Cabinet({ product }: { product: Product }) {
               {requiresPrintLeadTime
                 ? `${qty} dozen units · one week's notice required`
                 : bulkMinimum
-                  ? `${qty} donuts · bulk orders need a few days' notice`
+                  /* The listing's own condition, verbatim in substance: this
+                     size is only sold in bulk. It said nothing about a lead
+                     time, so nothing here claims one. */
+                  ? `${qty} donuts · minimum ${bulkMinimum} donuts to order this size`
                   : `${pieces * qty} ${pieces * qty === 1 ? 'piece' : 'pieces'} · order by 4pm for next-day collection`}
             </p>
           </div>

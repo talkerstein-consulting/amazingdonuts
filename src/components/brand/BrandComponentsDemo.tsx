@@ -68,7 +68,7 @@ export default function BrandComponentsDemo() {
 
         <Label>Buttons</Label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
-          <BrandButton>Add to box</BrandButton>
+          <BrandButton>Add to bag</BrandButton>
           <BrandButton variant="outline">Customise</BrandButton>
           <BrandButton variant="signal">Special order</BrandButton>
           <BrandTextLink>See the bag</BrandTextLink>

@@ -8,7 +8,7 @@ import { clearPickup } from '../lib/pickup';
 /* The two ways to buy, not the product tiers. The lanes used to be
    Classic / Special / Donut lab, which split the catalogue three ways and then
    sent two of the cards to the same filtered grid — the section repeated what
-   "Everyone has a favorite" does directly below it. These answer the question
+   "Everyone has a favourite" does directly below it. These answer the question
    that grid cannot: how do I actually get them.
 
    Small cards, and the donut is the only picture on them. There were drawn
