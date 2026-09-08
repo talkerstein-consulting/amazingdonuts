@@ -41,6 +41,7 @@ async function api(path:string,options?:RequestInit){const response=await fetch(
 function Checkout(){
   const {lines,subtotal,customize,clear}=useShop();
   const customReady=lines.every(line=>customizationComplete(line.product.id,line.qty,line.customization));
+  const blockedCount=lines.filter(line=>!customizationComplete(line.product.id,line.qty,line.customization)).length;
   const requiresPrintLeadTime=lines.some(line=>PRINT_PRODUCTS.has(line.product.id));
   const scheduledMinimum=requiresPrintLeadTime?printMinimum():tomorrow();
   const [session,setSession]=useState<Session>();
@@ -227,7 +228,7 @@ function Checkout(){
       {(quoteError||error)&&<p className="checkout-error" role="alert">{quoteError||error}</p>}
       {/* Outside the form element, attached to it by `form`: the button belongs
           under the total it quotes, and the total lives in this column. */}
-      <button className="place-order" form="checkout" disabled={!ready||!lines.length||!customReady||!quote||!method||busy}>{busy?'Uploading artwork and placing order...':guestBlockedByPrint?'Sign in to order printed items':!identified?'Add your name and email':!customReady?'Finish the highlighted item':!method?'Choose how to pay':quote?`Place order · ${money(payable)}`:'Calculating Square total...'}</button>
+      <button className="place-order" form="checkout" disabled={!ready||!lines.length||!customReady||!quote||!method||busy}>{busy?'Uploading artwork and placing order...':guestBlockedByPrint?'Sign in to order printed items':!identified?'Add your name and email':!customReady?`Finish the highlighted item${blockedCount===1?'':'s'}`:!method?'Choose how to pay':quote?`Place order · ${money(payable)}`:'Calculating Square total...'}</button>
 
     </div></div>
     <AuthModal open={authOpen} onClose={()=>setAuthOpen(false)} onSuccess={loadSession}/>

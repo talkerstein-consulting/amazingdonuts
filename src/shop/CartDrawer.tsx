@@ -7,6 +7,7 @@ import { SHOP_HREF } from '../lib/shop-href';
 import { customizationComplete, minimumQuantityFor, PRINT_PRODUCTS } from '../lib/custom-order';
 import ProductLine from '../components/ProductLine';
 import CartCustomization from './CartCustomization';
+import CheckoutFix from './CheckoutFix';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -18,6 +19,9 @@ const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 export default function CartDrawer() {
   const { cartOpen, closeCart, lines, count, subtotal, setQty, customize, remove } = useShop();
   const customReady=lines.every(line=>customizationComplete(line.product.id,line.qty,line.customization));
+  /* Counted, not just tested: the button points at what is ringed, and "the
+     highlighted item" is a lie when two of them are. */
+  const blockedCount=lines.filter(line=>!customizationComplete(line.product.id,line.qty,line.customization)).length;
 
   useEffect(() => {
     if (!cartOpen) return;
@@ -88,8 +92,22 @@ export default function CartDrawer() {
                 </div>
               ) : (
                 <ul className="cart__lines">
-                  {lines.map(({ product, qty, customization }) => (
-                    <li key={product.id} className="cart__line">
+                  {lines.map(({ product, qty, customization }) => {
+                  /* The line that is stopping checkout, marked where the
+                     customer already is. The footer button knew one of these
+                     existed and said "Finish custom items" — which named
+                     neither the item nor the question, in a drawer that could
+                     hold six of them. The ring says which, and the question
+                     underneath it is answerable in place.
+
+                     This is the one exception to the drawer reading a spec
+                     back rather than asking for it — see `CartCustomization`.
+                     A required field on a finished line asks after the sale; a
+                     question on an UNfinished one is the only thing standing
+                     between the customer and the order. */
+                  const blocked=!customizationComplete(product.id,qty,customization);
+                  return (
+                    <li key={product.id} className={`cart__line${blocked?' cart__line--attention':''}`}>
                       <ProductLine product={product}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                           {/* A printed line has no stepper. The artwork covers a
@@ -123,8 +141,10 @@ export default function CartDrawer() {
                         </div>
                       </ProductLine>
                       <CartCustomization productId={product.id} qty={qty} value={customization} onChange={next=>customize(product.id,next)}/>
+                      {blocked&&<CheckoutFix productId={product.id} qty={qty} value={customization} onChange={next=>customize(product.id,next)}/>}
                     </li>
-                  ))}
+                  );
+                  })}
                 </ul>
               )}
             </div>
@@ -137,7 +157,7 @@ export default function CartDrawer() {
                 </div>
                 <p className="cart__note">Tax and pickup details are settled at checkout.</p>
                 <a href={customReady?"/checkout/":"#"} aria-disabled={!customReady} className={`cart__checkout brand-press${customReady?'':' is-disabled'}`} onClick={event=>{if(!customReady)event.preventDefault();else closeCart()}}>
-                  {customReady?`Checkout — ${money(subtotal)}`:'Finish custom items'}
+                  {customReady?`Checkout — ${money(subtotal)}`:`Finish the highlighted item${blockedCount===1?'':'s'}`}
                 </a>
               </footer>
             )}

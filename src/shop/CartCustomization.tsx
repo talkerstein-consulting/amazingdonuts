@@ -1,4 +1,4 @@
-import { boxMaxFor, customizationFor, PETITE_TYPES, type Customization } from '../lib/custom-order';
+import { boxMaxFor, BULK_PACK_SIZES, customizationFor, PETITE_TYPES, type Customization } from '../lib/custom-order';
 import { PRINT_SPRINKLE_SWATCHES, swatchesFor } from '../lib/petite-palette';
 import { PRODUCTS } from '../data/products';
 
@@ -29,7 +29,7 @@ export default function CartCustomization({productId,qty,value}:{productId:strin
      here would let somebody type past that constraint after the fact. */
   /* The petite tray's finish, read back. Chosen on the product page — a
      required colour field on a cart line asks the question after the sale. */
-  if(customization.kind==='petite'){const type=PETITE_TYPES.find(t=>t.id===customization.type);const swatch=swatchesFor(type?.palette??null).find(sw=>sw.id===customization.colourId);return <div className="cart-custom"><div className="cart-custom__head"><strong>Finish</strong><span>{qty} donuts</span></div><ul className="cart-spec"><li><span>Type</span><strong>{type?.label}</strong><b/></li>{type?.asks&&<li><span>Colours</span><strong>{customization.colours}</strong><b className="cart-spec__dots">{swatch?.dots.map((d,i)=><i key={i} style={{background:d}}/>)}</b></li>}</ul></div>;}
+  if(customization.kind==='petite'){const type=PETITE_TYPES.find(t=>t.id===customization.type);const swatch=swatchesFor(type?.palette??null).find(sw=>sw.id===customization.colourId);return <div className="cart-custom"><div className="cart-custom__head"><strong>Finish</strong><span>{qty*(BULK_PACK_SIZES.get(productId)??1)} donuts</span></div><ul className="cart-spec"><li><span>Type</span><strong>{type?.label}</strong><b/></li>{type?.asks&&<li><span>Colours</span><strong>{customization.colours}</strong><b className="cart-spec__dots">{swatch?.dots.map((d,i)=><i key={i} style={{background:d}}/>)}</b></li>}</ul></div>;}
   if(customization.kind==='glyph')return <div className="cart-custom"><div className="cart-custom__head"><strong>Cut as</strong><span>{customization.glyph.length} {customization.glyph.length===1?'cake':'cakes'}</span></div><p className="cart-glyph-value">{customization.glyph}</p></div>;
   /* The printed dozen, read back. Chosen on the product page — the artwork
      especially, because uploading a file is the one choice that can fail, and

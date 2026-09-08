@@ -657,6 +657,162 @@ a.cabinet__iconBtn { text-decoration: none; }
   border-radius: 20px;
   background: var(--sand);
 }
+
+/* ==========================================================================
+   A line that is holding the order up.
+
+   Two surfaces show this — the cart drawer, on Sand, and the checkout page's
+   summary panel, on Harbour — so the ring and the controls are defined once
+   here (shop.css is loaded by both) and take their ink from two custom
+   properties. Only the ground changes; the shape of the thing does not, which
+   is the point: it is the same problem being reported in both places, and a
+   customer who has seen it in the drawer should recognise it at checkout.
+
+   Dare Devil for the ring, which is what this palette uses everywhere for
+   "this one needs you".
+   ========================================================================== */
+.cart__line,
+.summary-item {
+  --fix-ink: var(--navy);
+  --fix-chip: rgba(14, 62, 105, 0.1);
+  --fix-chip-ink: rgba(14, 62, 105, 0.72);
+  --fix-on: var(--navy);
+  --fix-on-ink: var(--cream);
+}
+
+/* The summary panel is Harbour, so everything inverts. */
+.order-summary .summary-item {
+  --fix-ink: var(--cream);
+  --fix-chip: rgba(251, 247, 239, 0.12);
+  --fix-chip-ink: rgba(251, 247, 239, 0.75);
+  --fix-on: var(--cream);
+  --fix-on-ink: var(--navy);
+}
+
+.cart__line--attention {
+  box-shadow: inset 0 0 0 2px var(--orange);
+}
+
+.checkout-fix {
+  display: grid;
+  gap: 10px;
+}
+
+/* In the drawer it sits under the line's own body, which already has a rule
+   above it — see `.cart-custom`. */
+.cart__line--attention .checkout-fix {
+  padding: 12px 0 2px;
+  border-top: 1px solid rgba(14, 62, 105, 0.14);
+}
+
+.checkout-fix__ask {
+  margin: 0;
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--fix-ink);
+}
+
+.checkout-fix__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.checkout-fix__modes {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--fix-chip);
+}
+
+.checkout-fix__mode {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fix-chip-ink);
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.checkout-fix__mode.is-on {
+  background: var(--fix-on);
+  color: var(--fix-on-ink);
+}
+
+/* Always Canvas-on-Harbour, whichever ground it is standing on: a native
+   select inherits its colour, and on the summary panel that would be cream
+   text on the browser's own cream popup. */
+.checkout-fix__select {
+  flex: 1 1 120px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--navy);
+  font: inherit;
+  font-weight: 700;
+}
+
+.checkout-fix__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.checkout-fix__swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 11px 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fix-chip);
+  color: var(--fix-ink);
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.checkout-fix__swatch.is-on {
+  background: var(--fix-on);
+  color: var(--fix-on-ink);
+}
+
+.checkout-fix__swatch span {
+  display: inline-flex;
+  gap: 2px;
+}
+
+/* A ring on each dot, so a white or cream mix is visible on either ground. */
+.checkout-fix__swatch i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(14, 62, 105, 0.25);
+}
+
+/* Print and box: the answer is a builder, so this is a way there rather than
+   a control. Underlined, because it leaves the page. */
+.checkout-fix__link {
+  justify-self: start;
+  color: var(--fix-ink);
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .cart__line-main { display:flex; gap:14px; }
 .cart-custom { display:grid; gap:9px; padding:12px; border-top:1px solid rgba(14,62,105,.14); color:var(--navy); }
 .cart-custom label>span,.cart-art label span { display:block; margin-bottom:5px; font-size:10px; font-weight:800; text-transform:uppercase; }
