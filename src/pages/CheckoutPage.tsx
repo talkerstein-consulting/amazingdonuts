@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Building2, CreditCard, LockKeyhole, ShoppingBag, Store, Truck, UserRound } from 'lucide-react';
+import { ArrowLeft, Building2, CreditCard, LockKeyhole, ShoppingBag, Store, Truck, UserRound, Wallet } from 'lucide-react';
 import { ShopProvider, money, useShop } from '../lib/shop';
 import AuthModal from '../shop/AuthModal';
 import CommerceLogo from './CommerceLogo';
@@ -221,8 +221,15 @@ function Checkout(){
             scanning the options should see all of them at once rather than a
             shortcut bar and then, separately, "the real options". */}
         <div className="payment-options">
-          {ready&&quote?.order?.total&&wallets.apple!=='unavailable'&&<div className="apple-pay-slot">{wallets.apple==='ready'?<button type="button" className="apple-pay-button" aria-label="Pay with Apple Pay" onClick={()=>payWithWallet(applePay.current)}/>:<div className="wallet-loading" aria-hidden="true"/>}</div>}
-          {ready&&quote?.order?.total&&wallets.google!=='unavailable'&&<div className="google-pay-slot"><div id="google-pay-button" className={wallets.google==='ready'?'is-ready':''} onClick={()=>payWithWallet(googlePay.current)}/>{wallets.google==='loading'&&<div className="wallet-loading" aria-hidden="true"/>}</div>}
+          {/* Both wallets are listed from the moment Square is configured,
+              not from the moment it returns a total. They used to be gated on
+              the quote, so the list opened as a single row — "Credit or debit
+              card" — and the two one-press options arrived under it a second
+              later, after the eye had already settled. A named placeholder
+              holds each slot until its own button can be mounted; a wallet the
+              device does not have drops out and leaves nothing behind. */}
+          {config?.applicationId&&wallets.apple!=='unavailable'&&<div className="apple-pay-slot wallet-slot">{wallets.apple==='ready'?<button type="button" className="apple-pay-button" aria-label="Pay with Apple Pay" onClick={()=>payWithWallet(applePay.current)}/>:<div className="wallet-slot__label"><Wallet/> Apple&nbsp;Pay</div>}</div>}
+          {config?.applicationId&&wallets.google!=='unavailable'&&<div className="google-pay-slot wallet-slot"><div id="google-pay-button" className={wallets.google==='ready'?'is-ready':''} onClick={()=>payWithWallet(googlePay.current)}/>{wallets.google!=='ready'&&<div className="wallet-slot__label"><Wallet/> Google&nbsp;Pay</div>}</div>}
 
           <button type="button" className={method==='card'?'active':''} onClick={()=>setMethod('card')} aria-expanded={method==='card'}><CreditCard/><span><strong>Credit or debit card</strong><small>Securely processed by Square</small></span></button>
           {!asGuest&&session?.houseAccount?.status==='active'&&session.houseAccount.creditEnabled&&<button type="button" className={method==='house_account'?'active':''} onClick={()=>setMethod('house_account')}><Building2/><span><strong>Pay on account</strong><small>{session.houseAccount.organizationName} · {money(session.houseAccount.credit.available/100)} credit available</small></span></button>}

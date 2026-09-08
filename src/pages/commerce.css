@@ -313,11 +313,41 @@
   transform: scale(0.97);
 }
 
+/* Dare Devil, matching the fulfillment toggle and the identity lane's ring.
+   All three are the same statement — "this is the answer you have given" —
+   and Bubblegum here made payment look like a different system from the two
+   steps above it. Cream type: this is the palette's dark accent and it
+   carries white the way the place-order button does. */
 .payment-options button.active {
-  background: var(--pink);
+  background: var(--orange);
   box-shadow: none;
-  /* Navy on Bubblegum — it is far too light to carry cream type. */
-  color: var(--navy);
+  color: var(--cream);
+}
+
+/* A wallet that has not resolved yet still holds its place in the list.
+
+   The slots used to render only once Square had returned a total, so on
+   arrival the list was one row — "Credit or debit card" — and Apple Pay and
+   Google Pay appeared underneath it a second later, after the eye had already
+   settled on the only option there was. A named row that fills in is a
+   choice being loaded; a row that appears from nothing is a choice you were
+   not offered. */
+.wallet-slot {
+  position: relative;
+  min-height: 48px;
+}
+
+.wallet-slot__label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 48px;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.24);
+  color: var(--text-muted);
+  font-family: var(--font-cta);
+  font-weight: 700;
 }
 
 /* Pickup or delivery is the one choice on this page that changes what the

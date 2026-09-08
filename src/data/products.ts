@@ -333,9 +333,13 @@ export const PRODUCTS: Product[] = [
   {
     id: "petite-size-donut-bulk-order-only",
     name: "Petite Size Donut (Bulk Order Only)",
-    /* 75 × $1.50 — see `PETITE_PRODUCT_ID`. The listing's per-donut figure is
-       still quoted on the page, under the price. */
-    price: "$112.50",
+    /* The bakery's own figure for the 75 pack. It is NOT 75 × the $1.50 the
+       live listing quotes per donut, which would be $112.50 — the per-donut
+       line under the price is derived from this one and so reads $1.83, not
+       $1.50. Worth a check against the bakery before launch: one of the two
+       numbers on that listing is out of date, and this file now follows the
+       pack price rather than the per-donut one. */
+    price: "$137.00",
     category: "Donuts",
     img: "/products/donuts/petite-size-donut-bulk-order-only.png",
     secondary: ["/products/donuts/secondary/petite-size-donut-bulk-order-only.png"],
