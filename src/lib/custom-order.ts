@@ -88,6 +88,23 @@ export const NOT_A_BOX_FLAVOUR = new Set([
   'customizable-donut',
   'petite-size-donut-bulk-order-only'
 ]);
+
+/**
+ * The other thing a box flavour cannot be: something the bakery has to be
+ * asked for.
+ *
+ * A box is picked off the shelf. Every donut in the list is a picture you
+ * point at and a tray you collect, and the special-order lines break that in
+ * a way the builder has no way to show: they are made to order, on their own
+ * timetable, and one of them dropped into a half dozen quietly turns the whole
+ * box into a special order without saying so anywhere on the page.
+ *
+ * Matched on the name rather than listed by id, because the marker is the
+ * bakery's own and it puts it in the name — the same convention on every such
+ * listing across five counters. A new one added to the catalogue is excluded
+ * the day it appears, without this file being touched.
+ */
+export const isSpecialOrder = (name: string) => /\(special order\)/i.test(name);
 /**
  * The smallest a line can be, in LINES — not in donuts.
  *

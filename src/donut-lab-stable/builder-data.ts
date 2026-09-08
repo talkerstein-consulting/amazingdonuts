@@ -93,12 +93,12 @@ export const ICINGS: Icing[] = [
   { id: 'white',     name: 'Vanilla · White',      key: 'vanilla_white',     swatch: '#FBF7F0' },
   { id: 'yellow',    name: 'Vanilla · Yellow',     key: 'vanilla_yellow',    swatch: '#F4CE4A' },
   { id: 'chocolate', name: 'Chocolate',            key: 'chocolate_glaze',   swatch: '#7B4A2D' },
-  /* Plain glazed is the white icing art painted through at 80%, not artwork of
+  /* Plain glazed is the white icing art painted through at 40%, not artwork of
      its own — there is none in the sheet, and there does not need to be. A real
      sugar glaze is the donut showing through a thin white film, which is what
      a translucent white layer is; at full opacity it is Vanilla · White, and
      that option is already three rows up. */
-  { id: 'glazed',    name: 'Plain Glazed',         key: 'vanilla_white',     swatch: '#FBF7F0', opacity: 0.8 },
+  { id: 'glazed',    name: 'Plain Glazed',         key: 'vanilla_white',     swatch: '#FBF7F0', opacity: 0.4 },
   { id: 'none',      name: 'No Icing',             key: null,                swatch: null, bare: true }
 ];
 

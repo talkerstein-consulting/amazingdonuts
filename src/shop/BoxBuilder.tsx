@@ -5,7 +5,13 @@ import { PRODUCTS, SHOP_PRODUCTS, type Product } from '../data/products';
 import { BrandButton } from '../components/brand';
 import { restoreScroll } from '../lib/smooth-scroll';
 import { useIsDesktop } from '../hooks/useIsDesktop';
-import { BOX_PRODUCTS, boxMaxFor, BULK_MINIMUMS, NOT_A_BOX_FLAVOUR } from '../lib/custom-order';
+import {
+  BOX_PRODUCTS,
+  boxMaxFor,
+  BULK_MINIMUMS,
+  isSpecialOrder,
+  NOT_A_BOX_FLAVOUR
+} from '../lib/custom-order';
 import { useShop, money, priceOf } from '../lib/shop';
 import { flyToCart } from '../lib/fly-to-cart';
 import { useCutoutScale } from '../lib/cutout-scale';
@@ -212,7 +218,12 @@ export default function BoxBuilder({ product }: { product: Product }) {
 
      `NOT_A_BOX_FLAVOUR` and `BULK_MINIMUMS` carry the two that every test above
      lets through — the made-to-order Customizable Donut, and petite donuts,
-     which cannot be bought one at a time. See the note on that set. */
+     which cannot be bought one at a time. See the note on that set.
+
+     `isSpecialOrder` takes out the rest of the made-to-order lines, which the
+     price test never could: the Star of David is a $3.00 donut like any other
+     and sat in the list looking like one, but it is not on the shelf and a box
+     containing it is not a box you collect. */
   const options = useMemo(
     () =>
       SHOP_PRODUCTS.filter(
@@ -221,6 +232,7 @@ export default function BoxBuilder({ product }: { product: Product }) {
           p.id !== product.id &&
           !BOX_PRODUCTS.has(p.id) &&
           !NOT_A_BOX_FLAVOUR.has(p.id) &&
+          !isSpecialOrder(p.name) &&
           !BULK_MINIMUMS.has(p.id) &&
           priceOf(p) > 0 &&
           priceOf(p) <= 5

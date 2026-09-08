@@ -211,6 +211,56 @@ const rankOf = (p: Product) => {
   return tag ? TAG_RANK[tag] ?? 2 : 2;
 };
 
+/**
+ * What the thing tastes of, which is the question the grid could not answer.
+ *
+ * Category says which counter, Kind says roughly what it costs. Neither says
+ * chocolate. On a sixty-item list of near-identical thumbnails that is the one
+ * thing most people arrive knowing — and until now the only way to ask it was
+ * the search box, which means guessing the bakery's own wording: "creme" finds
+ * the Boston, "cream" does not, and neither finds the custard-filled jelly.
+ *
+ * Matched on the product name, because that is the only flavour information the
+ * catalogue carries — the scrape has no flavour column. So each family is a
+ * list of the words the bakery actually spells it with, including the variants
+ * that trip the search box up. Names match lowercased and un-anchored:
+ * "Chocolate Chip Blondie Square" is chocolate, and should be.
+ *
+ * Deliberately not exhaustive. A family that would catch two items is a row
+ * that costs more to read than it saves, so these are the seven that carve the
+ * catalogue into runs worth browsing; anything they miss is still reachable by
+ * every other route on the page.
+ */
+type Flavour = 'chocolate' | 'vanilla' | 'glazed' | 'sprinkles' | 'filled' | 'fruit' | 'spiced';
+
+const FLAVOURS: { id: Flavour; label: string; words: string[] }[] = [
+  { id: 'chocolate', label: 'Chocolate', words: ['chocolate', 'brownie', 'cookie crumb'] },
+  { id: 'vanilla', label: 'Vanilla', words: ['vanilla', 'white marble', 'white powder'] },
+  { id: 'glazed', label: 'Glazed & plain', words: ['glazed', 'marble', 'powder', 'plain'] },
+  { id: 'sprinkles', label: 'Sprinkles', words: ['sprinkle'] },
+  /* Every word the bakery uses for a filling, because it uses several: the
+     Boston is spelled "Creme" on one listing and "Cream" on another. */
+  { id: 'filled', label: 'Filled', words: ['jelly', 'custard', 'creme', 'cream', 'boston'] },
+  {
+    id: 'fruit',
+    label: 'Fruit',
+    words: ['strawberry', 'lemon', 'blueberry', 'banana', 'apple', 'cranberry', 'carrot']
+  },
+  {
+    id: 'spiced',
+    label: 'Caramel & spiced',
+    words: ['caramel', 'cinnamon', 'cappuccino', 'snickerdoodle']
+  }
+];
+
+const tasteOf = (id: Flavour) => {
+  const words = FLAVOURS.find((f) => f.id === id)!.words;
+  return (p: Product) => {
+    const name = p.name.toLowerCase();
+    return words.some((w) => name.includes(w));
+  };
+};
+
 const TIERS: { id: Tier; label: string; test: (p: Product) => boolean }[] = [
   { id: 'classic', label: 'Classic', test: (p) => priceValue(p) <= SPECIAL_OVER },
   { id: 'special', label: 'Special', test: (p) => priceValue(p) > SPECIAL_OVER }
@@ -291,21 +341,23 @@ export default function ShopAll() {
      collection; inside the drawer it is a filter beside the others, and the
      price line it draws is one every counter has. */
   const [tier, setTier] = useState<Tier | null>(() => readShopParams().tier);
+  const [flavour, setFlavour] = useState<Flavour | null>(null);
 
   const shown = useMemo(() => {
     const inCategory = active ? SHOP_PRODUCTS.filter((p) => p.category === active) : SHOP_PRODUCTS;
     const inTier = tier ? inCategory.filter(TIERS.find((t) => t.id === tier)!.test) : inCategory;
-    if (!query) return inTier;
+    const inFlavour = flavour ? inTier.filter(tasteOf(flavour)) : inTier;
+    if (!query) return inFlavour;
     /* Matched against the name and the category, case-insensitively, on every
        whitespace-separated word: "blue sprinkle" should find the blue sprinkle
        donut, and searching "bread" should find the Breads counter's items even
        though no product is literally called bread. */
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    return inTier.filter((p) => {
+    return inFlavour.filter((p) => {
       const hay = `${p.name} ${p.category}`.toLowerCase();
       return words.every((w) => hay.includes(w));
     });
-  }, [active, tier, query]);
+  }, [active, tier, flavour, query]);
 
   /* Sorted separately from the filtering above so a re-sort does not re-run
      the search. Catalogue position is the tiebreak throughout — see SORTS. */
@@ -350,14 +402,27 @@ export default function ShopAll() {
      cookies. Every count therefore honours the OTHER group's current answer,
      and never its own, so choosing within a group cannot change the numbers
      you were choosing between. */
+  const narrow = (list: Product[], skip: 'category' | 'tier' | 'flavour') => {
+    let out = list;
+    if (active && skip !== 'category') out = out.filter((p) => p.category === active);
+    if (tier && skip !== 'tier') out = out.filter(TIERS.find((t) => t.id === tier)!.test);
+    if (flavour && skip !== 'flavour') out = out.filter(tasteOf(flavour));
+    return out;
+  };
+
   const countInCategory = (category: Category | null) => {
     const scope = category ? SHOP_PRODUCTS.filter((p) => p.category === category) : SHOP_PRODUCTS;
-    return tier ? scope.filter(TIERS.find((t) => t.id === tier)!.test).length : scope.length;
+    return narrow(scope, 'category').length;
   };
 
   const countInTier = (id: Tier | null) => {
-    const scope = active ? SHOP_PRODUCTS.filter((p) => p.category === active) : SHOP_PRODUCTS;
-    return id ? scope.filter(TIERS.find((t) => t.id === id)!.test).length : scope.length;
+    const scope = id ? SHOP_PRODUCTS.filter(TIERS.find((t) => t.id === id)!.test) : SHOP_PRODUCTS;
+    return narrow(scope, 'tier').length;
+  };
+
+  const countInFlavour = (id: Flavour | null) => {
+    const scope = id ? SHOP_PRODUCTS.filter(tasteOf(id)) : SHOP_PRODUCTS;
+    return narrow(scope, 'flavour').length;
   };
 
   /* The drawer's groups always have an answer, so "everything" is a real option
@@ -382,9 +447,21 @@ export default function ShopAll() {
     ...TIERS.map((t) => ({ id: t.id, label: t.label, count: countInTier(t.id) }))
   ];
 
+  /* Families that would leave nothing are dropped rather than shown at zero.
+     Category and Kind can afford a "0" — three or six rows, and the zero is
+     itself informative. Seven flavour rows under the Breads counter would be
+     seven dead ends. The current answer always survives the cut, or picking one
+     would make the row you picked vanish from under its own tick. */
+  const flavourOptions: FilterOption<Flavour | 'any'>[] = [
+    { id: 'any', label: 'Any flavour', count: countInFlavour(null) },
+    ...FLAVOURS.map((f) => ({ id: f.id, label: f.label, count: countInFlavour(f.id) })).filter(
+      (o) => o.count > 0 || o.id === flavour
+    )
+  ];
+
   /* Sort is deliberately not counted: there is no unsorted grid, so a badge
      that always read at least 1 would say nothing. */
-  const activeFilters = (active ? 1 : 0) + (tier ? 1 : 0);
+  const activeFilters = (active ? 1 : 0) + (tier ? 1 : 0) + (flavour ? 1 : 0);
 
   /* Grouped only while the grid is showing everything.
      A picked category is already one group and the banner above it says which,
@@ -551,11 +628,15 @@ export default function ShopAll() {
         tiers={tierOptions}
         tier={tier ?? 'any'}
         onTier={(next) => setTier(next === 'any' ? null : next)}
+        flavours={flavourOptions}
+        flavour={flavour ?? 'any'}
+        onFlavour={(next) => setFlavour(next === 'any' ? null : next)}
         showing={shown.length}
         canClear={activeFilters > 0 || sort !== 'featured'}
         onClear={() => {
           setActive(null);
           setTier(null);
+          setFlavour(null);
           setSort('featured');
         }}
       />
@@ -593,14 +674,15 @@ export default function ShopAll() {
           and it is empty. */}
       {!query && shown.length === 0 && (
         <p className="shop-query shop-query--empty">
-          No {tier ? TIERS.find((t) => t.id === tier)!.label.toLowerCase() : ''} items on
-          {' '}
-          {active ? `the ${active.toLowerCase()} counter` : 'any counter'}.{' '}
+          No {tier ? `${TIERS.find((t) => t.id === tier)!.label.toLowerCase()} ` : ''}
+          {flavour ? `${FLAVOURS.find((f) => f.id === flavour)!.label.toLowerCase()} ` : ''}items
+          on {active ? `the ${active.toLowerCase()} counter` : 'any counter'}.{' '}
           <button
             type="button"
             onClick={() => {
               setActive(null);
               setTier(null);
+              setFlavour(null);
             }}
             className="shop-query__clear"
           >

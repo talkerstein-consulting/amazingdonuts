@@ -156,7 +156,12 @@ export function FilterButton({
   );
 }
 
-export default function FilterDrawer<S extends string, C extends string, T extends string>({
+export default function FilterDrawer<
+  S extends string,
+  C extends string,
+  T extends string,
+  F extends string
+>({
   open,
   onClose,
   sorts,
@@ -168,6 +173,9 @@ export default function FilterDrawer<S extends string, C extends string, T exten
   tiers,
   tier,
   onTier,
+  flavours,
+  flavour,
+  onFlavour,
   showing,
   onClear,
   canClear
@@ -183,6 +191,9 @@ export default function FilterDrawer<S extends string, C extends string, T exten
   tiers: FilterOption<T>[];
   tier: T;
   onTier: (next: T) => void;
+  flavours: FilterOption<F>[];
+  flavour: F;
+  onFlavour: (next: F) => void;
   showing: number;
   onClear: () => void;
   canClear: boolean;
@@ -243,6 +254,12 @@ export default function FilterDrawer<S extends string, C extends string, T exten
                   the one changed more often. */}
               <Group title="Categories" options={categories} value={category} onChange={onCategory} />
               <Group title="Sort by" options={sorts} value={sort} onChange={onSort} />
+              {/* Flavour above Kind, and directly under Categories, because it
+                  is the second thing anyone knows about what they came for —
+                  "a chocolate something" is a far commoner shape of intent than
+                  "something in the cheaper half". Kind is the tiebreak once the
+                  other two have done the narrowing, so it reads last. */}
+              <Group title="Flavour" options={flavours} value={flavour} onChange={onFlavour} />
               {/* Classic and Special were a row of their own that only existed
                   while Donuts was picked. In here they are a filter like any
                   other and apply across every category — the split is a price
