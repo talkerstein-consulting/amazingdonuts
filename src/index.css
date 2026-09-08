@@ -580,8 +580,22 @@ nav a,
     grid-template-columns: 1fr 1fr;
     gap: 10px;
   }
+
+  /* Label to the leading edge, knob to the trailing one.
+
+     The button is an inline-flex that packs its content to the start, which is
+     right when it is sized by that content. In a grid cell it is not: both
+     cells are 167px, and "Delivery" and "Pickup" are different lengths, so the
+     content huddled left and left a ragged tail of 31px on one button and 48px
+     on the other. Two knobs at two different insets, in a pair meant to read
+     as one choice.
+
+     `space-between` is what `.bbtn--block` already does for full-width
+     buttons; these are full-width in their own column, so they want the same
+     thing. The knobs now sit on the same line as each other. */
   .hero__actions > * {
     min-width: 0;
+    justify-content: space-between;
   }
 }
 
