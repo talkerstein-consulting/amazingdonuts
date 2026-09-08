@@ -114,11 +114,22 @@ export default function Hero({ ready }: { ready: boolean }) {
               buttons side by side is two primary actions, which is none — the
               pair still has to say which one the bakery expects most people to
               take, and it is the one that does not require leaving the house. */}
+          {/* One word each on a phone, the full phrase above it.
+
+              Side by side in two columns, "Order delivery" and "Book a pickup"
+              are the wrong length for the space — they wrapped to two lines,
+              and the verbs are the half carrying no information anyway. Both
+              buttons go to the same catalogue; what differs is delivery or
+              pickup, so on a phone that is all they say. The <span>s are
+              swapped by CSS rather than by measuring the viewport in JS, so
+              there is no flash of the wrong label on first paint. */}
           <BrandButton href={SHOP_HREF} onClick={choose('delivery')}>
-            Order delivery
+            <span className="cta-long">Order delivery</span>
+            <span className="cta-short">Delivery</span>
           </BrandButton>
           <BrandButton href={SHOP_HREF} variant="outline" onClick={choose('pickup')}>
-            Book a pickup
+            <span className="cta-long">Book a pickup</span>
+            <span className="cta-short">Pickup</span>
           </BrandButton>
         </motion.div>
 
