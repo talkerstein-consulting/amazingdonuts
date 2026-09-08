@@ -71,7 +71,7 @@ export default function BrandComponentsDemo() {
           <BrandButton>Add to box</BrandButton>
           <BrandButton variant="outline">Customise</BrandButton>
           <BrandButton variant="signal">Special order</BrandButton>
-          <BrandTextLink>See the box</BrandTextLink>
+          <BrandTextLink>See the bag</BrandTextLink>
         </div>
       </div>
 

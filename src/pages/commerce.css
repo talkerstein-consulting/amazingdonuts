@@ -578,10 +578,60 @@
    (the footer, the account nav, the careers panel). `--text-on-navy` is the
    token for secondary copy in this direction - do not reuse `--text-muted`
    here, it is tuned for a light ground. */
-.order-summary {
+/* The right-hand column: how you pay, then what you are paying for, then the
+   button. Payment moved over here from the form, and it cannot go INSIDE the
+   summary — that panel is Harbour, and every control payment owns (the Square
+   iframe included) is drawn for a light ground. So the column is a stack of
+   two cards, and this is the one that sticks. */
+.checkout-side {
   position: sticky;
   top: 24px;
   align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 1.6vw, 20px);
+}
+
+.payment-panel {
+  margin: 0;
+  padding: clamp(18px, 2.2vw, 24px);
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--cream);
+}
+
+.payment-panel > legend {
+  padding: 0;
+  font-family: var(--font-label);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* A column, not a row: the options carry two lines of type each and the
+   wallet buttons are full-width slabs the platforms draw themselves. */
+.payment-panel .payment-options {
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: 14px;
+  gap: 8px;
+}
+
+.payment-hint {
+  margin: 12px 0 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Under the summary it quotes, and the full width of the column. */
+.checkout-side .place-order { width: 100%; }
+
+.order-summary {
+  position: static;
+  align-self: stretch;
   padding: clamp(20px, 2.4vw, 28px);
   border-radius: var(--radius-panel);
   background: var(--navy);
@@ -1206,6 +1256,9 @@
     grid-template-columns: 1fr;
   }
 
+  /* Stacked, so nothing sticks: the column is the page at this width. */
+  .checkout-side { position: static; }
+
   .order-summary {
     position: static;
     grid-row: 1;
@@ -1251,5 +1304,40 @@
   .commerce-shell *,
   .account-gate * {
     transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* --- Checkout heading: icon and sentence, top-aligned -------------------
+   The lock is a marker on the first line, not a bullet centred against a
+   block: the sentence wraps to two lines on a phone and the glyph drifted to
+   the middle of the pair, level with neither. */
+.commerce-heading span {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.commerce-heading span > svg {
+  flex: none;
+  /* Optically level with the cap height of the first line rather than its box,
+     which is what "aligned" looks like to a reader. */
+  margin-top: 0.15em;
+}
+
+@media (max-width: 700px) {
+  /* The words go, the arrow stays. "Back to the shop" beside a wordmark and
+     "My account" is three labels competing for a 375px bar, and the arrow in
+     the top-left corner is the one control on the page nobody needs told
+     about. */
+  .commerce-top > a:first-child > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }

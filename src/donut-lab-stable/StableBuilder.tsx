@@ -2,12 +2,15 @@ import { useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } 
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
 import { ArrowLeft, ChevronRight, Dices, RefreshCw, Upload } from 'lucide-react';
 import { useShop } from '../lib/shop';
+import { LAB_PRODUCT_ID, PRODUCTS } from '../data/products';
+import { LAB_ELEMENT_PRICE } from '../lib/custom-order';
+import { pulseCart } from '../lib/fly-to-cart';
 import SprinkleLayer from './SprinkleLayer';
 import {
   BASES, ICINGS, FILLINGS, SPRINKLES, RULES,
   STEP_LABEL, STEP_TITLE,
   baseArt, buildShapeItems, byId, cssUrl, describe, itemForBase,
-  shortName, stack, stepsFor, toppingArt,
+  shortName, stack, stepsFor, toppingArt, type Layer,
   type Sprinkle, type StepId,
   printSpot
 } from './builder-data';
@@ -23,6 +26,11 @@ import './claw-sequence.css';
  * bakery already sells donuts, so those are the two that matter; one is the
  * default and stays on the row so the choice reads as a choice.
  */
+/* The lab's own catalogue line, and what one element adds to it. */
+
+/** The claw sequence's own length — see `claw-sequence.css`, which owns it. */
+const CLAW_MS = 4300;
+
 const QUANTITIES: { label: string; count: number }[] = [
   { label: 'Just one', count: 1 },
   { label: 'Half dozen · 6', count: 6 },
@@ -95,9 +103,15 @@ function hydrate(): State {
       baseId: base.id,
       icingId: takesIcing ? (saved.icingId === 'red-glaze' ? 'red' : (saved.icingId ?? INITIAL.icingId)) : 'none',
       fillingId: saved.fillingId ?? INITIAL.fillingId,
-      sprinkleIds: takesIcing && Array.isArray(saved.sprinkleIds)
-        ? saved.sprinkleIds
-        : takesIcing ? [saved.sprinkleId ?? INITIAL.sprinkleIds[0]] : ['none']
+      /* Sliced to one: a build saved before the lab went single-sprinkle may
+         hold several, and restoring all of them would put the builder straight
+         back into a state it no longer lets you reach. */
+      sprinkleIds: takesIcing
+        ? [
+            (Array.isArray(saved.sprinkleIds) ? saved.sprinkleIds[0] : saved.sprinkleId) ??
+              INITIAL.sprinkleIds[0]
+          ]
+        : ['none']
     };
   } catch {
     /* Private mode, or a shape we no longer understand. Start fresh. */
@@ -142,12 +156,18 @@ function reducer(state: State, action: Action): State {
     case 'filling':
       return { ...state, fillingId: action.id, added: false, qty: 1 };
     case 'sprinkle': {
-      if (action.id === 'none') return { ...state, sprinkleIds: ['none'], added: false, qty: 1 };
-      const current = state.sprinkleIds.filter((id) => id !== 'none');
-      const sprinkleIds = current.includes(action.id)
-        ? current.filter((id) => id !== action.id)
-        : [...current, action.id];
-      return { ...state, sprinkleIds: sprinkleIds.length ? sprinkleIds : ['none'], added: false, qty: 1 };
+      /* One sprinkle, not a set. It used to accumulate — every tap added
+         another topping and the preview stacked all of them — which is not
+         something the counter can make: a donut gets one finish. Tapping the
+         chosen one again clears it back to none, so the rail still has a way
+         out without a separate control.
+
+         `sprinkleIds` stays an array rather than becoming a single id: the
+         stored build from a previous visit may hold several, and the art layer
+         already reads a list. It simply never holds more than one now. */
+      const chosen = state.sprinkleIds[0];
+      const next = action.id === 'none' || action.id === chosen ? 'none' : action.id;
+      return { ...state, sprinkleIds: [next], added: false, qty: 1 };
     }
     case 'print':
       return { ...state, print: action.print, added: false, qty: 1 };
@@ -202,8 +222,9 @@ const PANEL_VARIANTS: Variants = {
   exit: (dir: number) => ({ x: dir >= 0 ? '-100%' : '100%', opacity: 0, pointerEvents: 'none' })
 };
 
-/** One absolutely-positioned art layer, sized to fit without cropping. */
-function ArtLayer({ img }: { img: string }) {
+/** One absolutely-positioned art layer, sized to fit without cropping.
+    `opacity` is how Plain Glazed is drawn — see `stack` in builder-data. */
+function ArtLayer({ img, opacity, mask }: { img: string; opacity?: number; mask?: string }) {
   return (
     <span
       style={{
@@ -212,7 +233,22 @@ function ArtLayer({ img }: { img: string }) {
         backgroundRepeat: 'no-repeat',
         backgroundPosition: 'center',
         backgroundSize: 'contain',
-        backgroundImage: img
+        backgroundImage: img,
+        opacity,
+        /* Both prefixes: Safari still wants the -webkit- form, and the
+           unprefixed one is what every other engine reads. */
+        ...(mask
+          ? {
+              WebkitMaskImage: mask,
+              maskImage: mask,
+              WebkitMaskSize: 'contain',
+              maskSize: 'contain',
+              WebkitMaskPosition: 'center',
+              maskPosition: 'center',
+              WebkitMaskRepeat: 'no-repeat',
+              maskRepeat: 'no-repeat'
+            }
+          : null)
       }}
     />
   );
@@ -332,13 +368,18 @@ type Tile = {
   id: string;
   name: string;
   active: boolean;
-  layers: { img: string }[];
+  layers: Layer[];
   /** Palette dots, for the sprinkle step. */
   dots: string[];
   /** Sprinkle step only: paint the real recoloured mask on the preview. */
   topping?: { src: string | null; sprinkle: Sprinkle };
-  /** Set when a rule blocks this option; shown as the tile's tooltip. */
+  /** Set when a rule blocks this option; shown as the tile's tooltip, and as
+      the note above the rail when it blocks every option in the step. */
   reason?: string | null;
+  /** The option cannot be chosen right now — see `reason` for why. */
+  blocked?: boolean;
+  /** The quantity step's numeral, drawn over the tile's own preview. */
+  badge?: string;
   onClick: () => void;
 };
 
@@ -346,7 +387,7 @@ type Tile = {
 
 export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: boolean }) {
   const [s, dispatch] = useReducer(reducer, undefined, hydrate);
-  const { add } = useShop();
+  const { add, openCart, customize } = useShop();
   const railRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   /* 0–1 while the file is being read, null when idle. Transient UI, so it is
@@ -411,6 +452,90 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
   /* The claw rig is fixed, so it is positioned against the viewport and has to
      be told where the stage is. Re-measured on anything that could move the
      stage under it: the builder cannot scroll, but the page around it can. */
+  /* The claw carries the donut off and the box takes it — really takes it.
+     `add` was destructured here and never called: pressing "Add to the box"
+     played the whole 4300ms sequence and the cart count did not move, which is
+     an animation about a purchase that never happened.
+
+     Fired once per add, on the transition into `added`, and at the moment the
+     claw leaves the frame rather than at the start of the sequence or the end
+     of the timeline. The line appearing in the drawer is the thing the
+     animation is a picture of, so it lands when the box does — but the last
+     stretch of `clawRig` is the rig travelling on across empty screen it has
+     already cleared, and waiting that out left the drawer opening onto a stage
+     nothing had happened on for the better part of a second.
+
+     Watched rather than timed. The exit runs 80%-100% of the timeline from
+     `translateX(0)` to `translateX(100vw)`, so the instant it clears depends on
+     how far the rig sits from the right edge — 455px in from a 1440px window,
+     much less on a phone — and any constant would be right at one width only.
+     `CLAW_MS` stays as the ceiling: if the rig is not there to watch (reduced
+     motion takes it out of the layout entirely) the old timing still applies. */
+  useEffect(() => {
+    if (!s.added) return;
+    let frame = 0;
+    let seenRig = false;
+    let spent = false;
+
+    const commit = () => {
+      if (spent) return;
+      spent = true;
+      const product = PRODUCTS.find((p) => p.id === LAB_PRODUCT_ID);
+      if (!product) return;
+      add(product, s.qty, { openCart: false });
+      /* The build, written onto the line as the steps that made it — so the bag
+         reads "Shape · Round Donut · +$0.25" rather than a product code. Only
+         the steps this shape actually had: an ungrouped shape has no size step
+         and a bare one has no icing, and listing them as blanks would invent
+         choices nobody made.
+
+         `quantity` is deliberately not an element. It is how many of this line
+         there are, which the line's own qty already says, and pricing it as an
+         element would charge for it twice. */
+      const elements = steps
+        .filter((sid) => sid !== 'quantity')
+        .map((sid) => ({
+          label: STEP_LABEL[sid],
+          value: stepValue(sid),
+          price: LAB_ELEMENT_PRICE
+        }))
+        .filter((el) => el.value && el.value !== 'None' && el.value !== 'Upload');
+      customize(product.id, { kind: 'lab', elements });
+      /* The bag reacts on its own rather than taking a flight: the claw
+         sequence IS the animation here, and a donut arcing across the screen on
+         top of it would be two things at once. */
+      pulseCart();
+      openCart();
+    };
+
+    /* Out of view means the rig's leading edge has passed the right of the
+       window. A rig with no width is one reduced motion has removed, and there
+       is no exit to wait for. */
+    const watch = () => {
+      const rig = document.querySelector('[data-claw-rig]');
+      if (rig) {
+        seenRig = true;
+        const box = rig.getBoundingClientRect();
+        if (box.width === 0 || box.left >= window.innerWidth) return commit();
+      } else if (seenRig) {
+        /* It was there and now is not — the sequence is over either way. */
+        return commit();
+      }
+      frame = requestAnimationFrame(watch);
+    };
+    frame = requestAnimationFrame(watch);
+
+    const ceiling = setTimeout(commit, CLAW_MS);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(ceiling);
+    };
+    /* Deliberately keyed on `added` alone. `qty` is fixed by the time the claw
+       starts — its step is behind you — and listing it here would restart the
+       timer if anything else nudged it. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.added]);
+
   useEffect(() => {
     if (!s.added) {
       setRigBox(null);
@@ -506,6 +631,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
     if (sid === 'icing') return shortName(icing.name);
     if (sid === 'filling') return filling.bare ? 'None' : shortName(filling.name);
     if (sid === 'sprinkle') return sprinkle.bare ? 'None' : sprinkle.name;
+    if (sid === 'quantity') return QUANTITIES.find((q) => q.count === s.qty)?.label ?? String(s.qty);
     /* Not 'Skipped' — the rail pill is read before the step is reached, and
        calling it skipped announces the outcome of a choice nobody has made
        yet. It names the action instead, like every other pill names a value. */
@@ -538,6 +664,22 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
         reason: m.note,
         layers: stack(m, icing, filling),
         onClick: () => pick('base', m.id)
+      }));
+    }
+    if (step === 'quantity') {
+      /* The number is drawn ON the tile, over the donut being built.
+         Every tile previewed the same unchanged donut, which is the honest
+         picture of a choice that is not about the donut — and made three tiles
+         that were pixel-identical apart from a caption underneath. The numeral
+         is the thing being chosen, so it is the thing on the tile. */
+      return QUANTITIES.map((o) => ({
+        id: String(o.count),
+        name: o.label,
+        active: s.qty === o.count,
+        dots: [],
+        badge: String(o.count),
+        layers: stack(base, icing, filling),
+        onClick: () => dispatch({ type: 'qty', count: o.count })
       }));
     }
     if (step === 'icing') {
@@ -576,21 +718,31 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
            the marks read as colour but not as a legible swatch. */
         dots: o.colors,
         topping: { src: toppingArt(base, o), sprinkle: o },
-        // The rule that would block a sprinkle (no icing) removes this whole
-        // step instead, so the reason never has to be shown here.
+        /* No icing means nothing for a sprinkle to stick to. The step is still
+           here — see `stepsFor` — so the block is shown rather than the
+           question being silently withdrawn. */
         reason: RULES.sprinkleReason(s.icingId),
+        blocked: !RULES.takesSprinkles(s.icingId),
         layers: stack(base, icing, filling),
         onClick: () => pick('sprinkle', o.id)
       }));
     }
     return [];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, s.baseId, s.icingId, s.fillingId, s.sprinkleIds, i]);
+    /* `s.qty` belongs here: the quantity step's tiles read it for their own
+       `active` flag, and without it the memo never recomputed when the number
+       changed — so the ring stayed on whichever tile was current the last time
+       something else moved, which was always "Just one". */
+  }, [step, s.baseId, s.icingId, s.fillingId, s.sprinkleIds, s.qty, i]);
+
+  /* Tiled preview: only while the quantity step is up, only for more than one,
+     and never once the claw has taken over the stage. */
+  const showBatch = step === 'quantity' && s.qty > 1 && !s.added;
 
   const nextLabel = s.added
     ? 'Build another'
     : last
-      ? 'Add to the box'
+      ? 'Add to bag'
       : `Next · ${STEP_LABEL[steps[i + 1]]}`;
 
   /* --- Render ------------------------------------------------------------- */
@@ -624,8 +776,11 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
             type="button"
             className="sb-press"
             onClick={surprise}
-            aria-label="Surprise me"
-            title="Surprise me"
+            /* "Pick for me", matching the box builder's control for the same
+               idea. Two names for one affordance across two builders reads as
+               two different features. */
+            aria-label="Pick for me"
+            title="Pick for me"
             style={{
               flex: 'none', width: 44, height: 44, border: 0, borderRadius: 'var(--radius-pill)',
               background: 'var(--pink)', color: 'var(--navy)', display: 'grid',
@@ -654,6 +809,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
       {/* Stage. The only flexible band, so it absorbs any device height: the
           artwork shrinks and nothing else has to give. */}
       <div
+        className="sb-stage"
         style={{
           flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', gap: 8, padding: '2px 14px 0'
@@ -682,6 +838,28 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
               display: 'grid', placeItems: 'center', overflow: 'hidden', ...SQUIRCLE
             }}
           >
+          {/* The quantity, shown as the quantity. While that step is up and
+              more than one has been chosen, the stage tiles the finished donut
+              instead of showing one large one — six donuts is what "half
+              dozen" means, and answering it with a single donut beside a pill
+              reading "6" asks the visitor to take the number on trust.
+
+              Only on this step: the claw sequence carries one donut away, and
+              every offset in it is measured against a single full-size stack. */}
+          {showBatch ? (
+            <div className="sb-batch" data-count={s.qty}>
+              {Array.from({ length: s.qty }, (_, n) => (
+                <span key={n} className="sb-batch__one">
+                  {stageLayers.map((l, m) => (
+                    <ArtLayer key={m} img={l.img} opacity={l.opacity} mask={l.mask} />
+                  ))}
+                  {topSrc && !sprinkle.bare && (
+                    <SprinkleLayer src={topSrc} sprinkle={sprinkle} />
+                  )}
+                </span>
+              ))}
+            </div>
+          ) : (
           <div
             style={{
               position: 'absolute', inset: 0,
@@ -700,7 +878,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
               style={{ position: 'absolute', inset: 0 }}
             >
               {stageLayers.map((l, n) => (
-                <ArtLayer key={n} img={l.img} />
+                <ArtLayer key={n} img={l.img} opacity={l.opacity} mask={l.mask} />
               ))}
               {s.print && (
                 /* Placed per shape rather than dead centre: see `printSpot`.
@@ -726,6 +904,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
               <SprinkleLayer key={`${topSrc}|${sprinkle.id}`} src={topSrc} sprinkle={sprinkle} />
             </div>
           </div>
+          )}
             {/* Inside the clip: the carton that rises off the stage. */}
             {s.added && <ClawBox />}
           </div>
@@ -749,61 +928,10 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
           {/* 'In the box', and the kosher badges under it, are pulled for now.
               The fold itself is the confirmation. */}
 
-          {/* --- how many of these? ------------------------------------------
-              Asked after the build, not before it: before, the question wants a
-              commitment from someone who has not yet seen what they can make.
-
-              Hidden on a printed order. That path adds `twelve-custom-printed-
-              donuts` to the cart, which is a dozen by definition, so offering
-              "half dozen" there would be nonsense and passing 12 through would
-              mean twelve dozen. */}
-          {s.added && (
-            <div style={{ display: 'grid', gap: 8, justifyItems: 'center' }}>
-              <span
-                style={{
-                  fontFamily: 'var(--font-label)',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '.14em',
-                  textTransform: 'uppercase',
-                  color: 'var(--text-muted)'
-                }}
-              >
-                How many of these?
-              </span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-                {QUANTITIES.map((option) => {
-                  const on = s.qty === option.count;
-                  return (
-                    <button
-                      key={option.count}
-                      type="button"
-                      className="sb-press"
-                      aria-pressed={on}
-                      onClick={() => dispatch({ type: 'qty', count: option.count })}
-                      style={{
-                        minHeight: 40,
-                        padding: '0 15px',
-                        border: 0,
-                        borderRadius: 'var(--radius-pill)',
-                        /* The site's chip language: Bubblegum when chosen, a
-                           hairline ring when not. */
-                        background: on ? 'var(--pink)' : 'transparent',
-                        boxShadow: on ? 'none' : 'inset 0 0 0 1.5px rgba(14,62,105,.24)',
-                        color: 'var(--navy)',
-                        fontFamily: 'var(--font-body)',
-                        fontSize: 13.5,
-                        fontWeight: 700,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* "How many of these?" used to be asked right here, after the claw
+              had already carried the donut off — a quantity chosen after the
+              order was placed, beside a button reading "Build another". It is
+              a step in the sequence now: see `stepsFor`. */}
         </div>
       </div>
 
@@ -861,7 +989,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
 
       {/* Option sheet. Rounded at the top only — it reads as a drawer the
           stage sits in, and the action row belongs to it, not below it. */}
-      <div style={{ flex: 'none', background: 'var(--sand)', borderRadius: '28px 28px 0 0', padding: '14px 0 0' }}>
+      <div className="sb-sheet" style={{ flex: 'none', background: 'var(--sand)', borderRadius: '28px 28px 0 0', padding: '14px 0 0' }}>
         <div
           className="sb-head sb-measure"
           style={{
@@ -897,7 +1025,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
         {/* Option panel. Fixed height and one panel at a time, sliding: the
             step's options used to be swapped in place, which resized the band
             and shifted the stage above it on every Next. */}
-        <div style={{ position: 'relative', height: PANEL_H, overflow: 'hidden' }}>
+        <div className="sb-panel" style={{ position: 'relative', height: PANEL_H, overflow: 'hidden' }}>
           <AnimatePresence initial={false} custom={dir} mode="sync">
             <motion.div
               key={step}
@@ -1002,6 +1130,19 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
                 </button>
               </div>
               ) : (
+              <div className="sb-optionsWrap">
+                {/* Every option blocked by the same rule is a fact about the
+                    step, not about ten tiles, so it is said once above them —
+                    with the way to undo it, since the choice that caused it is
+                    the step before. */}
+                {options.length > 0 && options.every((o) => o.blocked) && (
+                  <p className="sb-opt-block">
+                    {options[0].reason}.{' '}
+                    <button type="button" onClick={() => dispatch({ type: 'goto', i: i - 1 })}>
+                      Pick an icing
+                    </button>
+                  </p>
+                )}
               <div className="sb-rail sb-options" style={{ gap: 10, padding: '0 18px 14px' }}>
                 {options.map((opt) => (
                   <button
@@ -1010,11 +1151,13 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
                     className="sb-tile"
                     onClick={opt.onClick}
                     aria-pressed={opt.active}
+                    disabled={opt.blocked}
                     title={opt.reason || undefined}
                     style={{
                       flex: 'none', width: 96, scrollSnapAlign: 'start', border: 0, borderRadius: 22,
                       background: 'var(--cream)', padding: '7px 7px 10px', display: 'flex',
-                      flexDirection: 'column', gap: 5, cursor: 'pointer',
+                      flexDirection: 'column', gap: 5, cursor: opt.blocked ? 'default' : 'pointer',
+                      opacity: opt.blocked ? 0.4 : 1,
                       fontFamily: 'var(--font-body)', textAlign: 'center',
                       boxShadow: opt.active ? 'inset 0 0 0 3px var(--navy)' : 'inset 0 0 0 1px rgba(14,62,105,.10)'
                     }}
@@ -1022,13 +1165,14 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
                     {/* The preview shows this option on the donut being built,
                         not an abstract swatch. */}
                     <span
+                      className="sb-opt-art"
                       style={{
                         position: 'relative', aspectRatio: '1', background: 'var(--sand)',
                         display: 'grid', placeItems: 'center', overflow: 'hidden', ...SQUIRCLE
                       }}
                     >
                       {opt.layers.map((l, n) => (
-                        <ArtLayer key={n} img={l.img} />
+                        <ArtLayer key={n} img={l.img} opacity={l.opacity} mask={l.mask} />
                       ))}
                       {opt.topping && (
                         <SprinkleLayer
@@ -1036,6 +1180,11 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
                           sprinkle={opt.topping.sprinkle}
                           animate={false}
                         />
+                      )}
+                      {opt.badge && (
+                        <span className="sb-qty-badge" aria-hidden="true">
+                          {opt.badge}
+                        </span>
                       )}
                       {opt.dots.length > 0 && (
                         <span
@@ -1070,6 +1219,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
                     </span>
                   </button>
                 ))}
+              </div>
               </div>
               )}
             </motion.div>

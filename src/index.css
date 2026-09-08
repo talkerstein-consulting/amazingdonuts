@@ -460,6 +460,12 @@ nav a,
   .hero-ctas {
     justify-content: center;
   }
+  /* Centred with the headline and lede above it, rather than left against a
+     column of centred text. */
+  .hero-lanes {
+    margin-left: auto;
+    margin-right: auto;
+  }
   /* Badge sits higher and further in from the right edge. */
   .hero-badge {
     top: clamp(40px, 8vw, 96px) !important;
@@ -498,22 +504,16 @@ nav a,
   overflow: hidden;
 }
 
-/* --- The Google score, beside the hero's CTA ---------------------------
-   Not a button and not a second CTA: no fill, no ring, no arrow. It sits at
-   the CTA's height so the two share a baseline, and its job is to make the
-   button easier to press. */
+/* --- The Google score, under the hero's two lane cards ------------------
+   Not a button, not a link, and not a second CTA: no fill, no ring, no arrow,
+   and nothing to press. Its job is to make the two cards above it easier to
+   press. */
 .review-score {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   padding: 0 4px;
   min-height: 52px;
-  text-decoration: none;
-  transition: opacity 0.2s ease;
-}
-
-.review-score:hover {
-  opacity: 0.72;
 }
 
 /* Not on phones. Its whole argument for existing is that it sits beside the
@@ -608,17 +608,36 @@ nav a,
    scrolling out from under it — an appointment stays true while the visitor
    shops. One below the header's z-index, so the bar's drawer and search still
    pass over it. */
+/* Bubblegum, not Dare Devil. Dare Devil is the one-per-screen hero colour and
+   this band is standing state, not an action — an orange strip across the top
+   of every page was spending the loudest thing in the palette on a line that
+   says when you are collecting. Bubblegum is light, so the ink goes Harbour,
+   the same pairing the Delivery lane card and the Party Pack badge use. */
 .pickup-banner {
   position: sticky;
   top: var(--nav-h);
   z-index: 59;
-  background: var(--orange);
-  /* Cream, not navy. The band is Signal orange and the bar above it is navy —
-     navy text on the orange read as a third colour wedged between them. */
-  color: var(--cream);
+  background: var(--pink);
+  color: var(--navy);
 }
 
+/* Signal blue for delivery, so the two states of the band are told apart by
+   colour before a word of either is read — and matched to the truck glyph the
+   checkout segment and the lane card use. Canvas ink: Harbour on Signal does
+   not clear AA. */
+.pickup-banner--delivery {
+  background: var(--blue);
+  color: #fff;
+}
+
+.pickup-banner--delivery .pickup-banner__select { background: rgba(255, 255, 255, 0.18); }
+.pickup-banner--delivery .pickup-banner__select:hover { background: rgba(255, 255, 255, 0.28); }
+.pickup-banner--delivery .pickup-banner__cancel:hover { background: rgba(255, 255, 255, 0.22); }
+
+
+/* Positioned, because the edit panel hangs off its bottom edge. */
 .pickup-banner__inner {
+  position: relative;
   max-width: 1240px;
   margin: 0 auto;
   padding: 8px clamp(18px, 4vw, 40px);
@@ -630,41 +649,39 @@ nav a,
   line-height: 1;
 }
 
-/* The sentence takes the room that is left and gives it back before the two
-   controls are pushed off the end. */
-.pickup-banner__inner p {
-  margin: 0;
-  min-width: 0;
-  flex: 1 1 auto;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.pickup-banner__inner strong {
+/* Two selects and a label on one line. The band states the booking BY being
+   the controls that set it, so there is no sentence to keep and no panel to
+   open — see the note on the component. */
+.pickup-banner__lead {
+  flex: none;
   font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-/* "Pickup booked" is the label; the slot itself is the fact. On a narrow
-   screen the label is the half worth losing. */
-@media (max-width: 560px) {
-  .pickup-banner__lead {
-    display: none;
-  }
-}
-
-.pickup-banner__inner a {
-  flex: none;
+.pickup-banner__select {
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 8px;
+  /* A wash of the band's own ink rather than a panel colour: the selects are
+     part of the strip, not two fields dropped onto it. */
+  background: rgba(14, 62, 105, 0.1);
   color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
 }
 
-.pickup-banner__inner button {
+.pickup-banner__select:hover { background: rgba(14, 62, 105, 0.18); }
+
+/* Pushes the cancel to the far end, so the two selects stay together as one
+   statement rather than spreading across the band. */
+.pickup-banner__cancel {
   flex: none;
+  margin-left: auto;
   display: grid;
   place-items: center;
   width: 22px;
@@ -677,8 +694,79 @@ nav a,
   cursor: pointer;
 }
 
-.pickup-banner__inner button:hover {
-  background: rgba(251, 247, 239, 0.22);
+.pickup-banner__cancel:hover { background: rgba(14, 62, 105, 0.14); }
+
+/* The supporting sentence — delivery's terms, or pickup's missing time. Takes
+   the room that is left and gives it back first. */
+.pickup-banner__note {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+  font-weight: 400;
+}
+
+/* The way out of the choice, as a link rather than a control: it changes which
+   page you are on, not a field on this one. */
+/* Underlined text, whether it is a link out or a button that changes the
+   choice in place — the two variants of the band use one and then the other,
+   and they have to read as the same control. `button` needs the reset a link
+   does not. */
+.pickup-banner__swap {
+  flex: none;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+/* Both are pushed right by the link above, so only one of them can claim the
+   auto margin. */
+.pickup-banner__swap + .pickup-banner__cancel { margin-left: 0; }
+
+/* The label and the supporting sentence are the halves worth losing on a
+   narrow screen: the fact is the two windows, or the fact that delivery is on
+   at all, and the truck says that on its own. */
+@media (max-width: 640px) {
+  .pickup-banner__note { display: none; }
+}
+
+@media (max-width: 480px) {
+  .pickup-banner__lead { display: none; }
+  .pickup-banner__swap { display: none; }
+}
+
+/* Delivery's band has no selects, so its own sentence survives further down —
+   there is nothing else competing for the width.
+
+   On a phone the sentence still does not fit, and it was ellipsised — "Local
+   delivery · fee and minimum shown at chec…" cut off exactly where the useful
+   half starts. So on narrow screens it scrolls instead of truncating: the note
+   keeps its single line and the visitor swipes it to read the end. Touch
+   scrolling only — no scrollbar, and the band's own height is unchanged. */
+@media (max-width: 640px) {
+  .pickup-banner--delivery .pickup-banner__note {
+    display: block;
+    overflow-x: auto;
+    text-overflow: clip;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    /* The line box is 13px/1; the padding keeps a descender from being clipped
+       by the scrollport it now sits in. */
+    padding-bottom: 2px;
+  }
+
+  .pickup-banner--delivery .pickup-banner__note::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* The clock, which flexbox would otherwise squash along with the sentence. */
@@ -819,7 +907,7 @@ nav a,
      homepage needs a visitor to make, so they have to be visible on arrival.
      The room for this comes from the star rating, which is hidden at this
      width — see `.review-score`. Measured, not guessed: change this and
-     re-measure `.lanes-row`'s bottom against `innerHeight`. */
+     re-measure `.hero-lanes`'s bottom against `innerHeight`. */
   width: 74%;
   margin-left: auto;
   margin-right: auto;
@@ -929,17 +1017,26 @@ nav a,
    needs a visitor to make was the one thing they had to scroll to find. Icon,
    title, button: about a quarter of the height, and the donut photography
    arrives on hover instead. */
-.lanes-row {
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: 0 clamp(18px, 4vw, 40px) clamp(16px, 1.8vw, 24px);
+/* The pair now lives in the hero, standing where the "Shop donuts" knob was.
+
+   No page padding of its own — the hero section already carries it — and a
+   max-width, because two cards spread over the full 1240px would be a pair of
+   billboards under the headline rather than a choice. It is left-aligned with
+   the headline and lede above it.
+
+   `isolation: isolate` is load-bearing. The hover donuts are `z-index: -1` and
+   escape the card deliberately, landing in the nearest stacking context; the
+   `#lanes` section used to be it. Without a context here they would escape to
+   the root and paint behind the page background, which is to say never
+   appear. */
+.hero-lanes {
   display: grid;
-  /* Three columns at every width. On a phone these become three narrow cards
-     side by side rather than a stack: the section's whole job is letting the
-     three ways to buy be compared at a glance, and stacking them hid two. */
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(8px, 1.6vw, 22px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(8px, 1.6vw, 18px);
   align-items: stretch;
+  isolation: isolate;
+  max-width: 620px;
+  margin-top: clamp(14px, 1.6vw, 20px);
 }
 
 .lane-card {
@@ -974,9 +1071,10 @@ nav a,
 
 .lane-card__title {
   margin: 0;
-  /* Much larger than the 22-28px these were: these three words are the only
-     headings the section has, so they carry the weight a section title would. */
-  font-size: clamp(26px, 3.4vw, 46px);
+  /* Sized for the hero, not for a section of its own. At the old 46px these
+     two words competed with the headline three lines above them; this reads as
+     the largest thing below the lede without arguing with the h1. */
+  font-size: clamp(24px, 2.6vw, 34px);
   line-height: 0.92;
 }
 
@@ -989,10 +1087,9 @@ nav a,
      large as that width will carry and the padding is as small as it can be
      without the words touching the edge — the card is a label, so the label
      should be most of it. */
-  .lanes-row {
-    gap: 6px;
-    padding-left: 12px;
-    padding-right: 12px;
+  .hero-lanes {
+    gap: 8px;
+    max-width: none;
   }
 
   .lane-card {
@@ -1075,6 +1172,39 @@ nav a,
   height: 300px;
   overflow: hidden;
   pointer-events: none;
+}
+
+/* Smaller inside the hero on narrow screens only.
+   
+   In their own section the donuts crested into empty page; under the hero they
+   crest into the lede, and on a phone — where the cards are ~170px wide and the
+   lede sits a few pixels above them — a full-size donut covered three lines of
+   body copy on every tap. From 900px the hero centres, the lede is short and
+   well clear of the cards' shoulders, and there is room for the donuts at their
+   proper size, so they keep it. */
+.hero-lanes .lane-card__peeks {
+  bottom: 68%;
+  height: 130px;
+}
+
+.hero-lanes .lane-card__peek {
+  --peek-w: clamp(46px, 34%, 96px);
+}
+
+@media (min-width: 900px) {
+  .hero-lanes .lane-card__peeks {
+    bottom: 54%;
+    height: 300px;
+  }
+
+  /* 60% of the section's own size — the whole clamp scaled by the same factor,
+     so the floor, the proportional middle and the ceiling all shrink together
+     and the row keeps its behaviour at every width. At full size the group came
+     up as tall as the headline above it and read as a second row of products
+     landing on the hero rather than as three donuts coming off a card. */
+  .hero-lanes .lane-card__peek {
+    --peek-w: clamp(37px, 37%, 126px);
+  }
 }
 
 .lane-card__peek {
@@ -1295,15 +1425,12 @@ nav a,
    360px a cell is ~160px, and 14px each side plus 'Sesame Free' in Karla 700
    would not fit. */
 @media (max-width: 700px) {
+  /* Was a two-column grid, sized to keep six ringed pills from wrapping
+     raggedly. With the rings gone the marks are narrow enough to flow, and a
+     grid would give each dot a cell of its own — a column of floating dots. */
   .footer-badges {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .footer-badges > * {
-    justify-content: center;
-    padding-left: 8px;
-    padding-right: 8px;
+    gap: 8px;
+    row-gap: 10px;
   }
 }
 
@@ -1749,4 +1876,564 @@ html.lenis,
 
 @media (prefers-reduced-motion: reduce) {
   .bulk-success-donut { transform: none !important; }
+}
+
+
+/* --- The catalogue's own ground -----------------------------------------
+   Opaque, and full-bleed under a section that is otherwise 1240px wide.
+
+   The hero donut hangs down out of the hero on a negative bottom margin so
+   the certification band can cut across it — but the band is only a sliver,
+   and below it the catalogue was transparent, so the donut's bottom edge sat
+   in the open with a hard cut where the artwork ends. Painting the catalogue
+   on a real surface is what covers it.
+
+   Drawn as a `::before` stretched to 100vw rather than as a background on the
+   section itself: the section is centred with a max-width, so its own
+   background would leave the page's margins bare and the donut would show
+   past both sides of it. `z-index: 3` on the section makes it the stacking
+   context the -1 escapes into — above the hero's donut (z-index 0), below the
+   catalogue's own content. */
+#favorites {
+  position: relative;
+  z-index: 3;
+}
+
+#favorites::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: var(--sand);
+}
+
+/* --- The homepage's category rows, as jump targets ----------------------
+   The category rail above them scrolls here rather than navigating. The
+   allowance is the sticky navbar plus the pickup/delivery band plus a little
+   air — the same reasoning the shop grid's counter dividers use, and the same
+   reason it cannot be a plain `scroll-margin-top: var(--nav-h)`: the band is
+   only there once a fulfillment choice has been made.
+
+   Generous rather than exact. Overshooting the allowance leaves a gap above
+   the heading, which reads as deliberate; undershooting hides the heading
+   under the bar, which reads as broken. */
+.home-category {
+  scroll-margin-top: calc(var(--nav-h) + 64px);
+}
+
+/* --- The build-your-own boxes are double-width tiles ----------------------
+   Half dozen and dozen are not two more donuts in a run of sixty; they are the
+   way into the builder, and what the run behind them is for. Drawn at the size
+   of their own contents they disappear into it, so each takes two columns and
+   the pair — consecutive in the catalogue, so consecutive in every grid that
+   shows catalogue order — lands as one full row at the head of Donuts.
+
+   Two columns is a full row on the phone's two-up grid, which is why the two
+   boxes are the first and second rows there, and half a row each on the
+   four-up grid the homepage and the shop both reach. The shop's 700-999px
+   three-up is the one width where two of them cannot share a row: a pair of
+   two-column tiles would leave a hole, so at that width each takes the row. */
+/* `.box-card-cell` is the shop grid's wrapper for the same card — the grid's
+   children carry the entry animation, so the card sits inside one there rather
+   than being the grid child itself. Both take the span. */
+.product-grid > .box-card,
+.product-grid > .product-wide,
+.shop-grid > .box-card-cell,
+.shop-grid > .product-wide {
+  grid-column: span 2;
+}
+
+@media (min-width: 700px) and (max-width: 999px) {
+  .shop-grid > .box-card-cell,
+  .shop-grid > .product-wide { grid-column: span 3; }
+}
+
+/* The wrapper is only a positioning shell; the card is the whole of it. */
+.box-card-cell {
+  display: flex;
+  min-width: 0;
+}
+
+.box-card-cell > .box-card {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Air under the pair, so the boxes read as their own band at the head of the
+   run rather than as the first row of the product grid. The grid's own gap is
+   the spacing BETWEEN products, and using it here made the two propositions
+   look like two more items sitting slightly larger than the rest. */
+.product-grid > .box-card,
+.shop-grid > .box-card-cell {
+  margin-bottom: clamp(14px, 2vw, 26px);
+}
+
+/* The photo bed is a square in a one-column tile. Left square it would be
+   twice as tall as everything beside it; at 2:1 the wide tile stands almost
+   exactly as tall as a normal one, so the grid's rows stay even.
+   `!important` because the bed carries its aspect ratio as an inline style. */
+.product-wide > div > button {
+  aspect-ratio: 2 / 1 !important;
+}
+
+/* --- The build-your-own boxes, as homepage proposition cards --------------
+   Built on `.bulk-banner`'s shape rather than the product tile's: copy on the
+   left, the box photograph bleeding off the right. A box is not a thing you
+   add to a bag, it is an invitation to go and fill one, so it gets the card
+   the petite and bulk propositions get instead of a name, a price and a plus.
+
+   Smaller than those bands, because this one sits inside the product grid and
+   stands only as tall as the tiles beside it — see `.product-wide`. */
+/* The card is not a control. The button on it is.
+
+   It used to be the button's hit target from edge to edge, with a pointer
+   cursor everywhere on it, so the photograph and the heading both looked
+   pressable. On a card whose whole job is to send you somewhere that reads as
+   three controls that happen to do the same thing — and it made the picture,
+   which is the part you want looked at, compete with the button for the click.
+   `position: relative` stays: the photograph still bleeds off the end of it. */
+.box-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(12px, 2vw, 24px);
+  padding: clamp(16px, 2vw, 26px);
+  border-radius: 32px;
+  overflow: hidden;
+}
+
+.box-card__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.box-card__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  /* One step up the scale: `--type-card-heading-sm` runs Swatch (28) to
+     Sub-hero (44), where the old hand-written 22-30px sat below Swatch and made
+     the card's own name the smallest heading on a page full of them. The token
+     rather than another pair of numbers, so it moves when the scale does. */
+  font-size: var(--type-card-heading-sm);
+  line-height: 0.95;
+}
+
+.box-card__note {
+  margin: 0;
+  max-width: 34ch;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.box-card__cta {
+  margin-top: 4px;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+/* Nothing here drives the button from the card any more.
+
+   While the whole card was the hit target it had to: `:hover` and `:active`
+   only ever match the button's own box, so a card that was clickable
+   everywhere was responsive nowhere. With the target back on the button,
+   `.bbtn:hover` and `.brand-press:active` — which already set the label slide
+   and the press scale — are the only states, and they run where the pointer
+   actually is. */
+
+/* The pair's buttons are the same size, because the pair's cards are.
+
+   Each one used to shrink-wrap its own label, so "Build a half dozen" came out
+   286px and "Build a dozen" 236px — two different buttons on two identical
+   twins sitting side by side, the difference reading as a mistake rather than
+   as a shorter word. The copy column takes an equal share of the card
+   (`flex: 1 1 0`) and the button fills it, so both are the same width whatever
+   the labels say; `space-between` then puts each knob on its own trailing
+   edge, which is what the phone layout already does. */
+@media (min-width: 641px) {
+  .box-card__copy { flex: 1 1 0; }
+
+  .box-card__cta {
+    align-self: stretch;
+    justify-content: space-between;
+  }
+}
+
+/* Above the action, in the card's own ink. Steps with the title rather than
+   holding one size across both: at 15px under a 30px heading it read as a
+   caption on the phone card. */
+.box-card__price {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+@media (min-width: 641px) {
+  .box-card__price { font-size: 15px; }
+}
+
+/* Rounded, and inside the card's padding rather than bleeding off it.
+
+   The bulk and petite bands bleed their art off the edge because theirs are
+   cut-outs on transparency — there is no rectangle to notice. These two are
+   studio photographs on their own pale ground, so running one to the card's
+   edge read as a leak in the colour. Framed, it reads as a picture of the box,
+   which is what it is. */
+.box-card__photo {
+  flex: none;
+  /* Wider again now that the card carries a heading, a price and a button
+     rather than a paragraph — the copy column needs only the button's width,
+     and the photograph is what the card is actually selling. */
+  width: min(46%, 260px);
+  height: auto;
+  border-radius: 20px;
+  pointer-events: none;
+}
+
+/* On the phone's two-up grid the card is a full row and the copy loses to the
+   photograph side by side, so the box goes underneath it. */
+@media (max-width: 640px) {
+  .box-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Full width, and free to wrap: the phone card is a single column, so the
+     label has the whole measure and nothing is squeezing it.
+
+     `space-between` because the button is stretched. Its content is laid out
+     from the start edge by default, so a full-width button left the label and
+     its knob bunched at the left with dead space after them — 40px on the six
+     and 90px on the twelve, whose label is shorter, which is why the two cards
+     looked inconsistent as well as unfinished. The knob goes to the trailing
+     edge instead, the same way the product panel's and the box builder's own
+     full-width Add buttons place theirs. */
+  .box-card__cta {
+    align-self: stretch;
+    white-space: normal;
+    justify-content: space-between;
+  }
+
+  .box-card__photo {
+    width: 100%;
+    margin: 4px 0 calc(-1 * clamp(8px, 3vw, 18px));
+  }
+}
+
+/* The dozen card is Signal blue, and the outline button's navy on it measures
+   about 3.5:1 — under the 4.5 that body-sized text needs. The card's own title
+   and copy are already Shortbread for the same reason, so the button joins
+   them rather than being the one element you have to squint at. */
+.box-card__cta--onDark {
+  color: var(--cream) !important;
+  box-shadow: inset 0 0 0 2px var(--cream) !important;
+  border-color: var(--cream) !important;
+}
+
+.box-card__cta--onDark:hover {
+  background: rgba(247, 238, 224, 0.14) !important;
+}
+
+
+/* --- Surfaces that own the whole viewport --------------------------------
+   No pickup/delivery band on them. The box builder and the Donut Lab each fill
+   the screen and change nothing about how the order is collected, so the band
+   is a line spent on state belonging to the page behind — and at phone widths
+   it was itself truncated in the strip it got reduced to.
+
+   The lab needs it for a second reason: its main is sized `100dvh - --nav-h`
+   and its five bands are laid out to fill exactly that, so a band between the
+   header and the builder pushes the CTA off the bottom of the sheet.
+
+   Set by `BoxBuilder` for as long as it is mounted, and by `DonutLabPage` for
+   the life of the page. `BoxBuilder` also stops measuring the band into its
+   own top padding — see the effect there. */
+body.no-fulfillment-band .pickup-banner {
+  display: none;
+}
+
+/* --- The bulk enquiry, asked one question at a time ----------------------
+   Eight blocks stacked on a page read as a long form: the visitor sizes up the
+   whole thing before answering any of it. One at a time it is the same eight
+   answers with only the current one on screen — the pattern the Donut Lab's
+   builder already uses on this site. */
+.bulk-progress {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bulk-progress__count {
+  flex: none;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(14, 62, 105, 0.62);
+  font-variant-numeric: tabular-nums;
+}
+
+.bulk-progress__track {
+  flex: 1 1 auto;
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(14, 62, 105, 0.12);
+  overflow: hidden;
+}
+
+.bulk-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--orange);
+  transition: width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* A floor, not a fixed height. The questions are different sizes — four
+   choices against a four-field contact block — and letting the panel collapse
+   to each one moved the buttons under it on every step. The floor holds the
+   common case still; the tall steps grow past it rather than scrolling inside
+   a box, because a form field in its own scrollport is worse than a longer
+   page. */
+/* The question sits in the middle of the panel, not at the top of it.
+
+   The panel is a fixed height on a desktop so the nav row underneath cannot
+   move (see below), and with the content aligned to the top that left a
+   four-chip question stranded above ~250px of nothing with the button marooned
+   at the far end of it. Centred, the spare height falls either side and the
+   question and its button read as one block. */
+.bulk-step {
+  min-height: 208px;
+  display: flex;
+  align-items: center;
+}
+
+/* One height for every question on a desktop, so Back and Next stay put.
+
+   Measured before this: the questions run 208px (four chips), 247px (the six
+   collection cards) and 427px (the calendar, drawn open), and the nav row sat
+   directly under whichever was showing — so the button you press to move on
+   jumped ~180px down the page on the date step and back up again after it. A
+   control that moves between presses is one you have to find again each time.
+
+   The floor is the tallest question, so the row lands in the same place on all
+   ten. Below the two-column width the page is a scroll anyway and the floor
+   would be dead space, so it stays off. */
+@media (min-width: 900px) {
+  .bulk-step { min-height: 372px; }
+}
+
+.bulk-step > * { width: 100%; }
+
+/* The arriving question. Keyed on the step, so React remounts it and the
+   animation runs from the start each time — no exit to coordinate, which is
+   the whole point (see the note in BulkOrdersPage). */
+.bulk-step__panel {
+  animation: bulkStepIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bulk-step__panel[data-dir='back'] {
+  animation-name: bulkStepInBack;
+}
+
+@keyframes bulkStepIn {
+  from { opacity: 0; transform: translateX(34px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes bulkStepInBack {
+  from { opacity: 0; transform: translateX(-34px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bulk-step__panel,
+  .bulk-step__panel[data-dir='back'] {
+    animation: bulkStepFade 0.12s linear both;
+  }
+  @keyframes bulkStepFade { from { opacity: 0; } to { opacity: 1; } }
+}
+
+/* The line reserves its own height whether or not it is saying anything, so
+   the nav row under it does not drop 43px the moment a step is refused — the
+   button you just pressed should not move out from under the cursor. */
+.bulk-step__nudge {
+  margin: 0;
+  min-height: 21px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: #9d2424;
+}
+
+/* Back at the left, the way on at the right, facing each other across the
+   row. `space-between` with a slot that is there whether or not it holds a
+   button, so the primary stays pinned right on question one too. */
+.bulk-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.bulk-nav__backSlot {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1px;
+}
+
+/* `.cabinet__back` is absolute over the product panel's photograph; here it
+   goes back into the flow at the left of the nav row. Everything else about it
+   — the pill, the ink, the word, the hover nudge — is that one definition, the
+   same way the box builder reuses it. */
+/* Two class names deep on purpose: `.cabinet__back` lives in shop.css, which
+   this page imports after index.css, so a single-class rule here loses to it
+   and the pill stayed absolutely positioned — 159px off the left of the form.
+   The box builder does not hit this because its own override sits in shop.css
+   beside the base. */
+.bulk-nav .bulk-nav__back {
+  position: relative;
+  top: auto;
+  left: auto;
+  align-self: center;
+  flex: none;
+  margin: 0;
+}
+
+/* On a phone the row becomes a column: the action takes the full width where
+   the thumb is, and Back sits under it — still the secondary, still last. */
+@media (max-width: 560px) {
+  .bulk-nav { flex-direction: column; align-items: stretch; }
+  .bulk-nav__next { width: 100%; order: -1; }
+  .bulk-nav__backSlot { justify-content: center; }
+  .bulk-nav__back { padding: 8px 0; }
+}
+
+/* --- Bulk question 3: the shop's collection cards, as checkboxes ----------
+   A grid rather than the shop's scrolling rail: nothing is being filtered
+   down, so all six should be readable at once instead of swiped past. The
+   card itself is `.collection-card` from shop.css — same object, same
+   silhouette, same Harbour inversion when it is on. */
+.bulk-picks {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.bulk-pick {
+  position: relative;
+  width: 100%;
+  padding-right: 42px;
+}
+
+/* The real checkbox, kept in the layout for focus and screen readers and
+   drawn nowhere — the card is its own control surface. */
+.bulk-pick__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bulk-pick__input:focus-visible ~ .collection-card__bed {
+  outline: 3px solid var(--orange);
+  outline-offset: 2px;
+}
+
+.bulk-pick__tick {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%) scale(0.6);
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 99px;
+  background: var(--orange);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bulk-pick.is-on .bulk-pick__tick {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+/* The question and its one caveat on the same line, the caveat pushed to the
+   far end so it reads as an aside rather than part of the question. */
+.bulk-picks__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Quieter ink: the question is the instruction, this is only the part that is
+   not obvious — that more than one answer is allowed. */
+.bulk-picks__hint {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(14, 62, 105, 0.6);
+}
+
+/* --- One field per question ---------------------------------------------- */
+.bulk-field {
+  display: block;
+  max-width: 30rem;
+}
+
+.bulk-field__note {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(14, 62, 105, 0.62);
+}
+
+/* --- The date, drawn open ------------------------------------------------ */
+/* No trigger and no popover: on a form that asks one question at a time the
+   date IS the question, and a button that only reveals a calendar is a tap
+   between the visitor and the thing they came to the step for. */
+.brand-date--inline .brand-date__panel {
+  position: static;
+  margin-top: 10px;
+  padding: 12px 14px;
+  box-shadow: none;
+  border: 1.5px solid rgba(14, 62, 105, 0.16);
+}
+
+/* Tighter cells inline than in the popover. The step panel is sized to hold
+   the tallest question — see `.bulk-step` — so every pixel this calendar loses
+   is a pixel of empty space the other nine questions get back. 38px cells were
+   sized for a popover floating over a page; 32px is still well over the 24px
+   minimum for a touch target with the gaps counted. */
+.brand-date--inline .rdp-day_button {
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+}
+
+/* The disabled days already say what is too soon; the sentence under them
+   repeats it, and it is repeating it in the one place where height is
+   expensive. */
+.brand-date--inline .brand-date__panel > p {
+  display: none;
 }

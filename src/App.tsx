@@ -10,11 +10,11 @@ import { markPreloaded, preloadVariant } from './lib/preload-session';
 import { initSmoothScroll } from './lib/smooth-scroll';
 import ProductPanel from './shop/ProductPanel';
 import CartDrawer from './shop/CartDrawer';
+import ReturnPrompt from './shop/ReturnPrompt';
 import AuthModal from './shop/AuthModal';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import TrustBar from './components/TrustBar';
-import Lanes from './components/Lanes';
 import Catalog from './components/Catalog';
 import Features from './components/Features';
 import Social from './components/Social';
@@ -39,7 +39,6 @@ function Site({ ready, slideIn }: { ready: boolean; slideIn: boolean }) {
         <Header onSignIn={() => setAuthOpen(true)} />
         <Hero ready={ready} />
         <TrustBar />
-        <Lanes />
         <Catalog />
         <Features />
         <Social />
@@ -49,6 +48,7 @@ function Site({ ready, slideIn }: { ready: boolean; slideIn: boolean }) {
       {/* The product cabinet slides over the catalogue it came from. */}
       <AnimatePresence>{product && <ProductPanel key={product.id} product={product} />}</AnimatePresence>
       <CartDrawer />
+      <ReturnPrompt />
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </>
   );

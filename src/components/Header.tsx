@@ -4,7 +4,7 @@ import { Menu, Plus, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useNavTheme } from '../lib/nav-theme';
 import { useShop } from '../lib/shop';
-import { CATEGORIES, PRODUCTS } from '../data/products';
+import { CATEGORIES, PRODUCTS, SHOP_PRODUCTS } from '../data/products';
 import { BEST_SELLERS } from '../data/product-tags';
 import { LAB_HREF } from '../lib/lab-href';
 import { HOME_HREF, onHomeClick } from '../lib/home-href';
@@ -117,7 +117,7 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
      slides between the two rather than blinking out and in. */
   const marked = hovered ?? activeLabel;
   const searchTerm = query.trim().toLowerCase();
-  const productSuggestions = searchTerm ? PRODUCTS.filter((product) => `${product.name} ${product.category}`.toLowerCase().includes(searchTerm)).slice(0, 4) : [];
+  const productSuggestions = searchTerm ? SHOP_PRODUCTS.filter((product) => `${product.name} ${product.category}`.toLowerCase().includes(searchTerm)).slice(0, 4) : [];
   const categorySuggestions = searchTerm ? CATEGORIES.filter((category) => category.toLowerCase().includes(searchTerm)).slice(0, 2) : [];
 
   const closeSearch = () => setSearchOpen(false);
@@ -401,8 +401,12 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
           <button
             type="button"
             onClick={openCart}
-            aria-label={`Box, ${count} ${count === 1 ? 'item' : 'items'}`}
+            aria-label={`Bag, ${count} ${count === 1 ? 'item' : 'items'}`}
             className="icon-btn"
+            /* Where an added product flies to — see `lib/fly-to-cart`. An
+               attribute rather than an id, because every page mounts its own
+               Header and an id would have to be unique across all of them. */
+            data-cart-target=""
             style={{ color: theme.fg, position: 'relative' }}
           >
             <ShoppingBag size={24} strokeWidth={2} />

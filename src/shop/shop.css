@@ -149,49 +149,42 @@
   padding: clamp(36px, 8vw, 90px);
 }
 
-/* Bottom rail on phones, left column from tablet up — as the frame has it. */
+/* The white-ground studio originals are photographs of a whole frame, not a
+   cut-out to float, so they drop the pane's padding and sit edge to edge —
+   still `contain`, because `cover` crops a square photograph's top and bottom
+   against a wide pane and clipped the donut. */
+.cabinet__hero--photo { padding: 0; }
+
+/* Bottom-left, opposite the share column on the right, so the two sets of
+   controls over the photograph never collide. */
 .cabinet__rail {
   position: absolute;
   z-index: 3;
-  left: 50%;
-  bottom: 14px;
-  transform: translateX(-50%);
+  bottom: 16px;
+  left: 16px;
   display: flex;
-  flex-direction: row;
   gap: 8px;
 }
 
-@media (min-width: 900px) {
-  .cabinet__rail {
-    left: 16px;
-    top: 76px;
-    bottom: auto;
-    transform: none;
-    flex-direction: column;
-  }
-}
-
 .cabinet__thumb {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   padding: 4px;
-  border: none;
+  border: 2px solid transparent;
   border-radius: 14px;
-  background: var(--cream);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 2px 10px rgba(14, 62, 105, 0.14);
   cursor: pointer;
-  opacity: 0.66;
-  transition: opacity 0.18s ease, box-shadow 0.18s ease;
+  overflow: hidden;
+  transition: border-color 0.18s ease, transform 0.18s ease;
 }
 
-.cabinet__thumb:hover { opacity: 1; }
-
-.cabinet__thumb.is-on {
-  opacity: 1;
-  box-shadow: inset 0 0 0 2px var(--navy);
-}
+.cabinet__thumb img { width: 100%; height: 100%; object-fit: contain; }
+.cabinet__thumb:hover { transform: translateY(-2px); }
+.cabinet__thumb.is-active { border-color: var(--navy, #0e3e69); }
 
 @media (min-width: 900px) {
-  .cabinet__thumb { width: 58px; height: 58px; }
+  .cabinet__thumb { width: 64px; height: 64px; }
 }
 
 .cabinet__info {
@@ -292,41 +285,99 @@
 
 .cabinet__add.is-added { background: var(--navy); }
 
-.cabinet__addAnchor { margin-top: 16px; }
+/* Favourite and add on one row. The heart is a fixed circle and the knob takes
+   the rest, so the row is the same shape whatever the total says.
+
+   On a phone the heart leads: the knob is full width and a circle in front of
+   it reads as an icon on the front of a button. From 900px it moves to the far
+   side of the knob — see the `order` rule below. */
+.cabinet__addAnchor {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The circular favourite, shared by the inline row and the sticky bar. Outline
+   at rest and Dare Devil when saved: it is the one control on the panel whose
+   state is worth colour, since nothing else says whether a product is in the
+   account's list. */
+.cabinet__save,
+.cabinet__buybarSave {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: none;
+  border-radius: 99px;
+  background: transparent;
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.22);
+  color: var(--navy);
+  cursor: pointer;
+  transition: box-shadow 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+
+.cabinet__save:hover,
+.cabinet__buybarSave:hover { box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.45); }
+
+.cabinet__save.is-on,
+.cabinet__buybarSave.is-on {
+  color: var(--orange);
+  box-shadow: inset 0 0 0 2px var(--orange);
+}
 .cabinet__brandAdd { min-width: 0; }
 
 /* --- Product cabinet: detail furniture ---------------------------------- */
-.cabinet__close {
+/* Top left, where a back control belongs, and wide enough to carry its word.
+   The media tools keep the opposite corner. */
+.cabinet__back {
   position: absolute;
   z-index: 4;
   top: 16px;
-  right: 16px;
-  display: grid;
-  place-items: center;
-  width: 44px;
+  left: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   height: 44px;
+  padding: 0 18px 0 14px;
   border: none;
   border-radius: 99px;
   background: var(--cream);
   color: var(--navy);
   cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   box-shadow: 0 4px 14px rgba(14, 62, 105, 0.18);
+  transition: transform 0.18s ease;
 }
 
+.cabinet__back:hover { transform: translateX(-2px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cabinet__back { transition: none; }
+  .cabinet__back:hover { transform: none; }
+}
+
+/* Four circles now, so they stack into a column on the media's right edge
+   rather than running a row across the top of it — a row of four 44px discs
+   is 200px of furniture over the photograph on a phone. */
 .cabinet__mediaTools {
   position: absolute;
   z-index: 3;
   top: 16px;
   right: 16px;
   display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
-@media (max-width: 899px) {
-  /* The save/share tools own the media's top-right corner on phones. Keep the
-     panel close control in the opposite corner so all three remain usable. */
-  .cabinet__close { left: 16px; right: auto; }
-}
+/* The share circles are links as well as buttons, so the anchor needs the
+   button's own centring — `.cabinet__iconBtn` was written for a <button>. */
+a.cabinet__iconBtn { text-decoration: none; }
 
 .cabinet__iconBtn {
   display: grid;
@@ -523,12 +574,46 @@
   flex: none;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  /* Back first, then the title. `space-between` while the cross was on the
+     right; with both controls on the left the title would be flung to the far
+     edge of a 440px drawer, away from the count it belongs to. */
+  gap: 14px;
   height: clamp(60px, 6.5vw, 78px);
-  padding: 0 10px 0 clamp(18px, 4vw, 24px);
+  padding: 0 clamp(14px, 3vw, 20px);
   background: var(--navy);
   color: var(--cream);
+}
+
+/* The panel's back control, set on the navy bar rather than floating on the
+   media the way the product panel's is. */
+.cart__back {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 16px 0 12px;
+  border: none;
+  border-radius: 99px;
+  background: rgba(251, 247, 239, 0.14);
+  color: var(--cream);
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.cart__back:hover {
+  background: rgba(251, 247, 239, 0.24);
+  transform: translateX(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cart__back { transition: none; }
+  .cart__back:hover { transform: none; }
 }
 
 .cart__title {
@@ -591,8 +676,6 @@
 .cart-glyph { min-height:68px; resize:vertical; font-size:16px; font-weight:700; line-height:1.35; }
 .cart-custom__ready { color:#18704f!important; font-weight:800; }
 .cart__checkout.is-disabled { opacity:.48; cursor:not-allowed; }
-.cart__continue { width:100%; min-height:44px; margin-top:10px; border:1.5px solid var(--navy); border-radius:var(--radius-pill); background:transparent; color:var(--navy); font-family:var(--font-cta); font-weight:800; letter-spacing:.03em; cursor:pointer; }
-.cart__continue:hover,.cart__continue:focus-visible { background:rgba(14,62,105,.08); color:var(--navy); }
 
 .cart__thumb {
   flex: none;
@@ -1059,79 +1142,6 @@
   .shop-banner__marks { justify-content: flex-start; }
 }
 
-/* --- category chips -----------------------------------------------------
-   The scrolling half of the toolbar row. It carried the row's own gutter and
-   max-width while it was a row; now the toolbar carries both and this is just
-   the part that is allowed to run out of room. */
-.shop-chips {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  /* The chips carry a 2px inset ring at their widest state; without a little
-     vertical room the clipped overflow shaves it off the top and bottom. */
-  padding: 2px 0;
-}
-
-/* The row is self-evidently scrollable from its clipped last chip; a bar under
-   it would sit in the middle of the page. */
-.shop-chips::-webkit-scrollbar { display: none; }
-
-.shop-chip {
-  flex: none;
-  scroll-snap-align: start;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 16px;
-  border: none;
-  border-radius: var(--radius-pill, 99px);
-  background: var(--sand);
-  color: var(--navy);
-  cursor: pointer;
-  font-family: var(--font-cta);
-  font-weight: 700;
-  font-size: var(--type-label);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  box-shadow: inset 0 0 0 2px transparent;
-  transition: background 0.18s ease, box-shadow 0.18s ease;
-}
-
-.shop-chip:hover { box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.22); }
-.shop-chip.is-on:hover { box-shadow: none; }
-
-/* The glyph must not shrink when the row is tight, or the chips lose the thing
-   that makes them scannable before they are read. */
-.shop-chip > svg { flex: none; }
-
-/* Inverted: the chip takes the ink and the type takes the page. The strongest
-   "you are here" available without spending Dare Devil, which stays reserved
-   for the one hero moment per screen. */
-.shop-chip.is-on {
-  background: var(--navy);
-  color: var(--cream);
-  box-shadow: none;
-}
-
-.shop-chip__count {
-  font-size: 12px;
-  letter-spacing: 0;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-/* On the inverted chip the count has to lift off navy, so it goes cream at
-   reduced opacity rather than staying the muted blue, which would vanish. */
-.shop-chip.is-on .shop-chip__count { color: rgba(251, 247, 239, 0.72); }
-
 /* The legitimacy row. Centred and wrapping, so it reflows to two or three
    lines on a phone rather than forcing the card wider than the banner. */
 .shop-banner__marks {
@@ -1147,56 +1157,6 @@
    its three pills cannot wrap into the row around them. */
 .shop-banner__marks > div {
   display: contents;
-}
-
-/* The tier row is subordinate to the collection row above it: same pill, one
-   size down, so it reads as a refinement rather than a second question. */
-/* Still its own line under the toolbar, so it takes back the gutter and the
-   width that `.shop-chips` gave up when it became a flex child. */
-.shop-chips--sub {
-  max-width: 1400px;
-  margin: 0 auto clamp(16px, 1.8vw, 24px);
-  padding: 0 var(--shop-gutter);
-  justify-content: flex-start;
-}
-
-.shop-chip--sub {
-  min-height: 36px;
-  padding: 0 14px;
-  font-size: 11px;
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.22);
-}
-
-.shop-chip--sub:hover { box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.45); }
-.shop-chip--sub.is-on { background: var(--navy); box-shadow: none; }
-
-/* --- the filter / sort row ----------------------------------------------
-   The counters and the order on one line. The rule beneath is drawn on the
-   padding box rather than on a full-bleed element, so it starts and ends
-   exactly where the tiles below it do.
-
-   `align-items: center` and not `stretch`: the chips scroll and the sort does
-   not, and a stretched sort pill would grow to whatever height the scrolling
-   half happened to be. */
-.shop-toolbar {
-  position: relative;
-  max-width: 1400px;
-  margin: clamp(32px, 4vw, 56px) auto clamp(20px, 2.2vw, 30px);
-  padding: 0 var(--shop-gutter) clamp(12px, 1.4vw, 18px);
-  display: flex;
-  align-items: center;
-  gap: clamp(12px, 1.6vw, 24px);
-}
-
-.shop-toolbar::after {
-  content: '';
-  position: absolute;
-  left: var(--shop-gutter);
-  right: var(--shop-gutter);
-  bottom: 0;
-  height: 1px;
-  background: rgba(14, 62, 105, 0.14);
 }
 
 /* What is left of the count line: only ever shown while a search is on, since
@@ -1545,10 +1505,6 @@
   padding: 0 var(--shop-gutter);
 }
 
-@media (max-width: 760px) {
-  .shop-chips { justify-content: flex-start; }
-}
-
 .shop-page .shop-grid > * {
   min-width: 0;
   max-width: 100%;
@@ -1636,6 +1592,31 @@
   white-space: nowrap;
 }
 
+/* On a phone the bar is favourite and add, and nothing else.
+
+   It carried the product name, the running total and the piece count as well,
+   which at 375px meant a name elided to three characters and a total wrapping
+   onto a second line. All three are already on the card the bar is pinned
+   under — the price at the top, the pieces in the fine print — so the bar
+   states none of them and spends its width on the two things you can do. */
+@media (max-width: 480px) {
+  .cabinet__buybarMeta { display: none; }
+
+  .cabinet__buybar { gap: 10px; }
+
+  .cabinet__save,
+  .cabinet__buybarSave { width: 48px; height: 48px; }
+
+  /* With the meta gone the knob takes the rest of the row rather than sitting
+     as a short pill against the right edge. `space-between` with it: the pill
+     is not `.bbtn--block`, so growing it alone left the label and its arrow
+     bunched at the left with dead pill to the right of them. */
+  .cabinet__buybar .cabinet__buybarButton {
+    flex: 1;
+    justify-content: space-between;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cabinet__buybar {
     transition-duration: 0.01ms;
@@ -1674,12 +1655,1745 @@
   color: var(--navy);
 }
 
-/* Takes the remaining width, so the row reads as a labelled rule across the
-   grid rather than a heading floating at its left edge. */
-.shop-divider__rule {
+
+
+
+/* ==========================================================================
+   Filter & sort — the pinned button and its drawer.
+   ========================================================================== */
+
+/* Pinned, because the cart was the only control on this page that stayed
+   reachable and filtering is the other half of shopping a sixty-item grid.
+
+   Bottom right on a phone, where a thumb already is. Top right from 900px,
+   tucked under the sticky navbar: on a desktop the pointer lives in the top
+   half of the window, and a pill floating over the bottom of a long grid reads
+   as a cookie banner.
+
+   Hidden until the grid starts — see `pinShown` in ShopAll. It slides in from
+   its own edge rather than fading, so it reads as arriving rather than as
+   something that was there all along and only just got painted.
+
+   Below the cabinet (165) and the cart (190): it must never float over a
+   drawer that is covering the page. */
+.filter-pin {
+  position: fixed;
+  z-index: 140;
+  right: clamp(14px, 2.4vw, 28px);
+  /* Clear of the phone's home indicator, and of anything the browser draws at
+     the bottom of the viewport. */
+  bottom: calc(clamp(14px, 2.4vw, 28px) + env(safe-area-inset-bottom, 0px));
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 52px;
+  padding: 0 22px;
+  border: none;
+  border-radius: var(--radius-pill, 99px);
+  background: var(--navy);
+  color: var(--cream);
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 14px 34px -12px rgba(14, 62, 105, 0.62);
+  /* Away by default, and inert with it. */
+  transform: translateY(150%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease,
+    box-shadow 0.18s ease;
+}
+
+.filter-pin.is-shown {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (min-width: 900px) {
+  .filter-pin {
+    /* `--pin-top` is measured in ShopAll and set on the element: the navbar's
+       height is a clamp and the pickup/delivery band is only sometimes there,
+       so the clear space below the furniture is not a constant. The fallback is
+       the navbar alone, for the moment before the first measurement. */
+    top: var(--pin-top, calc(var(--nav-h) + 18px));
+    bottom: auto;
+    /* From above, since that is now the edge it is parked against. Far enough
+       to clear whatever the offset turned out to be. */
+    transform: translateY(-260px);
+  }
+
+  .filter-pin.is-shown { transform: translateY(0); }
+}
+
+.filter-pin.is-shown:hover {
+  box-shadow: 0 18px 40px -12px rgba(14, 62, 105, 0.7);
+}
+
+.filter-pin > svg { flex: none; }
+
+/* How many filters are narrowing the grid. Dare Devil, because it is the one
+   thing on the button that is not always true. */
+.filter-pin__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 12px;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-pin { transition-duration: 0.01ms; }
+  .filter-pin:hover { transform: none; }
+  .filter-pin.is-shown:hover { transform: none; }
+}
+
+/* Under the drawer, over everything else on the page. */
+.filter-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  background: rgba(14, 62, 105, 0.42);
+}
+
+/* From the right, the edge the pin sits against, so the panel arrives from
+   where it was pressed. The cart uses this edge too; only one is ever open. */
+.filter-drawer {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 185;
+  width: min(400px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: var(--cream);
+  box-shadow: -24px 0 60px -20px rgba(14, 62, 105, 0.34);
+}
+
+.filter-drawer:focus { outline: none; }
+
+.filter-drawer__bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: clamp(60px, 6.5vw, 78px);
+  padding: 0 12px 0 clamp(16px, 2vw, 24px);
+  background: var(--navy);
+  color: var(--cream);
+}
+
+.filter-drawer__title {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.filter-drawer__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(14px, 2vw, 22px) clamp(10px, 1.6vw, 14px) 20px;
+}
+
+.filter-group + .filter-group {
+  margin-top: 22px;
+  padding-top: 18px;
+  /* The one rule left on this page, and it is doing real work: it separates
+     three lists that would otherwise read as one long list of unrelated
+     answers. */
+  border-top: 1px solid rgba(14, 62, 105, 0.12);
+}
+
+.filter-group__title {
+  margin: 0 0 6px;
+  padding: 0 12px;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--navy);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 15px;
+  transition: background 0.15s ease;
+}
+
+.filter-row:hover { background: rgba(14, 62, 105, 0.06); }
+
+.filter-row__icon { flex: none; color: var(--text-muted); }
+.filter-row.is-on .filter-row__icon { color: var(--navy); }
+
+.filter-row__label { flex: 1; min-width: 0; }
+
+/* The chosen row is set in the display face rather than filled or ringed: one
+   bolder line in a column of plain ones is enough to find at a glance, and a
+   fill would make each row look like a button. */
+.filter-row.is-on {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.filter-row__count {
+  flex: none;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A count of zero is still worth showing — it says the combination is empty,
+   which is the answer to "why is the grid blank" — but it must not read as an
+   equal choice. */
+.filter-row__count:empty { display: none; }
+
+.filter-row__tick { flex: none; color: var(--orange); transition: opacity 0.15s ease; }
+
+.filter-drawer__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px clamp(14px, 2vw, 20px)
+    calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(14, 62, 105, 0.12);
+  background: var(--cream);
+}
+
+.filter-clear {
+  flex: none;
+  min-height: 48px;
+  padding: 0 18px;
+  border: none;
+  border-radius: var(--radius-pill, 99px);
+  background: transparent;
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.22);
+  color: var(--navy);
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.filter-clear:disabled { opacity: 0.4; cursor: default; }
+.filter-clear:not(:disabled):hover { box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.45); }
+
+/* The drawer's one action, and the only place on the page Dare Devil is
+   spent — it is also the live result count, so it doubles as feedback while
+   the groups above it are being changed. */
+.filter-apply {
+  flex: 1;
+  min-height: 48px;
+  padding: 0 18px;
+  border: none;
+  border-radius: var(--radius-pill, 99px);
+  background: var(--orange);
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+
+/* --- Frequently bought together ------------------------------------------
+   A bundle, not a browse row: three fixed items, one total, one button. It
+   sits under "Goes well with", which is the browse row — the two look similar
+   on purpose and are told apart by the foot. */
+.cabinet__bundle {
+  padding: clamp(6px, 1.4vw, 14px) 2px clamp(14px, 2.4vw, 22px);
+  /* Load-bearing. A grid item's `min-width` is `auto`, which is its content's
+     min-content width — and the rail's is three 116px cards plus two plus
+     signs, or 432px. Without this the section pushes the panel's single mobile
+     column out to 432 and everything above it, "Goes well with" included, is
+     clipped by the panel edge. The rail is meant to scroll, not to set the
+     width of the page it is on. */
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .cabinet__bundle { grid-column: 1 / -1; }
+}
+
+/* Three items and two plus signs on one line. It scrolls sideways rather than
+   wrapping: a bundle that wraps reads as a list, and the plus signs land at
+   the ends of lines where they join nothing. */
+.cabinet__bundleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.cabinet__bundleRow::-webkit-scrollbar { display: none; }
+
+.cabinet__bundlePlus {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  color: rgba(14, 62, 105, 0.45);
+}
+
+.cabinet__bundleItem {
+  flex: 1 1 0;
+  min-width: 116px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: none;
+  border-radius: 20px;
+  background: var(--sand);
+  color: var(--navy);
+  text-align: left;
+}
+
+.cabinet__bundleItem--link {
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cabinet__bundleItem--link:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px -14px rgba(14, 62, 105, 0.5);
+}
+
+.cabinet__bundleItem strong {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+/* Says which of the three you are already looking at, so the strip does not
+   read as three things to go and find. */
+.cabinet__bundleThis {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(14, 62, 105, 0.55);
+}
+
+.cabinet__bundleFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.cabinet__bundleTotal {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: rgba(14, 62, 105, 0.72);
+}
+
+.cabinet__bundleTotal strong {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--navy);
+}
+
+/* Outline, not Dare Devil. The one orange knob on this panel is "Add to the
+   box" for the product you came for; the bundle is the alternative to it, and
+   two solid orange buttons on one screen is two hero moments. */
+.cabinet__bundle .cabinet__bundleAdd {
+  flex: none;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* At 375px the total and the knob come to a few pixels more than the panel is
+   wide, and `flex-wrap` will not break a row whose second item is one nowrap
+   button. Stacked, with the knob taking the width it wants. */
+@media (max-width: 480px) {
+  .cabinet__bundleFoot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .cabinet__bundle .cabinet__bundleAdd { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cabinet__bundleItem--link { transition: none; }
+  .cabinet__bundleItem--link:hover { transform: none; }
+}
+
+/* ==========================================================================
+   Collections — the counters as cards, under the banner.
+   ========================================================================== */
+.collections {
+  max-width: 1400px;
+  margin: clamp(30px, 3.6vw, 52px) auto clamp(20px, 2.4vw, 32px);
+  padding: 0 var(--shop-gutter);
+}
+
+.collections__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: clamp(12px, 1.4vw, 18px);
+}
+
+/* Deliberately identical to `.shop-divider__name`, which is the "DONUTS" that
+   opens the grid a few hundred pixels below it. They are the page's two
+   section headings and there is no hierarchy between them — one names the
+   counters, the other names a run of products — so a difference in size would
+   be claiming one that is not there. Change one and change the other. */
+.collections__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(26px, 3.4vw, 38px);
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* Pointer affordance only. A touch rail is swiped, and two buttons beside it
+   are two more things to mis-tap on a 375px screen. */
+.collections__arrows { display: none; gap: 8px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .collections__arrows { display: flex; }
+}
+
+.collections__arrows button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 99px;
+  background: transparent;
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.22);
+  color: var(--navy);
+  cursor: pointer;
+  transition: box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.collections__arrows button:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.5);
+}
+
+.collections__arrows button:disabled { opacity: 0.3; cursor: default; }
+
+/* Scrolls at every width rather than wrapping to a second row: six counters in
+   one line is the point — they are being compared, and a card that has dropped
+   onto its own row below the others reads as an afterthought. */
+/* Holds the fades. The rail itself scrolls, so anything drawn inside it
+   travels with the tabs; these have to sit on a still parent. */
+.collections__scroller {
+  position: relative;
+  min-width: 0;
+}
+
+.collections__scroller::before,
+.collections__scroller::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  width: clamp(28px, 5vw, 56px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Fading to the page's own ground, not to white: the rail sits on Shortbread,
+   and a white fade would read as a pale band rather than as the row running
+   off the edge. */
+.collections__scroller::before {
+  left: 0;
+  background: linear-gradient(to right, var(--sand), rgba(247, 238, 224, 0));
+}
+
+.collections__scroller::after {
+  right: 0;
+  background: linear-gradient(to left, var(--sand), rgba(247, 238, 224, 0));
+}
+
+/* Each edge is drawn only when there is something past it — see `edges` in
+   CollectionRail, which is the same measurement the arrows read. */
+.collections__scroller.has-start::before { opacity: 1; }
+.collections__scroller.has-end::after { opacity: 1; }
+
+.collections__rail {
+  display: flex;
+  gap: clamp(10px, 1.4vw, 16px);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  /* Room for the hover lift, which the scrollport's own overflow would
+     otherwise shave off the top. */
+  padding: 4px 0 6px;
+}
+
+.collections__rail::-webkit-scrollbar { display: none; }
+
+/* Laid out sideways — donut, then name over count — and sized so the name can
+   carry a heading. Canvas at rest, Signal blue when it is the counter showing.
+
+   `flex: 0 0 auto` with a min rather than a fixed basis: the tabs are as wide
+   as their words need, so "Cupcakes" is wider than "Breads" and neither is
+   padded out to match the longest. */
+.collection-card {
+  flex: 0 0 auto;
+  min-width: 0;
+  scroll-snap-align: start;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 26px 12px 12px;
+  border: none;
+  /* A rectangle, not the products' squircle: a tab is a different object from
+     the things it filters, and the silhouette is what says so at a glance. */
+  border-radius: 20px;
+  background: var(--cream);
+  color: var(--navy);
+  cursor: pointer;
+  text-align: left;
+  box-shadow: inset 0 0 0 2px transparent;
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease,
+    color 0.18s ease;
+}
+
+.collection-card:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.18);
+}
+
+/* Harbour, with Canvas ink — the same inversion every other selected control
+   on this page uses, so "you are here" looks the same whether it is read on
+   this row, in the filter drawer or on the pin. Signal blue was a second
+   selection colour doing the same job in a different hue. */
+.collection-card.is-on {
+  background: var(--navy);
+  color: var(--cream);
+  box-shadow: none;
+}
+
+/* Shortbread behind the cut-out, so the donut has a bed of its own rather than
+   floating on the tab. On the selected tab it goes Canvas, which is what keeps
+   the donut readable against Harbour. */
+.collection-card__bed {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border-radius: 14px;
+  background: var(--sand);
+  transition: background 0.18s ease;
+}
+
+.collection-card.is-on .collection-card__bed { background: var(--cream); }
+
+.collection-card__bed img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.collection-card:hover .collection-card__bed img { transform: scale(1.08); }
+
+.collection-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* A real heading, in the display face — the same step the counter dividers in
+   the grid take, one size down so the tabs sit under the section title rather
+   than beside it. */
+.collection-card__name {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(21px, 2.2vw, 28px);
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Inherits the tab's ink at reduced strength, so it works on Canvas and on
+   Signal without a second rule for each. */
+.collection-card__count {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.66;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collection-card,
+  .collection-card__bed img { transition: none; }
+  .collection-card:hover { transform: none; }
+  .collection-card:hover .collection-card__bed img { transform: none; }
+}
+
+/* ==========================================================================
+   Before you go — the last product, offered back on the way out.
+   ========================================================================== */
+/* Above the cabinet and the box, below sign-in: it only ever appears when
+   neither of those is open, but if one somehow is, this must not be the thing
+   underneath. */
+.return-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 230;
+  background: rgba(14, 62, 105, 0.5);
+}
+
+.return-prompt {
+  position: fixed;
+  z-index: 235;
+  inset: 0;
+  margin: auto;
+  width: min(720px, calc(100vw - 28px));
+  height: max-content;
+  max-height: calc(100vh - 28px);
+  display: grid;
+  grid-template-columns: 1fr;
+  border-radius: 28px;
+  background: var(--cream);
+  overflow: hidden;
+  box-shadow: 0 40px 90px -30px rgba(14, 62, 105, 0.5);
+}
+
+@media (min-width: 640px) {
+  /* Picture beside the words from tablet up. Below that it stacks — a 150px
+     column of photograph next to three lines of type is neither. */
+  .return-prompt { grid-template-columns: 260px minmax(0, 1fr); }
+}
+
+.return-prompt__close {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 99px;
+  background: rgba(251, 247, 239, 0.9);
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.return-prompt__bed {
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: var(--sand);
+}
+
+.return-prompt__bed img {
+  width: 100%;
+  max-width: 190px;
+  height: auto;
+  object-fit: contain;
+}
+
+/* The bag's contents as one handful, not a column of three products: the offer
+   is their order, not a choice between the things in it. Overlapped and
+   fanned, so it reads as a pile at a glance and nothing has to be counted. */
+.return-prompt__stack {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-width: 190px;
+  aspect-ratio: 1;
+}
+
+.return-prompt__stack img {
+  position: absolute;
+  width: 62%;
+  max-width: none;
+  aspect-ratio: 1;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 12px rgba(14, 62, 105, 0.22));
+}
+
+/* Hand-placed rather than computed: three donuts on an even arc read as a
+   diagram, and the whole point is a pile. Each one is a nudge off centre in a
+   different direction, with the front of the stack the largest. */
+.return-prompt__stack img:nth-child(1) { transform: translate(-16%, -12%) rotate(-11deg) scale(0.9); }
+.return-prompt__stack img:nth-child(2) { transform: translate(15%, -4%) rotate(9deg) scale(0.86); }
+.return-prompt__stack img:nth-child(3) { transform: translate(-2%, 16%) rotate(-3deg); }
+
+/* "+2" for whatever the three thumbnails do not cover. Sits on the pile rather
+   than beside it, so the bed stays one object. */
+.return-prompt__more {
+  position: absolute;
+  z-index: 4;
+  right: 4%;
+  bottom: 4%;
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 9px;
+  border-radius: 99px;
+  background: var(--navy);
+  color: var(--cream);
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.return-prompt__body {
+  padding: clamp(20px, 3vw, 30px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+}
+
+.return-prompt__eyebrow {
+  margin: 0;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.return-prompt__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(24px, 3.2vw, 34px);
+  line-height: 0.98;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.return-prompt__copy {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgba(14, 62, 105, 0.72);
+}
+
+.return-prompt__actions {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Plain text, not a second pill. The knob is the offer; this is the way out of
+   it, and two buttons of equal weight is no offer at all. */
+.return-prompt__secondary {
+  border: none;
+  background: transparent;
+  padding: 6px 2px;
+  color: rgba(14, 62, 105, 0.72);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 15px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.return-prompt__secondary:hover { color: var(--navy); }
+
+/* ==========================================================================
+   Build your own half dozen.
+   ========================================================================== */
+/* Its own surface, not the product drawer's. Covers the viewport: the builder
+   has two halves that have to be watched at once, and as a drawer the picker
+   was living in half of 88vw with a strip of catalogue showing past it.
+
+   z-index 40 puts it UNDER the navbar (60) and the pickup band (59), which is
+   what keeps both of those on screen and usable; the surface pads itself clear
+   of them from JS, because their combined height is a clamp plus an optional
+   band. The cart drawer (190) and the sign-in modal (210) still open over
+   it. */
+.boxer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--sand);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The shared `.cabinet__back` pill, repositioned. That class is absolute over
+   the product panel's photograph; here there is no photograph, so it goes back
+   into the flow at the top of the surface. Everything else about it — the
+   shape, the ink, the word, the hover nudge — is the one definition. */
+.boxer__back {
+  position: relative;
+  top: auto;
+  left: auto;
+  align-self: flex-start;
+  /* `flex: none` is the whole fix, and it is not decoration. `.boxer` is a
+     flex column whose content overflows, so a child with the default
+     `flex-shrink: 1` gets crushed along the main axis — which here is height.
+     The shared pill's 44px was being squashed to its 20px line box, which is
+     why this one control looked nothing like the identical pill on the product
+     panel and in the bag. */
+  flex: none;
+  margin: clamp(10px, 1.6vw, 16px) 0 0 clamp(12px, 2vw, 22px);
+}
+
+.boxer__inner {
+  width: min(1240px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(14px, 2vw, 24px);
+  padding: clamp(12px, 2vw, 22px);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  /* Box on the left, donuts on the right. The box takes the larger share: it is
+     the thing being made, and the picker is a list of rows that does not get
+     better for being wider. */
+  .boxer__inner { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+}
+
+/* The one heading on the page, and it states the rule the builder enforces. */
+/* Heading and, on a two-column layout, the shuffle level with it — see the
+   note in `BoxBuilder`. Baseline-aligned rather than centred on the block: the
+   heading and its progress line are two lines, and centring put the button
+   between them. */
+.boxer__pickerHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* The progress line carries the gap to the list, so it stays on the block and
+   the row itself adds none. */
+.boxer__pickerHead > div { min-width: 0; }
+
+.boxer__pickerHead .boxer__shuffle {
+  flex: none;
+  margin: 0;
+}
+
+.boxer__heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 0.98;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.boxer__progress {
+  margin: 6px 0 14px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Total, action, shuffle — at the end of the list that decides all three.
+   Sticky to the foot of the picker so a twenty-row list never puts the action
+   off screen; the picker is the scrolling half at every width. */
+.boxer__foot {
+  position: sticky;
+  bottom: 0;
+  margin-top: 16px;
+  padding: 14px 0 calc(4px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid rgba(14, 62, 105, 0.12);
+  background: var(--cream);
+}
+
+.boxer__foot .boxer__add {
   flex: 1;
   min-width: 0;
-  height: 2px;
-  border-radius: 2px;
-  background: rgba(14, 62, 105, 0.12);
+  margin: 0;
+  justify-content: space-between;
+  white-space: nowrap;
+}
+
+/* At 375px the three of them do not share a line: the knob was left about
+   90px, which wrapped "Add to bag" onto three. Price on its own row, then the
+   action across the width, then the way out of choosing. */
+@media (max-width: 560px) {
+  /* Two rows, not three. Stacked as a column the foot ran 159px tall and put
+     "Pick for me" at the very bottom edge of an 844px viewport — under the
+     home indicator on a real phone, and gone entirely once the browser's own
+     bar is counted. The running total and the way out of choosing share the
+     top line, which is what the wide layout does anyway, and the action takes
+     the width beneath them. */
+  .boxer__foot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .boxer__foot .boxer__price { margin: 0; text-align: left; }
+
+  .boxer__foot .boxer__shuffle {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  .boxer__foot .boxer__add {
+    grid-column: 1 / -1;
+    flex: none;
+    width: 100%;
+  }
+}
+
+.boxer__stage {
+  position: sticky;
+  /* Stays put while the picker scrolls beside it: the whole point is watching
+     the box fill, and a box that has scrolled off the top shows nothing. */
+  top: clamp(12px, 2vw, 22px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.4vw, 16px);
+}
+
+/* The art and the donuts sitting in it. Positioned, and NOT clipped — the
+   donuts overhang the box's rim on purpose, which is what makes them read as
+   sitting in it rather than printed on it. */
+.boxer__art {
+  position: relative;
+  aspect-ratio: 900 / 760;
+  border-radius: 28px;
+  background: var(--sand);
+}
+
+.boxer__box {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* One donut's place in the box. `left`/`top` are its centre, set per slot from
+   the tray's own `slots`; the translate is what makes those coordinates mean
+   the centre.
+
+   34% of the art's width, and the arithmetic behind it is worth keeping,
+   because guessing at it went wrong three times.
+
+   MEASURED, not assumed: the product cut-outs only fill about 52% of their own
+   PNG's width — sampled across five of them the opaque box runs 0.51 to 0.64,
+   so nearly half of every file is transparent margin. Every earlier estimate
+   here assumed a tenth, which is why the donuts kept coming out far smaller
+   than the number suggested.
+
+   So: a 34% box paints a donut about 18% of the tray wide. Neighbouring slot
+   centres are 25% apart, which leaves a real gap between donuts; a printed ring
+   is about 13% across, so each one still sits over its slot rather than in it.
+   16% painted 8% — smaller than the ring. 44% painted 23%, a hair short of
+   neighbours touching, which read as a tray crammed to the edges.
+
+   If this is ever retuned: multiply the box by 0.52 to get what will actually
+   be on screen, and compare that against the 25% spacing. */
+.boxer__slot {
+  --slot-w: 34%;
+  position: absolute;
+  width: var(--slot-w);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) scale(0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+}
+
+/* Drops in and settles — the overshoot in the curve above is the donut
+   landing in the box rather than appearing in it. */
+.boxer__slot.is-filled {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+.boxer__slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 10px rgba(14, 62, 105, 0.28));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boxer__slot { transition: opacity 0.2s ease; transform: translate(-50%, -50%) scale(1); }
+}
+
+.boxer__shuffle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 2px;
+  border: none;
+  background: transparent;
+  color: rgba(14, 62, 105, 0.72);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 15px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.boxer__shuffle:hover { color: var(--navy); }
+
+.boxer__picker {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: clamp(14px, 2vw, 20px);
+  border-radius: 24px;
+  background: var(--cream);
+}
+
+
+
+/* Rows, not tiles. See the note in BoxBuilder: twenty donuts as cards is the
+   shop grid at a smaller size, and it made the stepper — the only control that
+   matters on this page — the smallest thing on each card. */
+.boxer__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* The row IS the control: a stretched ::after on the invisible button below
+   covers it, so a tap anywhere adds one. Positioned for that, and `isolation`
+   so the button's own layer cannot escape the row. */
+.boxer__row {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--navy);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.boxer__row:hover { background: var(--sand); }
+
+/* The whole row fills once it is in the box, not just the picture's bed — a
+   52px square at the left of a twenty-row list is a detail you have to look
+   for, and what the visitor needs to see at a glance is which rows they have
+   already chosen.
+
+   Harbour, not Dare Devil. Dare Devil is the one hero moment on a screen, and
+   on this one that is the Add to bag knob at the foot — six orange rows above
+   it left the page with seven things shouting and no way to tell which was the
+   action. Harbour is the same "you are here" fill the category tabs and the
+   panel's segmented pairs use. */
+.boxer__row.is-in {
+  background: var(--navy);
+  color: #fff;
+}
+
+/* The add target, drawn over the whole row and under everything on it. Not a
+   wrapper: the stepper's own buttons cannot be nested inside a button. */
+.boxer__rowAdd {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  border: none;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.boxer__rowAdd:disabled { cursor: default; }
+
+/* Everything visible sits above the target so it can be seen — but only the
+   stepper takes its own taps. The picture and the name are `pointer-events:
+   none`, or they swallow the click meant for the row: they cover most of it,
+   and a row that only adds when you hit the gaps between its own contents is
+   worse than one with no row target at all. */
+.boxer__rowBed,
+.boxer__rowText,
+.boxer__row .boxer__stepper {
+  position: relative;
+  z-index: 1;
+}
+
+.boxer__rowBed,
+.boxer__rowText {
+  pointer-events: none;
+}
+
+.boxer__rowBed {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--sand);
+  transition: background 0.2s ease;
+}
+
+/* Canvas on the orange row, so the cut-out still reads. */
+.boxer__row.is-in .boxer__rowBed { background: rgba(251, 247, 239, 0.92); }
+
+.boxer__rowBed img { width: 100%; height: 100%; object-fit: contain; }
+
+.boxer__rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Both inherit the row's ink, so the orange state needs no second rule. */
+.boxer__rowText strong {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.boxer__rowText span {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: #b33a11;
+}
+
+.boxer__row.is-in .boxer__rowText span { color: rgba(251, 247, 239, 0.85); }
+
+.boxer__stepper {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 99px;
+  background: var(--cream);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.16);
+}
+
+.boxer__stepper span {
+  min-width: 20px;
+  text-align: center;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.boxer__stepper button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.boxer__stepper button:hover:not(:disabled) { background: rgba(14, 62, 105, 0.1); }
+.boxer__stepper button:disabled { opacity: 0.28; cursor: default; }
+
+/* On the orange row the stepper keeps its Canvas pill and Harbour glyphs — the
+   one piece of the row that does not invert, because it is a control and has to
+   stay legible as one. */
+.boxer__row.is-in .boxer__stepper {
+  background: var(--cream);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.12);
+}
+
+.boxer__row.is-in .boxer__stepper button,
+.boxer__row.is-in .boxer__stepper span { color: var(--navy); }
+
+/* What is in the box, listed on the cart line. Read-only: the six were chosen
+   on the builder and there is no way to re-pick them in a drawer. */
+.cart-box-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cart-box-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 99px;
+  background: var(--sand);
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--navy);
+}
+
+.cart-box-list img { width: 22px; height: 22px; object-fit: contain; }
+
+/* ==========================================================================
+   The grid's heading row — name on the left, filter on the right, rule under.
+   ========================================================================== */
+.shop-head {
+  max-width: 1400px;
+  margin: clamp(18px, 2.2vw, 30px) auto clamp(14px, 1.8vw, 22px);
+  padding: 0 var(--shop-gutter) clamp(10px, 1.2vw, 14px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  /* The page's one structural line: above it, everything that changes what the
+     grid holds; below it, the grid. Drawn on the padding box rather than a
+     full-bleed element, so it starts and ends where the tiles do. */
+  border-bottom: 1px solid rgba(14, 62, 105, 0.16);
+}
+
+/* The same size the collections heading takes — the two are the page's section
+   headings and there is no hierarchy between them. */
+.shop-head__title {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(26px, 3.4vw, 38px);
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* Outline, not the pinned button's Harbour fill: at rest it sits in the page's
+   own furniture beside a heading, where a solid navy pill would read as the
+   loudest thing on the row. The pinned version fills because it is floating
+   over the grid and has to hold its own against whatever is under it. */
+.shop-head__filter {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 20px;
+  border: none;
+  border-radius: var(--radius-pill, 99px);
+  background: transparent;
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.24);
+  color: var(--navy);
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: var(--type-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: box-shadow 0.18s ease;
+}
+
+.shop-head__filter:hover { box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.55); }
+
+@media (max-width: 560px) {
+  /* The word goes, the glyph and the count stay: at 375px a 38px heading and a
+     spelled-out button do not share a line. */
+  .shop-head__filter {
+    gap: 7px;
+    padding: 0 14px;
+    font-size: 0;
+  }
+
+  .shop-head__filter .filter-pin__badge { font-size: 12px; }
+}
+
+
+
+/* The Donut Lab's build, read back on the bag line. Label, value, price — one
+   row per element, so the arithmetic under the line total is visible rather
+   than implied. */
+.cart-spec {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cart-spec li {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: var(--sand);
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--navy);
+}
+
+.cart-spec li > span {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.cart-spec li > strong {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 12.5px;
+  min-width: 0;
+}
+
+.cart-spec li > b {
+  font-family: var(--font-text, var(--font-body));
+  font-weight: 700;
+  font-size: 12px;
+  color: #b33a11;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Desktop: the favourite sits after the buy action --------------------
+   On a phone the heart leads the row, which is right when the knob is full
+   width. On a desktop the row is narrower than the card and the knob is the
+   thing the eye lands on, so the heart goes to its trailing side: the primary
+   action starts at the row's own left edge, and the secondary one is what you
+   pass on the way out of it rather than on the way in.
+
+   `order` rather than reordering the JSX, because the phone arrangement is the
+   one the markup describes and both bars share the same two children. */
+@media (min-width: 900px) {
+  .cabinet__addAnchor .cabinet__save { order: 2; }
+  .cabinet__addAnchor .cabinet__brandAdd { order: 1; }
+}
+
+/* The sticky bar keeps the markup's order at every width: heart, then add, and
+   the pair pinned to the bar's trailing corner.
+
+   It is not the inline row. That row is only ever the two controls, so which
+   one leads is a question about the pair alone. The bar carries the name and
+   the running total as well, and `space-between` across three items left the
+   heart stranded in the middle of the bar with the buy action floating beside
+   the text it belongs to. The meta takes the slack instead, so the two
+   controls close up as one group where the thumb already is. */
+.cabinet__buybarMeta { flex: 1 1 auto; }
+
+/* ==========================================================================
+   The letter and number cake's shape picker, inside the product panel.
+   ========================================================================== */
+/* The select and a big read-back of what it says, side by side. The character
+   is the whole product, so it is worth showing at a size you can see rather
+   than only inside a 52px dropdown. */
+.cabinet__glyphPick {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Native select: twenty-six one-character options is exactly the list a
+   platform picker is best at, and on a phone it beats anything drawn here. */
+/* Outlined, so it reads as a field you can open. On Shortbread with no border
+   it was a slightly darker rectangle — the same treatment the read-only
+   surfaces on this panel use — and nothing said it was interactive. */
+.cabinet__glyphPick select {
+  flex: 1;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 12px;
+  border: 2px solid rgba(14, 62, 105, 0.28);
+  border-radius: 14px;
+  background: var(--cream);
+  color: var(--navy);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 22px;
+  transition: border-color 0.18s ease;
+}
+
+.cabinet__glyphPick select:hover { border-color: rgba(14, 62, 105, 0.55); }
+
+.cabinet__glyphPick select:focus-visible {
+  outline: none;
+  border-color: var(--navy);
+}
+
+/* The chosen character at cake scale, in the display face — the bakery cuts
+   the shape of the letter, and the brand's own letterforms are the nearest
+   thing on hand to what will be baked. */
+.cabinet__glyphPick > span {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--navy);
+  color: var(--cream);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* What the bag shows for a cake: the shape, read back, not a field. */
+.cart-glyph-value {
+  margin: 8px 0 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--sand);
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--navy);
+}
+
+/* --- Petite tray: the colours it asks for, and its fixed count ----------- */
+/* Swatches from the Donut Lab's own palettes, not a text box — see
+   `lib/petite-palette`. A wrapping row rather than a scroller: eleven icings
+   and a handful of sprinkle mixes all want to be visible at once, since the
+   choice is "which of these" and a hidden option is one nobody picks. */
+.cabinet__swatches {
+  margin-top: 14px;
+}
+
+.cabinet__swatches > div {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cabinet__swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px 0 8px;
+  border: none;
+  border-radius: var(--radius-pill, 99px);
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.2);
+  color: var(--navy);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  white-space: nowrap;
+  transition: box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.cabinet__swatch:hover { box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.5); }
+
+/* Harbour ring at full weight for the chosen one — the same "you are here" the
+   box-size pair and the category tabs use, rather than a fill, because a
+   filled pill would fight the colour dots it contains. */
+.cabinet__swatch.is-on {
+  background: rgba(14, 62, 105, 0.06);
+  box-shadow: inset 0 0 0 2.5px var(--navy);
+  font-weight: 700;
+}
+
+/* The dots. One for an icing, several for a sprinkle mix — the palette decides
+   how many, and they sit in a row so a three-colour mix reads as three
+   colours rather than as one averaged blob. */
+.cabinet__swatch > span {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.cabinet__swatch i,
+.cart-spec__dots i {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 99px;
+  /* Vanilla · White against Canvas needs an edge or it is a hole in the pill. */
+  box-shadow: inset 0 0 0 1px rgba(14, 62, 105, 0.18);
+}
+
+.cart-spec__dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+/* Beside the "Trays" label, not in place of the stepper: the stepper counts
+   trays, and this says how many donuts are in one. Kept quiet and beneath, so
+   the two numbers on the row cannot be read as the same number. */
+.cabinet__trayCount {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- The printed dozen's artwork, on the product panel --------------------
+   Moved here from the cart line with the rest of the print spec. Built out of
+   the panel's own furniture — the swatch rows above it set the rhythm — rather
+   than the cart's denser list styling, which was sized for a bag row. */
+.cabinet__art {
+  margin-top: 16px;
+}
+
+.cabinet__artRow {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto 28px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(14, 62, 105, 0.05);
+}
+
+.cabinet__artRow > img {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--cream);
+}
+
+.cabinet__artName {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cabinet__artName strong {
+  font-family: var(--font-cta);
+  font-size: 13px;
+  color: var(--navy);
+}
+
+/* One line: a long filename would otherwise set the row's height. */
+.cabinet__artName small {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: rgba(14, 62, 105, 0.62);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cabinet__artCount {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cabinet__artCount span {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: rgba(14, 62, 105, 0.62);
+}
+
+.cabinet__artCount input {
+  width: 52px;
+  min-height: 34px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.2);
+  background: var(--cream);
+  color: var(--navy);
+  font: inherit;
+  font-size: 13px;
+  text-align: center;
+}
+
+.cabinet__artRow > button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 99px;
+  background: transparent;
+  color: rgba(14, 62, 105, 0.62);
+  cursor: pointer;
+}
+
+.cabinet__artRow > button:hover { color: var(--navy); background: rgba(14, 62, 105, 0.08); }
+
+/* Dashed, because it is a drop target rather than a control with a value. */
+.cabinet__artDrop {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 10px;
+  min-height: 62px;
+  padding: 10px 12px;
+  border: 1.5px dashed rgba(14, 62, 105, 0.38);
+  border-radius: 14px;
+  color: var(--navy);
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+.cabinet__artDrop:hover { border-color: var(--navy); background: rgba(14, 62, 105, 0.04); }
+.cabinet__artDrop input { display: none; }
+
+.cabinet__artDrop span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cabinet__artDrop strong { font-family: var(--font-cta); font-size: 13px; }
+
+.cabinet__artDrop small,
+.cabinet__artReady,
+.cabinet__artError {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: rgba(14, 62, 105, 0.62);
+}
+
+.cabinet__artReady { display: block; margin-top: 8px; }
+.cabinet__artError { display: block; margin-top: 8px; color: #b33a11; }
+
+/* The bag's read-back of the same artwork: thumbnails and what each covers. */
+.cart-box-list--art img { border-radius: 6px; object-fit: cover; }
+
+/* A printed line states its count rather than offering a stepper — see
+   CartDrawer. Reads as the stepper's own number, minus the two controls. */
+.cart__fixedQty {
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--navy);
+}
+
+/* --- The builder on a phone ---------------------------------------------
+   The stage is sticky so the box stays in view beside the picker while the
+   list scrolls — which is right in the two-column layout and wrong in the one
+   below it. Stacked, a sticky box pins ~330px of an 844px screen permanently
+   above a list of twenty flavours, and the sticky foot takes another 140 from
+   the bottom: the list was left a window about four rows tall on the tallest
+   phone, and less than three on a small one.
+
+   So below the two-column breakpoint the box scrolls away like any other
+   heading. You look at it, you scroll past it to choose, and the running
+   count and the CTA — which are what you need while choosing — stay pinned at
+   the foot where they already were. */
+@media (max-width: 899px) {
+  .boxer__stage {
+    position: static;
+  }
+
+  /* And it does not need to be square-ish either: the aspect ratio is the
+     tray's, so on a narrow screen it resolves to a very tall box. Capped, with
+     the art contained inside it, so the flavours start above the fold. */
+  .boxer__art {
+    max-height: 46vh;
+  }
+}
+
+/* --- "Frequently bought together" on a phone -----------------------------
+   The three items are `flex: 1 1 0` with `min-width: 116px`, which at the
+   panel's 362px inner width needs 432 — so the row overflowed and the third
+   product sat cut off at the edge under a button reading "Add all three". The
+   row scrolls, but nothing said so: it read as a broken strip, not a swipe.
+
+   Below the two-column panel the floor comes off and the furniture between the
+   cards tightens, so all three fit and the button tells the truth. */
+@media (max-width: 560px) {
+  .cabinet__bundleRow {
+    gap: 6px;
+    overflow-x: visible;
+  }
+
+  .cabinet__bundleItem {
+    min-width: 0;
+    padding: 8px;
+    border-radius: 16px;
+  }
+
+  .cabinet__bundleItem strong {
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  .cabinet__bundlePlus {
+    width: 14px;
+  }
 }

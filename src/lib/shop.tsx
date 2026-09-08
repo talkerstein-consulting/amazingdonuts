@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PRODUCTS, type Product } from '../data/products';
-import { customizationFor, minimumQuantityFor, type Customization } from './custom-order';
+import { customizationFor, minimumQuantityFor, PRINT_PRODUCTS, type Customization } from './custom-order';
 
 /**
  * The storefront's client state: which view is showing, which product is open,
@@ -46,6 +46,20 @@ const ShopContext = createContext<Store | null>(null);
 
 /** Prices in the catalogue are strings like "$2.00". */
 export const priceOf = (p: Product) => Number(p.price.replace(/[^0-9.]/g, '')) || 0;
+
+/**
+ * What one unit of a line costs, customization included.
+ *
+ * A Donut Lab donut is priced from its parts: the catalogue price is the empty
+ * shape and each chosen element adds to it, so the bag's arithmetic has to read
+ * the line rather than the product. Every other line is just its product's own
+ * price, which is what `priceOf` already answers.
+ */
+export const unitPriceOf = (line: { product: Product; customization?: Customization }) =>
+  priceOf(line.product) +
+  (line.customization?.kind === 'lab'
+    ? line.customization.elements.reduce((sum, el) => sum + el.price, 0)
+    : 0);
 export const money = (n: number) => `$${n.toFixed(2)}`;
 
 /** The panel opens over whatever page it was opened from. */
@@ -64,7 +78,20 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       const saved = JSON.parse(localStorage.getItem('amazing-cart') || '[]') as { id: string; qty: number; customization?: Customization }[];
       return saved.flatMap(({ id, qty, customization }) => {
         const product = PRODUCTS.find((item) => item.id === id);
-        return product && Number.isInteger(qty) && qty > 0 ? [{ product, qty:Math.max(qty,minimumQuantityFor(id)), customization:customization||customizationFor(id) }] : [];
+        /* `icingFlavor` was renamed `icingFlavour`. A bag saved before that
+           still carries the old key, and a print line whose icing reads empty
+           is one checkout refuses to take — with nothing in the cart to fix it,
+           since the spec is read back there rather than asked for. So the old
+           spelling is accepted on the way in and written back in the new one. */
+        const migrated: Customization | undefined =
+          customization && customization.kind === 'print' && !customization.icingFlavour
+            ? {
+                ...customization,
+                icingFlavour:
+                  (customization as { icingFlavor?: 'Chocolate' | 'Vanilla' }).icingFlavor ?? ''
+              }
+            : customization;
+        return product && Number.isInteger(qty) && qty > 0 ? [{ product, qty:Math.max(qty,minimumQuantityFor(id)), customization:migrated||customizationFor(id) }] : [];
       });
     } catch { return []; }
   });
@@ -112,13 +139,36 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     [route.productId]
   );
 
+  /* The last thing they opened, kept for `ReturnPrompt`.
+     `localStorage`, not state: the point of it is to survive the visitor
+     leaving, and the prompt that reads it may well be on a different page of
+     the site by the time it does — the shop, the Lab and the homepage are three
+     separate documents here. */
+  useEffect(() => {
+    if (!product) return;
+    try {
+      localStorage.setItem('amazing-last-product', product.id);
+    } catch {
+      /* Private mode, or storage full. The prompt simply never fires. */
+    }
+  }, [product]);
+
   const add = useCallback((p: Product, qty = 1, { openCart = true }: { openCart?: boolean } = {}) => {
     setLines((prev) => {
       qty=Math.max(qty,minimumQuantityFor(p.id));
       const at = prev.findIndex((l) => l.product.id === p.id);
       if (at === -1) return [...prev, { product: p, qty, customization:customizationFor(p.id) }];
       const next = [...prev];
-      next[at] = { ...next[at], qty: next[at].qty + qty };
+      /* A printed line REPLACES rather than accumulates. The artwork covers a
+         stated number of dozens, and it is chosen on the product page against
+         the quantity set there — so adding a second print of the same product
+         used to leave one line at the summed quantity with designs covering
+         only part of it. That line can never be completed now that the cart
+         reads the spec back rather than asking for it, so the second visit to
+         the page is the order, not an addition to one. */
+      next[at] = PRINT_PRODUCTS.has(p.id)
+        ? { ...next[at], qty }
+        : { ...next[at], qty: next[at].qty + qty };
       return next;
     });
     if (openCart) setCartOpen(true);
@@ -145,7 +195,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Store>(() => {
     const count = lines.reduce((n, l) => n + l.qty, 0);
-    const subtotal = lines.reduce((n, l) => n + priceOf(l.product) * l.qty, 0);
+    const subtotal = lines.reduce((n, l) => n + unitPriceOf(l) * l.qty, 0);
     return {
       product,
       cartOpen,

@@ -1,13 +1,15 @@
 import { Star } from 'lucide-react';
 import GoogleG from './GoogleG';
-import { RATING, REVIEWS_ANCHOR } from '../data/reviews';
+import { RATING } from '../data/reviews';
 
 /**
- * The Google score, as a link to the reviews it summarises.
+ * The Google score, stated and not linked.
  *
- * Lives beside the hero's CTA rather than in the trust band below it: the
- * score is the single strongest thing a first-time visitor can be told, and
- * next to the button is the moment they are deciding whether to press it.
+ * Deliberately inert. It sits directly under Delivery and Pick up, and a third
+ * clickable thing in that group reads as a third way to buy — it would pull
+ * presses off the two cards it is there to support, and send them off the page
+ * rather than into the shop. It is evidence for the choice above it, not
+ * another choice.
  *
  * `tone` is which ground it is sitting on. On Canvas it takes the ink; the
  * navy variant stays for the trust band's own use of it.
@@ -16,7 +18,7 @@ export default function ReviewScore({ tone = 'ink' }: { tone?: 'ink' | 'cream' }
   const score = Number(RATING.score);
 
   return (
-    <a className={`review-score review-score--${tone}`} href={REVIEWS_ANCHOR}>
+    <span className={`review-score review-score--${tone}`}>
       {/* Filled to the decimal, not rounded: four stars and a third, because a
           4.3 dressed as five stars is the one thing a rating must not do. */}
       <span className="review-score__stars" aria-hidden="true">
@@ -41,6 +43,6 @@ export default function ReviewScore({ tone = 'ink' }: { tone?: 'ink' | 'cream' }
             page this links to. */}
         <GoogleG size={15} />
       </span>
-    </a>
+    </span>
   );
 }

@@ -131,3 +131,185 @@
     margin-inline-end: auto;
   }
 }
+
+/* --- The quantity step's numeral ----------------------------------------
+   Drawn over the tile's own preview of the donut, because the number IS the
+   choice on this step: three tiles previewing the same unchanged donut were
+   identical apart from a caption under them. */
+.sb-qty-badge {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 400;
+  /* Sized off the tile, not the viewport: the rail's tiles are one width at
+     375px and another at 1400px, and a fixed numeral is a blob on the small
+     one. */
+  font-size: 56cqw;
+  line-height: 1;
+  color: var(--navy);
+  /* The donut has to stay readable under it, and a solid numeral over a round
+     cut-out hides exactly the middle of it. A hairline outline in Canvas is
+     what keeps the figure legible on the glaze without covering it. */
+  opacity: 0.92;
+  text-shadow:
+    0 0 2px var(--cream),
+    0 0 6px rgba(251, 247, 239, 0.9),
+    0 2px 10px rgba(14, 62, 105, 0.25);
+  pointer-events: none;
+}
+
+/* `cqw` needs a container to measure. The tile's preview square is it. */
+.sb-opt-art {
+  container-type: inline-size;
+}
+
+/* --- The tiled quantity preview -----------------------------------------
+   Six or twelve of the finished donut on the stage, in place of one large
+   one — see the note in StableBuilder. Sized by count rather than by a fixed
+   grid: a dozen at half-dozen spacing overflows the square. */
+.sb-batch {
+  position: absolute;
+  inset: 6%;
+  display: grid;
+  place-content: center;
+  gap: 2%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sb-batch[data-count='12'] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1%;
+}
+
+.sb-batch__one {
+  position: relative;
+  aspect-ratio: 1;
+}
+
+/* --- Desktop breathing room ---------------------------------------------
+   On a phone the stage is the tight half of a tall column and centring it is
+   right. On a desktop the window is short and wide: the stage took the middle
+   of whatever height was left and floated the donut in the centre of it, so
+   the rail, the option panel and the CTA were pushed into the bottom third and
+   the choices — the things being interacted with — were the cramped part.
+
+   The creation moves to the top of its band and the parts below it get real
+   gaps. Overrides the inline `justify-content` the component sets, hence the
+   `!important`: the value is a phone default expressed in JSX, and this is the
+   one width where it is wrong. */
+@media (min-width: 900px) {
+  .sb-stage {
+    justify-content: flex-start !important;
+    padding-top: clamp(6px, 1vw, 14px) !important;
+  }
+
+  /* Room between the creation and the row of stage pills under it. */
+  .sb-rail {
+    padding-top: clamp(14px, 1.6vw, 22px) !important;
+    padding-bottom: clamp(12px, 1.4vw, 18px) !important;
+  }
+
+  /* The stage is the flexible band, so anything it gives back lands here —
+     which is the point: the option sheet is where the work happens. */
+  .sb-sheet {
+    padding-top: clamp(18px, 2vw, 26px) !important;
+  }
+}
+
+/* --- Desktop: the surplus height belongs to the choices -------------------
+   The stage was `flex: 1` and the creation inside it is capped at 520px
+   square, so on a tall window the band drew a 520px donut in a 771px box and
+   left ~250px of nothing above and below it — while the option tiles under it
+   were squeezed into a fixed 150px panel with 96px cards.
+
+   So the two swap roles. The stage sizes to the art it actually draws, and the
+   sheet becomes the flexible band: the leftover lands on the options, which is
+   the part being used. The panel keeps 150px as a floor, so a short window
+   behaves exactly as it did.
+
+   `!important` throughout because these are inline styles in JSX expressing
+   the phone layout, and this is the width where the phone layout is wrong —
+   the same reason the block above it does the same thing. */
+@media (min-width: 900px) {
+  .sb-stage {
+    flex: 0 1 auto !important;
+  }
+
+  .sb-sheet {
+    flex: 1 1 auto !important;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .sb-panel {
+    flex: 1 1 auto !important;
+    height: auto !important;
+    min-height: 150px;
+  }
+
+  /* The rail sits in the middle of whatever the panel now has, rather than at
+     the top of it with the gain as dead space underneath. */
+  .sb-panel .sb-rail {
+    height: 100%;
+    align-items: center;
+  }
+
+  /* Inside the wrapper the rail is a flex child, so it takes its height from
+     `flex` rather than from `height: 100%` — which would ignore the note above
+     it and push the tiles out of the panel. */
+  .sb-optionsWrap > .sb-rail {
+    height: auto;
+  }
+
+  /* And the cards take some of it. A 96px tile was sized for a 150px panel;
+     with room above and below, the preview is worth seeing. */
+  .sb-panel .sb-tile {
+    width: 124px !important;
+  }
+}
+
+/* --- A step whose every option is blocked by the choice before it ---------
+   Sprinkles with No Icing is the only case today. The step used to be deleted
+   outright, which moved the stage count under the visitor and took the
+   explanation away with it; now it stays and says why, with the way back to
+   the choice that caused it. */
+.sb-optionsWrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.sb-opt-block {
+  margin: 0;
+  padding: 0 18px 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+/* A link, not a knob: it moves you back a step rather than committing to
+   anything, and the CTA below is still the action on this screen. */
+.sb-opt-block button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--navy);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* The rail is the flexible part of the wrapper, so the note takes its own
+   height off the top and the tiles keep centring in what is left. */
+.sb-optionsWrap > .sb-rail {
+  flex: 1 1 auto;
+  min-height: 0;
+}

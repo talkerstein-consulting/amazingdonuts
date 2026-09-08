@@ -145,7 +145,7 @@ export default function Ecommerce1() {
               <button
                 onClick={() => setLiked((v) => !v)}
                 className="grid place-items-center h-12 w-12 rounded-xl bg-white dark:bg-neutral-800 ring-1 ring-neutral-200 dark:ring-neutral-700 text-neutral-900 dark:text-white cursor-pointer"
-                aria-label="Favorite"
+                aria-label="Favourite"
               >
                 <Heart
                   className={`h-4 w-4 transition ${liked ? "fill-rose-500 text-rose-500" : ""}`}

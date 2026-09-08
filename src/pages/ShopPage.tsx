@@ -11,6 +11,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import AuthModal from '../shop/AuthModal';
 import CartDrawer from '../shop/CartDrawer';
+import ReturnPrompt from '../shop/ReturnPrompt';
 import ProductPanel from '../shop/ProductPanel';
 import ShopAll from '../shop/ShopAll';
 
@@ -63,6 +64,7 @@ export default function ShopPage() {
         </div>
 
         <CartDrawer />
+        <ReturnPrompt />
         <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
       </ShopProvider>
     </NavThemeProvider>

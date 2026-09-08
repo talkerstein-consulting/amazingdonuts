@@ -32,7 +32,8 @@ export type Base = {
   filled?: boolean;
 };
 
-export type Icing = { id: string; name: string; key: string | null; swatch: string | null; bare?: boolean };
+/** `opacity` paints the icing art through rather than over — see Plain Glazed. */
+export type Icing = { id: string; name: string; key: string | null; swatch: string | null; bare?: boolean; opacity?: number };
 export type Filling = { id: string; name: string; key: string | null; swatch: string | null; bare?: boolean };
 export type Sprinkle = { id: string; name: string; colors: string[]; bare?: boolean };
 
@@ -63,12 +64,13 @@ export const BASES: Base[] = [
   { id: 'kids-round',    name: 'Kids Size Round',    folder: 'kids_size_round',           slug: 'kids_round',           note: 'Same donut, smaller hands.',        scale: 0.72 },
   { id: 'sofgania',      name: 'Sofgania / Boston',  folder: 'sofgania_boston',           slug: 'sofgania_boston',      note: 'No hole. Room for filling.',        scale: 1, filled: true },
   { id: 'kids-sofgania', name: 'Kids Size Sofgania', folder: 'kids_size_sofgania_boston', slug: 'kids_sofgania_boston', note: 'A small one, still filled.',        scale: 0.72, filled: true },
-  /* 0.87, not 1: the twist is the one shape drawn wider than it is tall. Its
-     ink spans 872 of the art's 1024px against the round donut's 760, so at
-     scale 1 the stage's 1.2 crop factor pushed it past both edges and the
-     braid's ends were clipped. 0.87 gives it the same margin the round donut
-     has (872/1024 × 1.2 × 0.87 ≈ 760/1024 × 1.2). */
+  /* The Twist is off the shape picker. Its art and its rules are all still
+     here — the folder, the 0.87 scale that stopped the braid clipping, and
+     `takesIcing` excluding it — so putting it back is one line. It was the one
+     shape in the builder you could not decorate, which made picking it a dead
+     end: no icing, and therefore no sprinkles either.
   { id: 'twist',         name: 'Twist',              folder: 'twist',                     slug: 'twist',                note: 'Braided, glazed end to end.',       scale: 0.87 },
+  */
   { id: 'heart',         name: 'Heart Shape',        folder: 'heart_shape_donuts',        slug: 'heart_donut',          note: 'For the occasion you know about.',  scale: 0.95 },
   { id: 'bites',         name: 'Amazing Bites',      folder: 'amazing_bites',             slug: 'amazing_bites',        note: 'One bite. Then eleven more.',       scale: 0.5 },
   { id: 'cupcake',       name: 'Cupcakes',           folder: 'cupcakes',                  slug: 'cupcake',              note: 'Cake, in a paper collar.',          scale: 0.85 },
@@ -91,6 +93,12 @@ export const ICINGS: Icing[] = [
   { id: 'white',     name: 'Vanilla · White',      key: 'vanilla_white',     swatch: '#FBF7F0' },
   { id: 'yellow',    name: 'Vanilla · Yellow',     key: 'vanilla_yellow',    swatch: '#F4CE4A' },
   { id: 'chocolate', name: 'Chocolate',            key: 'chocolate_glaze',   swatch: '#7B4A2D' },
+  /* Plain glazed is the white icing art painted through at 80%, not artwork of
+     its own — there is none in the sheet, and there does not need to be. A real
+     sugar glaze is the donut showing through a thin white film, which is what
+     a translucent white layer is; at full opacity it is Vanilla · White, and
+     that option is already three rows up. */
+  { id: 'glazed',    name: 'Plain Glazed',         key: 'vanilla_white',     swatch: '#FBF7F0', opacity: 0.8 },
   { id: 'none',      name: 'No Icing',             key: null,                swatch: null, bare: true }
 ];
 
@@ -297,16 +305,33 @@ export const jitter = (i: number) => {
  * top. Sprinkles are not here — they are an inline recoloured SVG, painted
  * separately so each mark can animate.
  */
-export const stack = (b: Base, ic?: Icing, f?: Filling) => {
-  const out = [{ img: cssUrl(fillingArt(b, f) || baseArt(b)) }];
+export type Layer = { img: string; opacity?: number; mask?: string };
+
+export const stack = (b: Base, ic?: Icing, f?: Filling): Layer[] => {
+  const out: Layer[] = [{ img: cssUrl(fillingArt(b, f) || baseArt(b)) }];
   const isrc = icingArt(b, ic);
-  if (isrc) out.push({ img: cssUrl(isrc) });
+  /* `opacity` only ever appears on the icing layer, and only for Plain Glazed
+     — see ICINGS. Left undefined everywhere else so the renderer's default
+     stands rather than every layer carrying a `1`.
+
+     `mask` is the base's own alpha, and it is a repair rather than a design.
+     Some of the supplied icing files paint over the donut's hole: sampled at
+     the centre pixel, `icing_round_donut_vanilla_pink`, `..._purple` and
+     `icing_kids_round_vanilla_pink` are all an opaque magenta where the dough
+     files are transparent, which is why those three shapes came out with a
+     blob in the middle while blue, white and chocolate were clean.
+     Icing can only ever sit where the dough is, so masking the layer by the
+     base's silhouette is the rule that was missing — and it holds for every
+     shape and every colour rather than patching the three files that happen to
+     be wrong today. `contain`, centred, matching the layer's own
+     `background-size`, so the two register exactly. */
+  if (isrc) out.push({ img: cssUrl(isrc), opacity: ic?.opacity, mask: cssUrl(baseArt(b)) });
   return out;
 };
 
 /* --- Steps ---------------------------------------------------------------- */
 
-export type StepId = 'base' | 'size' | 'icing' | 'filling' | 'sprinkle' | 'print';
+export type StepId = 'base' | 'size' | 'icing' | 'filling' | 'sprinkle' | 'print' | 'quantity';
 
 export const STEP_LABEL: Record<StepId, string> = {
   base: 'Shape',
@@ -314,7 +339,8 @@ export const STEP_LABEL: Record<StepId, string> = {
   icing: 'Icing',
   filling: 'Filling',
   sprinkle: 'Sprinkles',
-  print: 'Print'
+  print: 'Print',
+  quantity: 'How many'
 };
 
 export const STEP_TITLE: Record<StepId, string> = {
@@ -323,7 +349,8 @@ export const STEP_TITLE: Record<StepId, string> = {
   icing: 'Pick the icing',
   filling: 'Pick the filling',
   sprinkle: 'Pick the sprinkles',
-  print: 'Print your own'
+  print: 'Print your own',
+  quantity: 'How many of these?'
 };
 
 /**
@@ -338,7 +365,8 @@ export const STEP_NOTES: Record<StepId, string> = {
   icing: 'Colour first. Everything else sits on top of it.',
   filling: 'Sofgania and Boston get an inside.',
   sprinkle: 'Last layer. Some are held back by the shape you picked.',
-  print: 'A round print, on a round donut or a cupcake. Send the artwork, we bake it.'
+  print: 'A round print, on a round donut or a cupcake. Send the artwork, we bake it.',
+  quantity: 'The last thing to decide, and the only one that is not about the donut.'
 };
 
 /**
@@ -355,7 +383,25 @@ export const stepsFor = (b: Base, ic: Icing): StepId[] => {
   if (itemForBase(b.id).members.length > 1) list.push('size');
   if (RULES.takesIcing(b.id)) list.push('icing');
   if (RULES.takesFilling(b.id)) list.push('filling');
-  if (RULES.takesIcing(b.id) && RULES.takesSprinkles(ic.id)) list.push('sprinkle');
+  /* Present whenever the shape can be iced — NOT conditional on the icing
+     actually chosen. It used to be `&& RULES.takesSprinkles(ic.id)`, so picking
+     "No Icing" deleted this step outright: the stage count dropped from 5 to 4
+     under the visitor, and the one sentence that explains why
+     (`RULES.sprinkleReason`, "Needs icing to stick to") lived on the tiles that
+     had just been removed, so nothing said what had happened.
+
+     Worse on a second visit. The build is persisted, so a No Icing donut chosen
+     once came back on the next load with the sprinkles step simply absent from
+     a lab that had never mentioned sprinkles at all.
+
+     The step stays and its tiles are blocked instead, which is what
+     `sprinkleReason` was written for. */
+  if (RULES.takesIcing(b.id)) list.push('sprinkle');
+  /* Always last, and always present. It used to be asked AFTER the claw had
+     already carried the donut away — which is to say after the order was
+     placed, on a screen whose own button read "Build another". A quantity is
+     part of the order, so it is a step in making one. */
+  list.push('quantity');
   return list;
 };
 

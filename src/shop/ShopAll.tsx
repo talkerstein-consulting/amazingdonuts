@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Donut,
@@ -12,33 +12,37 @@ import {
   Flame,
   ArrowUpNarrowWide,
   ArrowDownWideNarrow,
-  ArrowDownAZ
+  ArrowDownAZ,
+  SlidersHorizontal
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { CATEGORIES, PRODUCTS, type Category, type Product } from '../data/products';
+import { BOX_BUILDER_IDS, CATEGORIES, SHOP_PRODUCTS, type Category, type Product } from '../data/products';
+import BoxCard from '../components/BoxCard';
 import { LAB_HREF } from '../lib/lab-href';
 import { useGridColumns } from '../hooks/useGridColumns';
 import { readShopParams } from '../lib/shop-href';
+import { FULFILLMENT_EVENT } from '../lib/fulfillment';
 import { Badge, C, F, SQUIRCLE, BadgeRow } from '../components/brand';
 import { tagFor } from '../data/product-tags';
 import { useShop, useBoxQty } from '../lib/shop';
 import AddControl from '../components/AddControl';
-import SortMenu, { type SortOption } from './SortMenu';
+import CollectionRail from './CollectionRail';
+import FilterDrawer, {
+  FilterButton,
+  type FilterOption,
+  type SortOption
+} from './FilterDrawer';
 
 /**
  * The catalogue: banner, the card straddling its bottom edge, category chips,
  * and the product grid.
  *
  * This used to be a full-screen overlay carrying its own bar and a filter rail
- * of checkboxes beside the grid. It is now the body of `/shop/` — the global
- * navbar sits above it, so it needs no bar of its own, and the filters are a
- * single scrolling row of chips rather than a column of checkboxes.
- *
- * Why chips beat the checkboxes here: five categories in a vertical rail cost
- * a whole column of width on desktop and a tall accordion on a phone, to
- * express what is really one question with a handful of answers. A row of
- * chips reads as that question, works identically at every width, and puts the
- * grid at the top of the page where it belongs.
+ * of checkboxes beside the grid, and after that a toolbar of category chips
+ * with a sort dropdown beside it. Everything that narrows the grid now lives
+ * behind one pinned button — see `FilterDrawer` for why — so the page itself is
+ * banner, then grid, and the controls travel with the visitor instead of
+ * scrolling away above them.
  */
 
 /**
@@ -240,7 +244,7 @@ const COLLECTION_COPY: Record<'all' | Category, { title: string; seo: string }> 
 };
 
 export default function ShopAll() {
-  const { openProduct } = useShop();
+  const { openProduct, product: openPanel } = useShop();
   /* Which products are already in the box, so the grid can say so. */
   const boxQty = useBoxQty();
   const openCatalogProduct = (product: Product) => openProduct(product.id);
@@ -252,16 +256,45 @@ export default function ShopAll() {
      returned it; nothing read it, so a search arrived and changed nothing. */
   const [query, setQuery] = useState(() => readShopParams().query);
   const [sort, setSort] = useState<Sort>('featured');
-  /** Only ever set while Donuts is the active collection. */
-  const [tier, setTier] = useState<Tier | null>(() => {
-    const params = readShopParams();
-    return params.category === 'Donuts' ? params.tier : null;
-  });
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  /* The pin is not on screen over the banner. Up there the page has not begun —
+     there is nothing yet to filter and the button would be a control floating
+     over a photograph. It arrives as the grid does, level with the first
+     counter heading, and stays for the rest of the page. */
+  const [pinShown, setPinShown] = useState(false);
+  const gridTop = useRef<HTMLDivElement | null>(null);
+  /* Where the page furniture ends, so the pin can sit under it rather than on
+     it. The navbar's height is a clamp and the pickup/delivery band is only
+     there once a choice has been made, so the number differs between two
+     otherwise identical screens — measured, not assumed. Re-read on resize,
+     since the navbar's clamp is width-based, and on the fulfillment event,
+     since that is what makes the band appear and disappear. */
+  const [chromeBottom, setChromeBottom] = useState(0);
+
+  useEffect(() => {
+    const measure = () => {
+      const bottoms = ['header', '.pickup-banner']
+        .map((sel) => document.querySelector(sel)?.getBoundingClientRect().bottom ?? 0)
+        .filter((bottom) => bottom > 0);
+      setChromeBottom(bottoms.length ? Math.max(...bottoms) : 0);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener(FULFILLMENT_EVENT, measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener(FULFILLMENT_EVENT, measure);
+    };
+  }, []);
+  /* Applies on every counter now, not just Donuts. It was pinned to Donuts
+     because it lived in a chip row that appeared and vanished with the
+     collection; inside the drawer it is a filter beside the others, and the
+     price line it draws is one every counter has. */
+  const [tier, setTier] = useState<Tier | null>(() => readShopParams().tier);
 
   const shown = useMemo(() => {
-    const inCategory = active ? PRODUCTS.filter((p) => p.category === active) : PRODUCTS;
-    const inTier =
-      active !== 'Donuts' || !tier ? inCategory : inCategory.filter(TIERS.find((t) => t.id === tier)!.test);
+    const inCategory = active ? SHOP_PRODUCTS.filter((p) => p.category === active) : SHOP_PRODUCTS;
+    const inTier = tier ? inCategory.filter(TIERS.find((t) => t.id === tier)!.test) : inCategory;
     if (!query) return inTier;
     /* Matched against the name and the category, case-insensitively, on every
        whitespace-separated word: "blue sprinkle" should find the blue sprinkle
@@ -278,7 +311,7 @@ export default function ShopAll() {
      the search. Catalogue position is the tiebreak throughout — see SORTS. */
   const ordered = useMemo(() => {
     if (sort === 'featured') return shown;
-    const at = new Map(PRODUCTS.map((p, i) => [p.id, i]));
+    const at = new Map(SHOP_PRODUCTS.map((p, i) => [p.id, i]));
     const tie = (a: Product, b: Product) => at.get(a.id)! - at.get(b.id)!;
     const copy = [...shown];
     if (sort === 'popular') copy.sort((a, b) => rankOf(a) - rankOf(b) || tie(a, b));
@@ -288,16 +321,70 @@ export default function ShopAll() {
     return copy;
   }, [shown, sort]);
 
-  /* Leaving Donuts has to drop the tier with it, or Muffins would come back
-     silently filtered by a control that is no longer on screen. */
-  const pickCategory = (next: Category | null) => {
-    setActive(next);
-    if (next !== 'Donuts') setTier(null);
-  };
+  useEffect(() => {
+    const el = gridTop.current;
+    if (!el) return;
+    /* A sentinel at the top of the grid rather than the banner itself: the
+       banner is 16:9 and on a short laptop window it is still partly visible
+       when the first products are, so "banner off screen" would hold the pin
+       back well past the point it is wanted. */
+    /* Shown once the sentinel has passed above the navbar, and hidden again on
+       the way back up. `boundingClientRect.top < rootBounds.top` is what tells
+       the two directions apart: not intersecting also describes a sentinel that
+       is still below the fold, which is most of the first screen. */
+    const io = new IntersectionObserver(
+      ([entry]) =>
+        setPinShown(
+          !entry.isIntersecting && entry.boundingClientRect.top < (entry.rootBounds?.top ?? 0)
+        ),
+      { threshold: 0, rootMargin: '-96px 0px 0px 0px' }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   const columns = useGridColumns();
 
-  const countFor = (category: Category) => PRODUCTS.filter((p) => p.category === category).length;
+  /* Counts are what each choice would leave, not what the catalogue holds in
+     total — a "Special 3" under a picked Cookies counter has to mean three
+     cookies. Every count therefore honours the OTHER group's current answer,
+     and never its own, so choosing within a group cannot change the numbers
+     you were choosing between. */
+  const countInCategory = (category: Category | null) => {
+    const scope = category ? SHOP_PRODUCTS.filter((p) => p.category === category) : SHOP_PRODUCTS;
+    return tier ? scope.filter(TIERS.find((t) => t.id === tier)!.test).length : scope.length;
+  };
+
+  const countInTier = (id: Tier | null) => {
+    const scope = active ? SHOP_PRODUCTS.filter((p) => p.category === active) : SHOP_PRODUCTS;
+    return id ? scope.filter(TIERS.find((t) => t.id === id)!.test).length : scope.length;
+  };
+
+  /* The drawer's groups always have an answer, so "everything" is a real option
+     inside each rather than the absence of one. `all` and `any` map back to the
+     nulls the grid filters on. */
+  const categoryOptions: FilterOption<Category | 'all'>[] = [
+    /* "Shop all", not "Everything": the same words the nav link, the banner
+       heading and the first tab of the category rail use for this exact state.
+       Three names for one filter is three chances to think they are different
+       things. */
+    { id: 'all', label: 'Shop all', icon: LayoutGrid, count: countInCategory(null) },
+    ...CATEGORIES.map((category) => ({
+      id: category,
+      label: category,
+      icon: COLLECTION_ICON[category],
+      count: countInCategory(category)
+    }))
+  ];
+
+  const tierOptions: FilterOption<Tier | 'any'>[] = [
+    { id: 'any', label: 'Any', count: countInTier(null) },
+    ...TIERS.map((t) => ({ id: t.id, label: t.label, count: countInTier(t.id) }))
+  ];
+
+  /* Sort is deliberately not counted: there is no unsorted grid, so a badge
+     that always read at least 1 would say nothing. */
+  const activeFilters = (active ? 1 : 0) + (tier ? 1 : 0);
 
   /* Grouped only while the grid is showing everything.
      A picked category is already one group and the banner above it says which,
@@ -305,6 +392,10 @@ export default function ShopAll() {
      list that happens to span counters — cutting it into five labelled runs
      would bury the best match under a subheading. */
   const grouped = !active && !query;
+
+  /* Filtering the grid re-titles the row above it: picking Cookies makes the
+     heading "Cookies", and the counter dividers inside the grid then have
+     nothing left to divide — one category is one run. */
 
   /* The grid is products, one promo tile, and — when grouped — a divider ahead
      of each counter's run. Building the whole list up front means every one of
@@ -408,80 +499,66 @@ export default function ShopAll() {
         </div>
       </section>
 
-      {/* --- filters and sort --------------------------------------------- */}
-      {/* One row: the counters on the left, the order on the right. They were
-          two rows with an item count between them, which spent a whole line of
-          the page on a number nobody shops by — sixty is not a reason to buy
-          anything — and separated the two halves of a single question, which is
-          "show me these, in this order".
+      {/* The counters, as cards. Browsing, not filtering — see CollectionRail
+          for why that distinction earns it a place on the page when the filters
+          themselves are behind a button. */}
+      <CollectionRail active={active} onPick={setActive} />
 
-          The rule under the row is the page's one structural line: above it,
-          everything that changes what the grid holds; below it, the grid. */}
-      <div className="shop-toolbar">
-      {/* One row, scrolling sideways when it runs out of room. Same control at
-          every width, so there is no separate phone treatment to keep in sync.
+      {/* What the pin watches. One pixel tall with a matching negative margin,
+          so it occupies the line the grid starts on and no space at all — a
+          genuinely zero-height target never changes intersection state, so the
+          observer below would fire once on attach and never again. */}
+      <div ref={gridTop} aria-hidden="true" style={{ height: 1, marginBottom: -1 }} />
 
-          Icon and name, not icon alone. Stripping the names did buy the row
-          enough width to fit on a phone without scrolling, and cost more than
-          it bought: five bakery glyphs are not five distinguishable words —
-          muffin and cupcake in particular — and on a phone there is no hover to
-          fall back on. The row scrolls; that is what it is built to do. */}
-      <div className="shop-chips" role="group" aria-label="Filter by category">
+      {/* The grid's own heading, and the way to narrow it, on one line with a
+          rule under them. This is where the filter lives at rest — the pinned
+          button is the same control following the visitor once this row has
+          scrolled away, which is why they never appear together. */}
+      <div className="shop-head">
+        <h2 className="shop-head__title">{copy.title}</h2>
         <button
           type="button"
-          onClick={() => pickCategory(null)}
-          aria-pressed={active === null}
-          className={`shop-chip${active === null ? ' is-on' : ''}`}
+          onClick={() => setFiltersOpen(true)}
+          className="shop-head__filter"
+          aria-label="Filter and sort"
         >
-          <LayoutGrid size={16} strokeWidth={2.5} aria-hidden="true" />
-          All
-          <span className="shop-chip__count">{PRODUCTS.length}</span>
+          <SlidersHorizontal size={17} strokeWidth={2.5} aria-hidden="true" />
+          Filter
+          {activeFilters > 0 && <span className="filter-pin__badge">{activeFilters}</span>}
         </button>
-
-        {CATEGORIES.map((category) => {
-          const Icon = COLLECTION_ICON[category];
-          return (
-          <button
-            key={category}
-            type="button"
-            /* Tapping the active chip clears it, so the row needs no separate
-               'clear' control - which the checkbox rail did. */
-            onClick={() => pickCategory(active === category ? null : category)}
-            aria-pressed={active === category}
-            className={`shop-chip${active === category ? ' is-on' : ''}`}
-          >
-            <Icon size={16} strokeWidth={2.5} aria-hidden="true" />
-            {category}
-            <span className="shop-chip__count">{countFor(category)}</span>
-          </button>
-          );
-        })}
       </div>
 
-        <SortMenu value={sort} options={SORTS} onChange={setSort} />
-      </div>
+      {/* Never while a product page is open. The cabinet covers the pin on its
+          own (z 165 against 140), but the box builder deliberately sits UNDER
+          the navbar at z 40 so the header stays usable — which left the pin
+          floating over it, offering to filter a grid nobody can see. */}
+      <FilterButton
+        active={activeFilters}
+        shown={pinShown && !openPanel}
+        top={chromeBottom}
+        onClick={() => setFiltersOpen(true)}
+      />
 
-      {/* The tier row only exists while Donuts is up, so it is a second line
-          rather than two more chips in the first — the main row must not
-          reshuffle its width every time a collection is picked. */}
-      {active === 'Donuts' && (
-        <div className="shop-chips shop-chips--sub" role="group" aria-label="Filter donuts by kind">
-          {TIERS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTier((prev) => (prev === t.id ? null : t.id))}
-              aria-pressed={tier === t.id}
-              className={`shop-chip shop-chip--sub${tier === t.id ? ' is-on' : ''}`}
-            >
-              {t.label}
-              <span className="shop-chip__count">
-                {PRODUCTS.filter((p) => p.category === 'Donuts' && t.test(p)).length}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+      <FilterDrawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        sorts={SORTS}
+        sort={sort}
+        onSort={setSort}
+        categories={categoryOptions}
+        category={active ?? 'all'}
+        onCategory={(next) => setActive(next === 'all' ? null : next)}
+        tiers={tierOptions}
+        tier={tier ?? 'any'}
+        onTier={(next) => setTier(next === 'any' ? null : next)}
+        showing={shown.length}
+        canClear={activeFilters > 0 || sort !== 'featured'}
+        onClear={() => {
+          setActive(null);
+          setTier(null);
+          setSort('featured');
+        }}
+      />
 
       {/* The search, and the way out of it. This is all that is left of the
           count line: "60 items" said nothing, but a page silently showing six
@@ -489,7 +566,7 @@ export default function ShopAll() {
           has to offer a way back. */}
       {query && (
         <p className="shop-query">
-          Showing {shown.length} of {PRODUCTS.length} for{' '}
+          Showing {shown.length} of {SHOP_PRODUCTS.length} for{' '}
           <strong style={{ color: C.navy }}>&ldquo;{query}&rdquo;</strong>{' '}
           <button type="button" onClick={() => setQuery('')} className="shop-query__clear">
             clear
@@ -503,7 +580,31 @@ export default function ShopAll() {
         <p className="shop-query shop-query--empty">
           Nothing matches &ldquo;{query}&rdquo;. Try a flavour, or{' '}
           <button type="button" onClick={() => setQuery('')} className="shop-query__clear">
-            see everything
+            shop all
+          </button>
+          .
+        </p>
+      )}
+
+      {/* A combination that matches nothing has to say so and offer the way
+          back, exactly as an empty search does. The filters could not produce
+          this before — the tier only ever applied to Donuts, where both halves
+          are populated — but Cookies and Special is a real thing to pick now,
+          and it is empty. */}
+      {!query && shown.length === 0 && (
+        <p className="shop-query shop-query--empty">
+          No {tier ? TIERS.find((t) => t.id === tier)!.label.toLowerCase() : ''} items on
+          {' '}
+          {active ? `the ${active.toLowerCase()} counter` : 'any counter'}.{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setActive(null);
+              setTier(null);
+            }}
+            className="shop-query__clear"
+          >
+            shop all
           </button>
           .
         </p>
@@ -525,12 +626,11 @@ export default function ShopAll() {
                 className="shop-divider"
                 {...slide(i)}
               >
-                {/* The name and the rule, nothing else. The icon repeated the
-                    one already on this counter's chip a few rows up, and the
-                    count is a number nobody is shopping by — the products it
-                    counts start on the next line. */}
+                {/* The name, and nothing else. The rule that used to run out
+                    from it drew a second horizontal line every few rows on a
+                    page whose only real structure is the grid, and the name is
+                    already the largest thing on its row. */}
                 <span className="shop-divider__name">{tile.category}</span>
-                <span className="shop-divider__rule" aria-hidden="true" />
               </motion.h2>
             ) : tile.kind === 'promo' ? (
               <motion.article
@@ -565,6 +665,16 @@ export default function ShopAll() {
                 </div>
               </motion.article>
             ) : (
+            /* The two build-your-own boxes get the homepage's proposition card
+               here too — same component, same colours, same action. They are
+               the same offer on both pages, and a box that reads as an idea on
+               the homepage and as a product tile in the catalogue is two
+               different things wearing one name. */
+            BOX_BUILDER_IDS.has(tile.product.id) ? (
+              <motion.div key={tile.product.id} layout {...slide(i)} className="box-card-cell">
+                <BoxCard product={tile.product} />
+              </motion.div>
+            ) : (
             <motion.article
               key={tile.product.id}
               layout
@@ -586,7 +696,7 @@ export default function ShopAll() {
                     /* See the homepage grid: the bed carries the state,
                        because a ring on a squircle-clipped element is clipped
                        away with it. */
-                    background: boxQty[tile.product.id] ? C.orange : C.canvas,
+                    background: boxQty[tile.product.id] ? C.navy : C.canvas,
                     clipPath: SQUIRCLE,
                     overflow: 'hidden',
                     transition: 'background .2s ease'
@@ -600,7 +710,13 @@ export default function ShopAll() {
                       width: '100%',
                       height: '100%',
                       objectFit: 'contain',
-                      transform: `scale(${tile.product.id === 'heart-shape-donut' || tile.product.id === 'star-of-david-donut-special-order' ? 0.82 : 1.18})`
+                      /* One scale for every product. The heart and the Star of
+                         David used to be shrunk to 0.82 here and nowhere else,
+                         so the same two donuts were a different size in this
+                         grid than on the homepage, the panel, the bag line and
+                         the search results — which reads as the products being
+                         smaller rather than as the tiles being different. */
+                      transform: 'scale(1.18)'
                     }}
                   />
                 </button>
@@ -627,11 +743,13 @@ export default function ShopAll() {
                   style={{
                     margin: 0,
                     fontFamily: F.display,
-                    /* Karla at 800 made every product name shout; the card's job is
-                       to be scanned, and a grid of extra-bold names has no
-                       hierarchy left in it. */
-                    fontWeight: 400,
-                    fontSize: 14,
+                    /* Up a tier from 14/400. Karla at 800 made every name shout
+                       and left the grid with no hierarchy in it, but 14 at
+                       Regular put the product's own name below its price in
+                       weight — the one thing on a tile that has to be read
+                       first was the quietest thing on it. */
+                    fontWeight: 700,
+                    fontSize: 16,
                     lineHeight: 1.2,
                     color: C.navy,
                     textTransform: 'none',
@@ -643,9 +761,10 @@ export default function ShopAll() {
                 >
                   {tile.product.name}
                 </h4>
-                <span style={{ fontFamily: F.text, fontWeight: 500, fontSize: 13, color: C.price }}>{tile.product.price}</span>
+                <span style={{ fontFamily: F.text, fontWeight: 500, fontSize: 14, color: C.price }}>{tile.product.price}</span>
               </button>
             </motion.article>
+            )
             )
           )}
         </AnimatePresence>

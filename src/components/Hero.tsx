@@ -1,8 +1,7 @@
 import { motion } from 'motion/react';
-import { BrandButton } from './brand';
 import ReviewScore from './ReviewScore';
+import { LANES, LaneCard } from './Lanes';
 import { useScrollSpin } from '../hooks/useScrollSpin';
-import { SHOP_HREF } from '../lib/shop-href';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -73,23 +72,38 @@ export default function Hero({ ready }: { ready: boolean }) {
         the box.
       </motion.p>
 
+      {/* Delivery and Pick-up stand where the "Shop donuts" knob used to.
+
+          The knob and these cards were the same request twice: a button
+          reading "Shop donuts" above a pair of cards that are how you shop for
+          donuts. The cards win because they name the choice the visitor has to
+          make either way, and the section they used to sit in — below the
+          trust band, a scroll down — is gone, so the one decision the homepage
+          needs is now the first thing under the lede. */}
+      {/* Above the pair now, not below it. It is not an action — no fill, no
+          ring — so it reads as the reason to trust the choice rather than a
+          third thing to press, and it does that better before the choice than
+          after it. The entry delays swap with the order, so whatever is on top
+          still arrives first. */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.15, ease: EASE }}
         className="hero-ctas"
-        style={{ marginTop: 'clamp(14px,1.6vw,20px)', display: 'flex', flexWrap: 'wrap', gap: 12 }}
+        style={{ marginBottom: 'clamp(10px,1.2vw,16px)', display: 'flex', flexWrap: 'wrap', gap: 12 }}
       >
-        {/* The page's single Dare Devil moment, and now the only hero action:
-            the Lab's "Make your own" is still reachable from the bar and from
-            its own lane card, and two peers here split the one thing the hero
-            is for. Names no counter, so it opens the whole catalogue. */}
-        <BrandButton href={SHOP_HREF}>Shop donuts</BrandButton>
-
-        {/* Beside the button, not below the fold. It is not a second action —
-            no fill, no ring — so it supports the press rather than competing
-            for it. */}
         <ReviewScore />
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.25, ease: EASE }}
+        className="hero-lanes"
+      >
+        {LANES.map((lane) => (
+          <LaneCard key={lane.title} lane={lane} />
+        ))}
       </motion.div>
 
       {/* Plain wrapper, deliberately untransformed: motion leaves a transform

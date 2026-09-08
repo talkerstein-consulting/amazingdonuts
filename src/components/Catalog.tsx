@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
-import { CATEGORIES, PRODUCTS, type Category, type Product } from '../data/products';
+import { BOX_BUILDER_IDS, CATEGORIES, SHOP_PRODUCTS, type Category, type Product } from '../data/products';
+import CollectionRail from '../shop/CollectionRail';
+import BoxCard from './BoxCard';
 import { tagFor } from '../data/product-tags';
 import { Badge, C, F, SQUIRCLE } from './brand';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useBoxQty, useShop } from '../lib/shop';
 import AddControl from './AddControl';
-import { shopHref } from '../lib/shop-href';
+import { SHOP_HREF, shopHref } from '../lib/shop-href';
+import { smoothScrollTo } from '../lib/smooth-scroll';
 
 /** One product inside an expanded category: squircle photo bed, name, price, add. */
 function ProductThumb({ product }: { product: Product }) {
@@ -19,7 +22,10 @@ function ProductThumb({ product }: { product: Product }) {
   const inBox = useBoxQty()[product.id] ?? 0;
 
   return (
-    <article style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <article
+      className={BOX_BUILDER_IDS.has(product.id) ? 'product-wide' : undefined}
+      style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}
+    >
       <div style={{ position: 'relative' }}>
       <button
         type="button"
@@ -35,7 +41,7 @@ function ProductThumb({ product }: { product: Product }) {
           /* The bed carries the state, not a ring around it: the bed is
              clipped to a squircle, and a border or box-shadow on a clipped
              element is clipped away with it. */
-          background: inBox ? C.orange : C.canvas,
+          background: inBox ? C.navy : C.canvas,
           clipPath: SQUIRCLE,
           overflow: 'hidden',
           transition: 'background .2s ease'
@@ -109,11 +115,32 @@ function CategoryRow({
   open: boolean;
   onToggle: () => void;
 }) {
-  const shown = products.slice(0, columns * PREVIEW_ROWS);
+  /* Two full rows, counted in CELLS rather than in products — the two
+     build-your-own boxes take two columns each, so slicing to a product count
+     overfills the teaser and leaves the ragged half-row the count was written
+     to avoid. Take products until the next one would not fit. */
+  const shown = useMemo(() => {
+    const budget = columns * PREVIEW_ROWS;
+    let used = 0;
+    return products.filter((product) => {
+      const cells = BOX_BUILDER_IDS.has(product.id) ? 2 : 1;
+      if (used + cells > budget) return false;
+      used += cells;
+      return true;
+    });
+  }, [products, columns]);
   const hidden = products.length - shown.length;
 
   return (
-    <div style={{ borderRadius: 24, background: C.cream, overflow: 'hidden' }}>
+    /* Anchored, so the category rail above can jump to it. `scroll-margin-top`
+       is what keeps the row's own heading out from under the sticky navbar and
+       the pickup/delivery band — the same allowance the shop grid's counter
+       dividers make. */
+    <div
+      id={`home-${category.toLowerCase()}`}
+      className="home-category"
+      style={{ borderRadius: 24, background: C.cream, overflow: 'hidden' }}
+    >
       <button
         type="button"
         className="brand-press"
@@ -164,9 +191,13 @@ function CategoryRow({
             className="product-grid"
             style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, padding: '4px 12px 16px' }}
           >
-            {shown.map((product) => (
-              <ProductThumb key={product.id} product={product} />
-            ))}
+            {shown.map((product) =>
+              BOX_BUILDER_IDS.has(product.id) ? (
+                <BoxCard key={product.id} product={product} />
+              ) : (
+                <ProductThumb key={product.id} product={product} />
+              )
+            )}
           </div>
 
           {/* The row is a teaser, not the catalogue — the rest live in Shop all. */}
@@ -227,9 +258,47 @@ export default function Catalog() {
 
   const searching = query.trim().length > 0;
 
+  /* Scroll to a category's row, opening it first.
+
+     Through `smoothScrollTo` rather than `scrollIntoView`: Lenis owns the
+     scroll position on a pointer device, and a native smooth scroll fights it —
+     the two ease against each other and the page stops a long way short. The
+     helper hands the job to Lenis when it is running and falls back to
+     `scrollIntoView` when it is not, which is every touch device.
+
+     Lenis does not honour `scroll-margin-top`, so the allowance for the sticky
+     navbar and the pickup/delivery band is passed as an offset and measured
+     rather than assumed — the band is only there once a fulfillment choice has
+     been made. `.home-category`'s own scroll-margin covers the fallback path.
+
+     Two frames of delay: the row has to be expanded before its final position
+     is known, and React's paint lands after the state change. Without the wait
+     the jump measures a collapsed row and stops short of it. */
+  const jumpTo = (category: Category | null) => {
+    if (!category) {
+      window.location.href = SHOP_HREF;
+      return;
+    }
+    setCollapsed((current) => {
+      const next = new Set(current);
+      next.delete(category);
+      return next;
+    });
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const row = document.getElementById(`home-${category.toLowerCase()}`);
+        if (!row) return;
+        const chrome = ['header', '.pickup-banner']
+          .map((sel) => document.querySelector(sel)?.getBoundingClientRect().bottom ?? 0)
+          .reduce((lowest, bottom) => Math.max(lowest, bottom), 0);
+        smoothScrollTo(row, -(chrome + 16));
+      })
+    );
+  };
+
   const byCategory = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const pool = needle ? PRODUCTS.filter((p) => p.name.toLowerCase().includes(needle)) : PRODUCTS;
+    const pool = needle ? SHOP_PRODUCTS.filter((p) => p.name.toLowerCase().includes(needle)) : SHOP_PRODUCTS;
     return CATEGORIES.map((category) => ({
       category,
       products: pool.filter((p) => p.category === category)
@@ -243,7 +312,7 @@ export default function Catalog() {
       style={{ maxWidth: 1240, margin: '0 auto', padding: 'clamp(18px,2.4vw,32px) clamp(18px,4vw,40px) var(--gap-section-y)' }}
     >
       <h2 className="favorites-title" style={{ margin: '0 0 clamp(18px,2.4vw,28px)', maxWidth: '14ch', fontSize: 'var(--type-section)', lineHeight: 0.92, color: 'var(--navy)' }}>
-        Everyone has a favorite
+        Everyone has a favourite
       </h2>
 
       <label
@@ -279,6 +348,23 @@ export default function Catalog() {
         />
       </label>
 
+      {/* The same category tabs the catalogue page carries, under the search.
+          Search and category are the two ways in, and the homepage offered only
+          the first — the sections below are collapsible but you have to scroll
+          past all of them to find the one you want.
+
+          On this page they scroll rather than navigate. Every category already
+          has a section a few hundred pixels down, so sending somebody to
+          another page to see something that is on this one is a page load spent
+          to move a scrollbar. It expands the row on the way, since jumping to a
+          collapsed heading would land on the one thing that shows nothing.
+
+          `active` is always null: nothing here is filtered, the rail is a set
+          of jumps. Shop all is the exception and stays a link — it means the
+          whole catalogue, which is a different page and 62 products this band
+          only teases. */}
+      <CollectionRail active={null} onPick={jumpTo} />
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {byCategory.map(({ category, products }) => (
           <CategoryRow
@@ -301,7 +387,7 @@ export default function Catalog() {
 
         {byCategory.length === 0 && (
           <p style={{ margin: 0, fontFamily: F.text, fontSize: 16, color: C.mute }}>
-            Nothing matches that search. Try a flavour, or clear the box.
+            Nothing matches that search. Try a flavour, or clear the search.
           </p>
         )}
       </div>

@@ -88,7 +88,7 @@ export default function AuthModal({ open, onClose, onSuccess }: { open: boolean;
 
             {/* form column */}
             <div className="auth__form">
-              <h3 className="auth__title">{mode === 'in' ? 'Welcome back' : mode === 'forgot' ? 'Reset password' : 'Join the box'}</h3>
+              <h3 className="auth__title">{mode === 'in' ? 'Welcome back' : mode === 'forgot' ? 'Reset password' : 'Join the bag'}</h3>
               <p className="auth__sub">
                 {mode === 'in'
                   ? 'Sign in to reorder your favourites and track custom orders.'
