@@ -98,7 +98,7 @@ function Checkout(){
      counter and an address to send the confirmation to; everything past that
      is what an account is FOR, and asking for it here would rebuild the wall
      this replaces. */
-  const identified=Boolean(session?.user)||Boolean(asGuest&&contact?.firstName&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contact.email));
+  const identified=Boolean(session?.user)||Boolean(asGuest&&contact?.firstName&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contact.email)&&phone.trim().length>=7);
   /* Artwork is uploaded against a user before the order exists — see
      `/storefront/custom-assets`, which is behind `requireUser`. A guest cannot
      hold an upload, so a printed item in the bag is the one thing that still
@@ -155,12 +155,26 @@ function Checkout(){
           {identity==='guest'&&<div className="identity-lane__body">
             <label><span>First name</span><input value={guest.firstName} onChange={event=>setGuest({...guest,firstName:event.target.value})} autoComplete="given-name" required/></label>
             <label><span>Last name</span><input value={guest.lastName} onChange={event=>setGuest({...guest,lastName:event.target.value})} autoComplete="family-name"/></label>
-            <label className="identity-email"><span>Email</span><input type="email" value={guest.email} onChange={event=>setGuest({...guest,email:event.target.value})} autoComplete="email" required/></label>
+            <label><span>Email</span><input type="email" value={guest.email} onChange={event=>setGuest({...guest,email:event.target.value})} autoComplete="email" required/></label>
+            {/* The three Square actually needs from a guest, together.
+                `OrderFulfillmentRecipient` takes `display_name` and
+                `phone_number` directly when there is no customer_id, and
+                CreatePayment takes `buyer_email_address` — so this block is
+                exactly the API's own minimum, and the phone is not an extra
+                question, it is one of the three. It used to sit under
+                Fulfillment, which asked a stranger for their name and email,
+                then for a collection time, and only then for the number the
+                counter would ring. It still lives there for a signed-in
+                customer, pre-filled from their profile — one field, one piece
+                of state, rendered wherever the answer is being gathered. */}
+            <label><span>Phone</span><input type="tel" value={phone} onChange={event=>setPhone(formatNorthAmericanPhone(event.target.value))} autoComplete="tel" required/></label>
             {/* The one thing a guest cannot do, said where the choice is made
                 rather than at the button after everything else is filled in. */}
             {guestBlockedByPrint&&<p className="identity-note">Custom-printed items need an account, because the artwork is stored against it. Sign in below to keep them.</p>}
           </div>}
         </div>
+        <div className="identity-or" aria-hidden="true">or</div>
+
         <div className={`identity-lane${identity==='account'?' is-open':''}`}>
           <button type="button" className="identity-lane__head" aria-expanded={identity==='account'} onClick={()=>setIdentity('account')}>
             <LockKeyhole/><span><strong>Sign in or create an account</strong><small>Order history, saved addresses and account credit.</small></span>
@@ -175,7 +189,10 @@ function Checkout(){
         <div className="segment"><button type="button" className={fulfillment==='pickup'?'active':''} onClick={()=>{setFulfillment('pickup');writeFulfillmentPreference('pickup')}}><Store/> Pickup</button><button type="button" className={fulfillment==='delivery'?'active':''} disabled={config?.delivery?.enabled===false} onClick={()=>{setFulfillment('delivery');writeFulfillmentPreference('delivery');clearPickup()}}><Truck/> Delivery</button></div>
         {fulfillment==='delivery'&&config?.delivery&&<p className="delivery-policy">Local delivery is {money(config.delivery.feeAmount/100)} and free on merchandise orders of {money(config.delivery.freeThreshold/100)} or more. {money(config.delivery.minimumAmount/100)} minimum.</p>}
         <h2 className="schedule-legend">{fulfillment==='pickup'?'When are you collecting?':'When should we deliver?'}</h2><div className="fulfillment-schedule">{fulfillment==='pickup'&&<p className="pickup-where"><Store/> <span>Collecting from <strong>{SHOP_ADDRESS.street}</strong>, {SHOP_ADDRESS.city}. We will have your bag boxed and waiting.</span></p>}<div className="checkout-date-field"><span>Date</span><BrandDatePicker value={scheduledAt.slice(0,10)} min={scheduledMinimum.slice(0,10)} onChange={value=>setScheduledAt(`${value}T09:00`)} ariaLabel="Choose a pickup or delivery date" disabledDay={day=>day.getDay()===6}/></div><label><span>Time window</span><select value={fulfillmentTimes.length?scheduledAt.slice(11,16):''} disabled={!fulfillmentTimes.length} onChange={event=>setScheduledAt(`${scheduledAt.slice(0,10)}T${event.target.value}`)} required>{fulfillmentTimes.length?fulfillmentTimes.map(slot=><option value={slot.value} key={slot.value}>{slot.label}</option>):<option value="">Closed</option>}</select></label>{requiresPrintLeadTime&&<small>Custom-printed items require at least one week's notice.</small>}<small className="schedule-hours">{fulfillment==='pickup'?`${HOURS_SUMMARY} Windows are ${SLOT_MINUTES} minutes long.`:`Delivery windows run ${timeLabel(schedule.deliveryStart)}–${timeLabel(schedule.deliveryEnd)} Sunday through Friday. Saturday closed. Times are in ${schedule.intervalMinutes}-minute windows.`}</small></div>
-        <label><span>Phone</span><input type="tel" value={phone} onChange={event=>setPhone(formatNorthAmericanPhone(event.target.value))} autoComplete="tel" required/></label>
+        {/* Guests answered this with their name and email — see the identity
+            block above. A signed-in customer has no such block, so it is asked
+            here, where it always was. */}
+        {!asGuest&&<label><span>Phone</span><input type="tel" value={phone} onChange={event=>setPhone(formatNorthAmericanPhone(event.target.value))} autoComplete="tel" required/></label>}
         {fulfillment==='delivery'&&<div className="address-fields">{savedAddresses.length>0&&<label className="saved-address-select"><span>Saved address</span><select value={savedAddresses.find(item=>sameAddress(item,address))?.id||''} onChange={event=>{const selected=savedAddresses.find(item=>item.id===event.target.value);if(selected)setAddress(addressValue(selected));}}><option value="">Use another address</option>{savedAddresses.map(item=><option key={item.id} value={item.id}>{item.label}{item.isDefault?' · Default':''}</option>)}</select></label>}<label><span>Street address</span><AddressAutocomplete address={address} onChange={setAddress} enabled={config?.placesEnabled} required/></label><label><span>Unit</span><input value={address.addressLine2} onChange={event=>setAddress({...address,addressLine2:event.target.value})} autoComplete="address-line2"/></label><label><span>City</span><input value={address.locality} onChange={event=>setAddress({...address,locality:event.target.value})} autoComplete="address-level2" required/></label><label><span>Postal code</span><input value={address.postalCode} onChange={event=>setAddress({...address,postalCode:event.target.value.toUpperCase()})} autoComplete="postal-code" required/></label>{!savedAddresses.some(item=>sameAddress(item,address))&&<div className="save-address-row"><label className="no-contact"><input type="checkbox" checked={saveAddress} onChange={event=>setSaveAddress(event.target.checked)}/><span>Save this address</span></label>{saveAddress&&<><label><span>Label</span><input value={addressLabel} onChange={event=>setAddressLabel(event.target.value)} placeholder="Home, Work..." required/></label><label><span>Type</span><select value={addressType} onChange={event=>setAddressType(event.target.value as typeof addressType)}><option value="home">Home</option><option value="work">Work</option><option value="other">Other</option></select></label></>}</div>}<label className="delivery-instructions"><span>Drop-off instructions</span><textarea value={deliveryInstructions} onChange={event=>setDeliveryInstructions(event.target.value)} maxLength={500} rows={3}/></label><label className="no-contact"><input type="checkbox" checked={noContact} onChange={event=>setNoContact(event.target.checked)}/><span>No-contact delivery</span></label></div>}
       </fieldset>
       {/* Payment lives in the summary column — see the aside below. */}
@@ -228,7 +245,7 @@ function Checkout(){
       {(quoteError||error)&&<p className="checkout-error" role="alert">{quoteError||error}</p>}
       {/* Outside the form element, attached to it by `form`: the button belongs
           under the total it quotes, and the total lives in this column. */}
-      <button className="place-order" form="checkout" disabled={!ready||!lines.length||!customReady||!quote||!method||busy}>{busy?'Uploading artwork and placing order...':guestBlockedByPrint?'Sign in to order printed items':!identified?'Add your name and email':!customReady?`Finish the highlighted item${blockedCount===1?'':'s'}`:!method?'Choose how to pay':quote?`Place order · ${money(payable)}`:'Calculating Square total...'}</button>
+      <button className="place-order" form="checkout" disabled={!ready||!lines.length||!customReady||!quote||!method||busy}>{busy?'Uploading artwork and placing order...':guestBlockedByPrint?'Sign in to order printed items':!identified?'Add your name, email and number':!customReady?`Finish the highlighted item${blockedCount===1?'':'s'}`:!method?'Choose how to pay':quote?`Place order · ${money(payable)}`:'Calculating Square total...'}</button>
 
     </div></div>
     <AuthModal open={authOpen} onClose={()=>setAuthOpen(false)} onSuccess={loadSession}/>
