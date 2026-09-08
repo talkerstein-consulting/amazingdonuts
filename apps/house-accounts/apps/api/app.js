@@ -30,6 +30,15 @@ const fulfillmentSchema=z.object({type:z.enum(["pickup","delivery"]),scheduledAt
 const artworkSchema=z.object({assetId:z.uuid(),count:z.number().int().min(1).max(99)});
 const customizationsSchema=z.array(z.discriminatedUnion("kind",[z.object({productName:z.string().min(1).max(180),kind:z.literal("print"),icingFlavour:z.enum(["Chocolate","Vanilla"]).optional(),icingFlavor:z.enum(["Chocolate","Vanilla"]).optional(),sprinkleColours:z.string().trim().max(120).default(""),artworks:z.array(artworkSchema).min(1).max(99)}),z.object({productName:z.string().min(1).max(180),kind:z.literal("glyph"),glyph:z.string().trim().min(1).max(120)})])).max(20).default([]);
 const checkoutSchema=z.object({idempotencyKey:z.uuid(),items:cartSchema,customizations:customizationsSchema,fulfillment:fulfillmentSchema,paymentMethod:z.enum(["card","house_account"]),sourceId:z.string().min(6).max(300).optional(),authorizationPin:pinSchema.optional()});
+/* A guest is a name and an address to send the receipt to, and nothing else.
+   Anything more would be an account application wearing a different hat. */
+const guestSchema=z.object({firstName:z.string().trim().min(1).max(80),lastName:z.string().trim().max(80).optional().default(""),email:z.string().email(),phone:z.string().trim().min(7).max(40).refine(value=>isValidNorthAmericanPhone(value),"Enter a valid Canadian or US phone number.")});
+const guestQuoteSchema=z.object({tenantSlug:z.string().min(2).default("amazing-donuts"),items:cartSchema,fulfillment:fulfillmentSchema});
+/* Card only. House-account credit and saved cards are properties of an
+   account, so a guest asking for either is asking for something that cannot
+   exist — the enum refuses it at the door rather than failing later with a
+   confusing lookup error. */
+const guestCheckoutSchema=z.object({tenantSlug:z.string().min(2).default("amazing-donuts"),idempotencyKey:z.uuid(),items:cartSchema,customizations:customizationsSchema,fulfillment:fulfillmentSchema,paymentMethod:z.literal("card"),sourceId:z.string().min(6).max(300),guest:guestSchema});
 const uploadSchema=z.object({fileName:z.string().trim().min(1).max(180),dataUrl:z.string().max(1900000)});
 const profileSchema=z.object({firstName:z.string().trim().min(1).max(80),lastName:z.string().trim().min(1).max(80),phone:z.string().trim().max(40).refine(value=>!value||isValidNorthAmericanPhone(value),"Enter a valid Canadian or US phone number.").optional().default(""),address:z.record(z.string(),z.string()).optional().default({})});
 const deleteCustomerAccountSchema=z.object({confirmation:z.literal("DELETE")});
@@ -223,6 +232,63 @@ export function createApp({ pool, square, uberDirect, config }) {
     response.status(201).json({order:publicOrder(created),paymentMethod:input.paymentMethod,delivery:publicDelivery(created,input,config.delivery)});
   }catch(error){if(reservation)await pool.query("UPDATE credit_reservations SET status='released',updated_at=now() WHERE id=$1 AND status='active'",[reservation.id]).catch(releaseError=>console.error("Credit reservation release failed",releaseError));next(error);}});
   app.get("/api/storefront/orders",async(request,response,next)=>{try{const user=requireUser(request),result=await pool.query(`SELECT id,square_order_id,payment_method,status,subtotal,tax,total,currency,fulfillment,line_items,ordered_at FROM storefront_orders WHERE tenant_id=$1 AND user_id=$2 UNION ALL SELECT o.id,o.square_order_id,'house_account' AS payment_method,o.status,o.subtotal,o.tax,o.total,o.currency,o.fulfillment,o.line_items,o.ordered_at FROM orders o JOIN account_users au ON au.account_id=o.account_id AND au.user_id=$2 WHERE o.tenant_id=$1 AND NOT EXISTS(SELECT 1 FROM storefront_orders so WHERE so.tenant_id=o.tenant_id AND so.square_order_id=o.square_order_id) ORDER BY ordered_at DESC LIMIT 100`,[user.tenant_id,user.id]);response.json({orders:result.rows});}catch(error){next(error);}});
+
+  /* --- guest checkout ------------------------------------------------------
+     A lane of its own rather than a branch inside the signed-in endpoints.
+
+     Those two are load-bearing: they carry institutional credit reservations,
+     purchase authorisation, saved cards and account history, and every one of
+     those paths starts from a user. Threading "or nobody" through all of it
+     would put a null check in front of the code that moves money on behalf of
+     institutions. These endpoints do the one thing a guest can do — pay by
+     card — and the authenticated path is left byte-for-byte as it was.
+
+     What a guest cannot do, and why:
+       · house account credit, saved cards — properties of an account.
+       · custom-printed items — the artwork is uploaded and owned before the
+         order exists (see `/storefront/custom-assets`, behind `requireUser`),
+         so there is nothing for a guest to reference. Refused explicitly here
+         rather than failing on a missing asset. */
+  const guestTenant=async slug=>{const tenant=await pool.query("SELECT id FROM tenants WHERE slug=$1 AND status='active'",[slug]);if(!tenant.rowCount)throw Object.assign(new Error("Online ordering is unavailable."),{status:404});return tenant.rows[0].id;};
+  const refuseGuestPrints=input=>{if(input.customizations?.some(entry=>entry.kind==="print"))throw Object.assign(new Error("Custom-printed items need an account, because the artwork is stored against it. Please sign in to order them."),{status:403,code:"ACCOUNT_REQUIRED_FOR_PRINT"});};
+
+  app.post("/api/public/storefront/quote",async(request,response,next)=>{try{
+    const input=guestQuoteSchema.parse(request.body),tenantId=await guestTenant(input.tenantSlug);
+    const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(tenantId):square;
+    const {calculated}=await prepareSquareOrder(tenantSquare,config,input,null);
+    response.json({order:publicOrder(calculated),delivery:publicDelivery(calculated,input,config.delivery)});
+  }catch(error){next(error);}});
+
+  app.post("/api/public/storefront/checkout",async(request,response,next)=>{try{
+    const input=guestCheckoutSchema.parse(request.body),tenantId=await guestTenant(input.tenantSlug);
+    refuseGuestPrints(input);
+    const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(tenantId):square;
+
+    /* An existing Square customer with this address is reused rather than
+       duplicated. A guest who orders every Friday should be one customer in
+       the bakery's Square dashboard with six orders against them, not six
+       customers — and if they later create an account, the same search in
+       `/auth` finds this record and adopts it. */
+    const email=input.guest.email.toLowerCase();
+    const found=await tenantSquare.searchCustomers({query:{filter:{email_address:{exact:email}}},limit:1});
+    const customerId=(found.customers?.[0]||(await tenantSquare.createCustomer({idempotency_key:`guest-${input.idempotencyKey}`,given_name:input.guest.firstName,family_name:input.guest.lastName||undefined,email_address:email,phone_number:normalizeNorthAmericanPhone(input.guest.phone)||undefined})).customer).id;
+
+    const {orderDraft,calculated}=await prepareSquareOrder(tenantSquare,config,input,null);
+    const created=(await tenantSquare.createOrder({idempotency_key:`order-${input.idempotencyKey}`,order:{...orderDraft,customer_id:customerId}})).order;
+    const payment=(await tenantSquare.createPayment({idempotency_key:`payment-${input.idempotencyKey}`,source_id:input.sourceId,amount_money:created.total_money,order_id:created.id,location_id:config.squareLocationId,customer_id:customerId,autocomplete:true})).payment;
+
+    /* `user_id` NULL, `guest_contact` set — see migration 007, whose CHECK is
+       what guarantees an order always has one identity or the other. The same
+       ON CONFLICT as the signed-in path, so a retried idempotency key does not
+       write a second row. */
+    await pool.query(`INSERT INTO storefront_orders(tenant_id,user_id,account_id,square_order_id,square_payment_id,square_invoice_id,payment_method,status,subtotal,tax,total,currency,fulfillment,line_items,customizations,raw_square,guest_contact) VALUES($1,NULL,NULL,$2,$3,NULL,'card',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(tenant_id,square_order_id) DO UPDATE SET square_payment_id=EXCLUDED.square_payment_id`,[tenantId,created.id,payment?.id||null,payment?.status?.toLowerCase()||"completed",Number(created.total_money.amount)-Number(created.total_tax_money?.amount||0),Number(created.total_tax_money?.amount||0),Number(created.total_money.amount),created.total_money.currency,JSON.stringify(input.fulfillment),JSON.stringify(created.line_items||[]),JSON.stringify(input.customizations),JSON.stringify({order:created,payment}),JSON.stringify({firstName:input.guest.firstName,lastName:input.guest.lastName,email,phone:normalizeNorthAmericanPhone(input.guest.phone)||input.guest.phone})]);
+
+    const orderTotal=new Intl.NumberFormat("en-CA",{style:"currency",currency:created.total_money.currency}).format(Number(created.total_money.amount)/100),orderText=`Order ${created.id}\n${orderTotal}\n${input.fulfillment.type} on ${input.fulfillment.scheduledAt}`;
+    /* The receipt is the only record a guest gets, so it carries the order
+       number rather than a link to an account they do not have. */
+    await Promise.all([sendEmail(config,{to:email,subject:"Amazing Donuts order confirmed",text:`Thanks, ${input.guest.firstName}.\n\n${orderText}\n\nKeep this email — it is your receipt. Reply to it with any questions about the order.`}),notifyOwners(config,"New website order (guest)",`${input.guest.firstName} ${input.guest.lastName}\n${email}\n${orderText}\n\nManage: ${config.siteUrl}/admin-dashboard/#orders`)]);
+    response.status(201).json({order:publicOrder(created),paymentMethod:"card",delivery:publicDelivery(created,input,config.delivery)});
+  }catch(error){next(error);}});
 
   app.post("/api/public/bulk-requests", async (request,response,next)=>{ try {
     const input=applicationSchema.parse(request.body),tenant=await pool.query("SELECT id FROM tenants WHERE slug=$1 AND status='active'",[input.tenantSlug]);
@@ -704,7 +770,7 @@ async function buildSquareOrder(square,locationId,input,user){
   const recipient={display_name:input.fulfillment.recipient.displayName,email_address:input.fulfillment.recipient.email,phone_number:normalizeNorthAmericanPhone(input.fulfillment.recipient.phone)};
   if(input.fulfillment.address)recipient.address={address_line_1:input.fulfillment.address.addressLine1,address_line_2:input.fulfillment.address.addressLine2||undefined,locality:input.fulfillment.address.locality,administrative_district_level_1:input.fulfillment.address.administrativeDistrictLevel1,postal_code:input.fulfillment.address.postalCode,country:input.fulfillment.address.country};
   const fulfillment=input.fulfillment.type==="pickup"?{type:"PICKUP",state:"PROPOSED",pickup_details:{schedule_type:"SCHEDULED",pickup_at:input.fulfillment.scheduledAt,recipient}}:{type:"DELIVERY",state:"PROPOSED",delivery_details:{schedule_type:"SCHEDULED",deliver_at:input.fulfillment.scheduledAt,recipient,...(input.fulfillment.deliveryInstructions?{delivery_instructions:input.fulfillment.deliveryInstructions}:{}),...(input.fulfillment.noContact?{no_contact_delivery:true}:{})}};
-  return {location_id:locationId,line_items:lineItems,fulfillments:[fulfillment],taxes:taxes.map((tax,index)=>({uid:`catalog-tax-${index}`,catalog_object_id:tax.id,scope:"ORDER"})),pricing_options:{auto_apply_taxes:true,auto_apply_discounts:true},source:{name:"Amazing Donuts Website"},reference_id:`web-${user.id.slice(0,8)}-${Date.now()}`};
+  return {location_id:locationId,line_items:lineItems,fulfillments:[fulfillment],taxes:taxes.map((tax,index)=>({uid:`catalog-tax-${index}`,catalog_object_id:tax.id,scope:"ORDER"})),pricing_options:{auto_apply_taxes:true,auto_apply_discounts:true},source:{name:"Amazing Donuts Website"},reference_id:`web-${user?.id?.slice(0,8)||"guest"}-${Date.now()}`};
 }
 async function prepareSquareOrder(square,config,input,user){
   validateFulfillmentSchedule(input.fulfillment,config.delivery);

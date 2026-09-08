@@ -410,11 +410,125 @@
   color: var(--text-body);
 }
 
+/* --- who is ordering ------------------------------------------------------ */
+/* Two lanes rather than a segmented control.
+
+   A segment says "one of these two settings applies"; this is a choice between
+   two different amounts of work, and the lane that costs nothing is already
+   open when the page loads. Both heads stay visible and pressable throughout,
+   so switching is one press and nothing is hidden behind a state the visitor
+   has to discover. */
+.identity-choice {
+  margin: clamp(20px, 2.4vw, 28px) 0 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.identity-lane {
+  border-radius: var(--radius-chip);
+  background: var(--sand);
+  overflow: hidden;
+  transition: box-shadow 140ms ease;
+}
+
+/* The open lane is ringed, not filled: a second fill against the sand would
+   make the closed lane read as disabled, and it is not — it is the other
+   choice, one press away. */
+.identity-lane.is-open {
+  box-shadow: inset 0 0 0 2px var(--navy);
+}
+
+.identity-lane__head {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+  border: 0;
+  background: transparent;
+  color: var(--navy);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.identity-lane__head svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  stroke-width: 2.2;
+}
+
+.identity-lane__head strong {
+  display: block;
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: var(--fs-body);
+}
+
+.identity-lane__head small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+}
+
+.identity-lane__body {
+  padding: 0 20px 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+/* One field per row would make three short inputs into a column the height of
+   the fulfillment section; the email is the one that needs the full width. */
+.identity-lane__body .identity-email,
+.identity-lane__body > p,
+.identity-lane__body .identity-note,
+.identity-lane__body .identity-signin {
+  grid-column: 1 / -1;
+}
+
+.identity-lane__body > p {
+  margin: 0;
+  color: var(--text-body);
+}
+
+.identity-note {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: rgba(214, 84, 42, 0.12);
+  color: var(--navy);
+  font-size: var(--fs-small);
+  line-height: 1.45;
+}
+
+.identity-signin {
+  justify-self: start;
+}
+
+/* Sign in reads as the quieter of the two links in the top bar, because on
+   this page it is: the visitor is already checking out, and this is the
+   alternative to the lane that is open below. */
+.commerce-top__signin {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
 /* --- primary actions ----------------------------------------------------- */
 /* Dare Devil, pill, one per screen. The checkout's hero action is the place
    order button; the sign-in gate and the success screen each have their own
    screen, so none of them collide. */
 .signin-gate button,
+.identity-signin,
 .place-order,
 .commerce-success a,
 .account-gate > section > button,
@@ -435,6 +549,7 @@
 }
 
 .signin-gate button:active,
+.identity-signin:active,
 .place-order:active,
 .commerce-success a:active,
 .account-gate > section > button:active,
@@ -1325,6 +1440,7 @@
   }
 
   .address-fields,
+  .identity-lane__body,
   .fulfillment-schedule,
   .profile-form,
   .auth__nameRow {

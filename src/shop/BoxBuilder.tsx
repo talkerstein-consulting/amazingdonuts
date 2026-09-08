@@ -8,7 +8,7 @@ import { useIsDesktop } from '../hooks/useIsDesktop';
 import {
   BOX_PRODUCTS,
   boxMaxFor,
-  BULK_MINIMUMS,
+  BULK_PACK_SIZES,
   isSpecialOrder,
   NOT_A_BOX_FLAVOUR
 } from '../lib/custom-order';
@@ -216,7 +216,7 @@ export default function BoxBuilder({ product }: { product: Product }) {
      item that does not exist until somebody builds one. The other box products
      are excluded too: a box is not a flavour.
 
-     `NOT_A_BOX_FLAVOUR` and `BULK_MINIMUMS` carry the two that every test above
+     `NOT_A_BOX_FLAVOUR` and `BULK_PACK_SIZES` carry the two that every test above
      lets through — the made-to-order Customizable Donut, and petite donuts,
      which cannot be bought one at a time. See the note on that set.
 
@@ -233,7 +233,7 @@ export default function BoxBuilder({ product }: { product: Product }) {
           !BOX_PRODUCTS.has(p.id) &&
           !NOT_A_BOX_FLAVOUR.has(p.id) &&
           !isSpecialOrder(p.name) &&
-          !BULK_MINIMUMS.has(p.id) &&
+          !BULK_PACK_SIZES.has(p.id) &&
           priceOf(p) > 0 &&
           priceOf(p) <= 5
       ),

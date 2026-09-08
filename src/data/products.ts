@@ -73,24 +73,27 @@ export const BOX_BUILDER_IDS = new Set<string>([HALF_DOZEN_BOX_ID, DOZEN_BOX_ID]
 export const LAB_PRODUCT_ID = 'donut-lab-donut';
 
 /**
- * Petite donuts, bulk only.
+ * Petite donuts, bulk only. The row the scrape produced — there is no longer a
+ * second, hand-added one.
  *
- * The homepage has had a petite card since the bulk card moved out of that
- * slot, and its button pointed at the whole classic tier — 48 products, none of
- * them petite. The proposition needed something to buy.
+ * The catalogue carried this product twice: `petite-donuts-75`, added by hand
+ * when the homepage's petite card needed something to buy, and this one, which
+ * the scrape had lifted from the live listing all along. Two rows, one product,
+ * the same name on both — which meant two tiles in any grid that showed them,
+ * two different photographs of the same donut, and an ambiguous match for
+ * Square, which pairs an order line to the catalogue BY NAME. The scraped row
+ * survives because it is the bakery's own: its photograph and its second view
+ * came from the listing, and its id is the listing's slug.
  *
- * Read off the live listing rather than guessed: "Petite Size Donut (Bulk Order
- * Only)", $1.50 a donut with a minimum purchase of 75, and its own photograph.
- * The order form there asks two questions — the donut type and the colours —
- * which is what the panel asks.
+ * Priced as the pack it is actually sold as. The listing quotes $1.50 a donut
+ * and refuses any order under 75, so $1.50 was never a price anyone could pay —
+ * it made the tile, the bag and the homepage card all advertise a donut you
+ * cannot buy one of, and left the real cost of the smallest possible order
+ * ($112.50) to be discovered at the end. The line quantity now counts packs of
+ * 75; `BULK_PACK_SIZES` is what says how many donuts are in one.
  * https://amazingdonuts.com/petite-size-donut-bulk-order-only/
- *
- * Priced per donut, NOT per tray. An earlier pass had this as a flat $75.00
- * tray, which was invented: it made the price wrong and pushed the 75 into the
- * line quantity, so one order read as 75 trays. The minimum lives in
- * `minimumQuantityFor` where every other minimum lives.
  */
-export const PETITE_PRODUCT_ID = 'petite-donuts-75';
+export const PETITE_PRODUCT_ID = 'petite-size-donut-bulk-order-only';
 
 export const PRODUCTS: Product[] = [
   {
@@ -128,19 +131,6 @@ export const PRODUCTS: Product[] = [
        the builder, and this file needs the same optimising (~8MB). */
     img: '/products/boxes/dozen-box.png',
     url: ''
-  },
-  /* Petite used to sit between the two boxes. It is out from between them
-     because the boxes are a pair now — each one a double-width tile, the two
-     of them a full row at the head of the Donuts run — and a third product
-     wedged in the middle broke the row wherever catalogue order is the order
-     shown, which is the homepage and the shop's default sort. */
-  {
-    id: PETITE_PRODUCT_ID,
-    name: 'Petite Size Donut (Bulk Order Only)',
-    price: '$1.50',
-    category: 'Donuts',
-    img: '/products/donuts/petite-size-donut.png',
-    url: 'https://amazingdonuts.com/petite-size-donut-bulk-order-only/'
   },
   {
     id: "twelve-custom-printed-donuts",
@@ -343,7 +333,9 @@ export const PRODUCTS: Product[] = [
   {
     id: "petite-size-donut-bulk-order-only",
     name: "Petite Size Donut (Bulk Order Only)",
-    price: "$1.50",
+    /* 75 × $1.50 — see `PETITE_PRODUCT_ID`. The listing's per-donut figure is
+       still quoted on the page, under the price. */
+    price: "$112.50",
     category: "Donuts",
     img: "/products/donuts/petite-size-donut-bulk-order-only.png",
     secondary: ["/products/donuts/secondary/petite-size-donut-bulk-order-only.png"],

@@ -23,18 +23,20 @@ export const LAB_PRODUCTS = new Set(['donut-lab-donut']);
 /**
  * Bulk-only products, and the smallest order each takes.
  *
- * Petite donuts are $1.50 each with a minimum purchase of 75 — the live
- * listing's own terms. So 75 IS the line quantity, and the stepper counts
- * donuts from there upward; it is not a tray size, and the panel does not hide
- * the stepper for it.
+ * Petite donuts are $1.50 each and the listing refuses any order under 75, so
+ * the smallest thing that can be bought is a pack of 75 — and that, not the
+ * donut, is what the catalogue now sells. The price on the row is the pack's
+ * ($112.50); the number here is how many donuts are in one, which is what the
+ * panel needs to say "150 donuts" when the stepper reads 2.
  *
- * This went wrong twice on the way here. First the product was priced as a flat
- * $75.00 "tray", which put 75 into the quantity and billed 75 trays; then the
- * minimum was removed to fix that, which let somebody order one petite donut
- * from a bulk-only line. The price and the minimum are two separate facts and
- * both come from the listing.
+ * It has been all three of the plausible shapes on the way here, and the other
+ * two were both wrong. A flat "$75.00 tray" was an invented price. Then $1.50 a
+ * donut with a minimum quantity of 75, which priced it honestly but advertised
+ * $1.50 everywhere a price appears — for a thing nobody can buy one of — and
+ * hid the $112.50 floor until the bag. A pack is the one shape where the price
+ * shown is a price somebody can actually pay.
  */
-export const BULK_MINIMUMS = new Map([['petite-donuts-75', 75]]);
+export const BULK_PACK_SIZES = new Map([['petite-size-donut-bulk-order-only', 75]]);
 
 /**
  * What a petite tray can be finished as. Mirrors the bakery's own order form.
@@ -76,13 +78,11 @@ export const GLYPH_PRODUCTS = new Set(['letter-number-donut-cake']);
  * of six to have it. It is the catalogue's own listing, separate from the Donut
  * Lab line, which is why `SHOP_PRODUCTS` does not already hide it.
  *
- * Petite donuts are here as well as in `BULK_MINIMUMS`, and both are needed:
- * the catalogue carries the same product twice — `petite-donuts-75`, the
- * hand-added row the homepage and the panel use, and
- * `petite-size-donut-bulk-order-only`, the row the scrape produced. Only the
- * first is in `BULK_MINIMUMS`, so the minimum alone does not keep the pair out.
- * Either way the reason is the same: they are sold against a 75 minimum, and
- * dropping one into a half dozen is buying exactly the one the minimum forbids.
+ * Petite donuts are sold as a pack of 75 and nothing smaller, so one of them
+ * in a half dozen is exactly the purchase the pack size forbids. The $5 price
+ * test would now catch the $112.50 pack on its own; it is named here anyway,
+ * because the reason it does not belong is the pack, not the price, and a
+ * cheaper pack should not quietly become a box flavour.
  */
 export const NOT_A_BOX_FLAVOUR = new Set([
   'customizable-donut',
@@ -115,7 +115,7 @@ export const isSpecialOrder = (name: string) => /\(special order\)/i.test(name);
  * it to say so.
  */
 export const minimumQuantityFor = (productId: string) =>
-  PRINT_PRODUCTS.has(productId) ? 4 : BULK_MINIMUMS.get(productId) ?? 1;
+  PRINT_PRODUCTS.has(productId) ? 4 : 1;
 
 export type Artwork = { key: string; name: string; dataUrl: string; count: number; assetId?: string };
 export type Customization =
@@ -150,7 +150,7 @@ export const customizationFor = (productId: string): Customization | undefined =
       ? { kind: 'glyph', glyph: '' }
       : BOX_PRODUCTS.has(productId)
         ? { kind: 'box', donuts: [] }
-        : BULK_MINIMUMS.has(productId)
+        : BULK_PACK_SIZES.has(productId)
           ? { kind: 'petite', type: 'sprinkle', colourId: '', colours: '' }
           : undefined;
 
@@ -166,7 +166,7 @@ export const customizationComplete = (productId: string, qty: number, customizat
   if (counts) return customization?.kind === 'box' && counts.includes(customization.donuts.length);
   /* Sprinkle and Coloured icing both need to know which colours; Glazed does
      not, and asking would be a required field with no answer. */
-  if (BULK_MINIMUMS.has(productId)) {
+  if (BULK_PACK_SIZES.has(productId)) {
     if (customization?.kind !== 'petite') return false;
     const asks = PETITE_TYPES.find((t) => t.id === customization.type)?.asks;
     return !asks || customization.colours.trim().length > 0;

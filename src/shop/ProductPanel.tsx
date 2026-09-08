@@ -23,7 +23,7 @@ import { useShop, money, priceOf } from '../lib/shop';
 import { PRINT_SPRINKLE_SWATCHES, swatchesFor } from '../lib/petite-palette';
 import {
   BOX_PRODUCTS,
-  BULK_MINIMUMS,
+  BULK_PACK_SIZES,
   GLYPH_PRODUCTS,
   imageDataUrl,
   minimumQuantityFor,
@@ -159,15 +159,16 @@ function Cabinet({ product }: { product: Product }) {
   const isGlyph = GLYPH_PRODUCTS.has(product.id);
   /* Bulk-only, and the smallest order it takes. Petite donuts are priced per
      donut with a 75 minimum, so the stepper counts donuts and simply starts
-     there — see `BULK_MINIMUMS`. */
-  const bulkMinimum = BULK_MINIMUMS.get(product.id);
+     there — see `BULK_PACK_SIZES`. How many donuts are in one pack, or
+     undefined for everything that is not sold in packs. */
+  const packSize = BULK_PACK_SIZES.get(product.id);
   const petiteSpec = PETITE_TYPES.find((t) => t.id === petiteType);
   const petiteAsks = petiteSpec?.asks ?? null;
   const petiteSwatches = swatchesFor(petiteSpec?.palette ?? null);
   const petiteChoice = petiteSwatches.find((sw) => sw.id === petiteColour);
   /* Glazed asks nothing, so it is always ready; the other two need a swatch
      picked before the knob will do anything. */
-  const petiteReady = !bulkMinimum || !petiteAsks || Boolean(petiteChoice);
+  const petiteReady = !packSize || !petiteAsks || Boolean(petiteChoice);
 
   /* The printed dozen, and whether it is answered.
 
@@ -226,7 +227,7 @@ function Cabinet({ product }: { product: Product }) {
       });
     }
     if (isGlyph) customize(product.id, { kind: 'glyph', glyph });
-    if (bulkMinimum) {
+    if (packSize) {
       /* Colours are cleared for Glazed rather than carried over from a previous
          choice - the bakery would read a stale answer as an instruction. */
       customize(product.id, {
@@ -247,7 +248,7 @@ function Cabinet({ product }: { product: Product }) {
      75 minimum — a Single / Half dozen / Dozen pair on that card offers a
      choice the order cannot honour, and contradicts the "75 minimum · bulk
      order" sitting directly under it. */
-  const byThePiece = unit > 0 && unit < 10 && !bulkMinimum;
+  const byThePiece = unit > 0 && unit < 10 && !packSize;
   const pieces = byThePiece ? PACKS.find((p) => p.id === pack)!.pieces : 1;
 
   // A fresh product resets the picker — carrying a dozen over is never intended.
@@ -505,14 +506,14 @@ function Cabinet({ product }: { product: Product }) {
                 {product.price}
               </p>
               <span style={{ fontFamily: F.text, fontSize: 14, color: C.mute }}>
-                {bulkMinimum ? 'per donut' : byThePiece ? 'per piece' : 'per box'}
+                {packSize ? `per ${packSize}` : byThePiece ? 'per piece' : 'per box'}
               </span>
             </div>
 
             <p style={{ margin: '14px 0 0', fontFamily: F.text, fontSize: 15, lineHeight: 1.55, color: C.body }}>
               Prepared and finished in our own kitchen, and sold{' '}
-              {bulkMinimum
-                ? `by the donut, ${bulkMinimum} minimum`
+              {packSize
+                ? `in packs of ${packSize}, at $${(unit / packSize).toFixed(2)} a donut`
                 : byThePiece
                   ? 'by the piece'
                   : 'as a box'}
@@ -539,7 +540,7 @@ function Cabinet({ product }: { product: Product }) {
                 ask which colours - the bakery's own order form pairs the same
                 question with the same three choices, and Glazed is the one that
                 needs no answer. */}
-            {bulkMinimum && (
+            {packSize && (
               <div style={{ marginBottom: 20 }}>
                 <span className="cabinet__label">Donut type</span>
                 <div className="cabinet__packs" role="radiogroup" aria-label="Donut type">
@@ -800,9 +801,9 @@ function Cabinet({ product }: { product: Product }) {
                 as 75 lines at the tray price. */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
               <span className="cabinet__label" style={{ marginBottom: 0 }}>
-                {bulkMinimum ? 'Donuts' : 'Quantity'}
-                {bulkMinimum && (
-                  <span className="cabinet__trayCount">{bulkMinimum} minimum · bulk order</span>
+                {packSize ? 'Packs' : 'Quantity'}
+                {packSize && (
+                  <span className="cabinet__trayCount">{packSize} donuts each · bulk order</span>
                 )}
               </span>
               <div className="cabinet__stepper">
@@ -868,11 +869,11 @@ function Cabinet({ product }: { product: Product }) {
             <p className="cabinet__fineprint">
               {requiresPrintLeadTime
                 ? `${qty} dozen units · one week's notice required`
-                : bulkMinimum
+                : packSize
                   /* The listing's own condition, verbatim in substance: this
                      size is only sold in bulk. It said nothing about a lead
                      time, so nothing here claims one. */
-                  ? `${qty} donuts · minimum ${bulkMinimum} donuts to order this size`
+                  ? `${qty * packSize} donuts · this size is bulk order only`
                   : `${pieces * qty} ${pieces * qty === 1 ? 'piece' : 'pieces'} · order by 4pm for next-day collection`}
             </p>
           </div>
