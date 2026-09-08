@@ -8,10 +8,12 @@ import { clearPickup } from '../lib/pickup';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
-/* The photo slides in from -38% of its own width. A disc rolling that far turns
-   travel / radius radians — 0.38w over w/2 is ~0.76rad, ~44deg — so it starts
-   back at -44deg and unwinds to level as it lands. */
-const ROLL_IN = { degrees: -44, duration: 950 };
+/* Each donut rolls in from its own side and unwinds to level as it lands, then
+   turns with the scroll from there. Mirrored signs, so they counter-rotate:
+   two discs turning the same way read as one image being rotated, which is
+   what a single-donut hero looked like and what this composition is not. */
+const ROLL_PINK = { degrees: -38, duration: 980 };
+const ROLL_BLUE = { degrees: 34, duration: 980 };
 
 /**
  * The hero, as a split: everything you read on the left, the donut on the right.
@@ -38,9 +40,11 @@ const ROLL_IN = { degrees: -44, duration: 950 };
  * exists here.
  */
 export default function Hero({ ready }: { ready: boolean }) {
-  // Turns with the scroll, but only once the preloader has handed the wordmark
-  // to the navbar — nothing should be moving behind the loading screen.
-  const spin = useScrollSpin<HTMLImageElement>(150, ready, ROLL_IN);
+  // Turn with the scroll, but only once the preloader has handed the wordmark
+  // to the navbar — nothing should be moving behind the loading screen. One
+  // hook per donut: the ref is per-element, and the two want opposite spins.
+  const spinPink = useScrollSpin<HTMLImageElement>(-130, ready, ROLL_PINK);
+  const spinBlue = useScrollSpin<HTMLImageElement>(115, ready, ROLL_BLUE);
 
   /* Both buttons go to the catalogue and record how the order is being
      collected on the way — which is what the band across the top of every
@@ -131,40 +135,68 @@ export default function Hero({ ready }: { ready: boolean }) {
         </motion.div>
       </div>
 
-      {/* Plain wrapper, deliberately untransformed: motion leaves a transform
-          on the animated element, which would trap anything absolute inside it
-          in its own stacking context and let the sticky header paint over it. */}
-      <div className="hero__art">
-        {/* The photo runs long on purpose. `.hero-photo`'s negative bottom
-            margin pulls the next section up over it, so the trust band's
-            rotating certification loop crosses the donut and the rest is
-            covered — the donut is cut by the moving text rather than ending on
-            an edge of its own. */}
-        <motion.div
-          initial={{ opacity: 0, x: '-12%' }}
-          animate={ready ? { opacity: 1, x: '0%' } : { opacity: 0, x: '-12%' }}
-          transition={{ duration: 0.95, ease: EASE }}
-        >
-          <div className="hero-photo">
-            <img
-              ref={spin}
-              src="/img/gemini-generated-image-iehotziehotzieho-copy.png"
-              alt="Blue glazed donut with white sprinkles"
-              style={{ width: '100%', height: 'auto', willChange: 'rotate' }}
-            />
+      {/* Two donuts, overlapped, with the seal over the pair.
 
-            {/* Anchored to the donut, not the section, so it travels with the
-                photo at every width and through the entrance animation. Not
-                spun by `useScrollSpin` either — that ref is on the donut alone,
-                so the glaze turns under a seal that stays upright. */}
+          One donut was one product; two are a range, and the pair says
+          something the single glazed ring could not — that these are decorated
+          by hand, in more than one finish. They overlap the way two donuts do
+          when someone sets them down together, blue in front and low, pink
+          behind and high, each turned a little off square. Nothing here is
+          centred on anything else: a composition of two objects that share a
+          centre line reads as a diagram.
+
+          Plain wrappers, deliberately untransformed around the seal: motion
+          leaves a transform on the animated element, and a transform makes a
+          stacking context the absolutely-positioned seal could not escape. */}
+      <div className="hero__art">
+        <div className="hero-duo">
+          <motion.div
+            className="hero-duo__slot hero-duo__slot--pink"
+            initial={{ opacity: 0, y: 26, x: '-6%' }}
+            animate={ready ? { opacity: 1, y: 0, x: '0%' } : { opacity: 0, y: 26, x: '-6%' }}
+            transition={{ duration: 0.9, ease: EASE }}
+          >
             <img
-              src="/img/badge-socials.svg"
-              alt="Proudly Canadian made"
-              className="hero-seal"
-              loading="lazy"
+              ref={spinPink}
+              src="/img/hero-donut-pink.webp"
+              alt="Donut with white icing and pink sprinkles"
+              /* The hero is the largest thing on the first screen, so it is the
+                 LCP candidate: fetched eagerly and at high priority rather than
+                 lazily, which is the opposite of what every other image on the
+                 page wants. */
+              fetchPriority="high"
+              decoding="async"
             />
-          </div>
-        </motion.div>
+          </motion.div>
+
+          <motion.div
+            className="hero-duo__slot hero-duo__slot--blue"
+            initial={{ opacity: 0, y: 34, x: '8%' }}
+            animate={ready ? { opacity: 1, y: 0, x: '0%' } : { opacity: 0, y: 34, x: '8%' }}
+            /* A beat behind the pink one, so the two arrive as a pair being
+               set down rather than as one object splitting in half. */
+            transition={{ duration: 0.9, delay: 0.12, ease: EASE }}
+          >
+            <img
+              ref={spinBlue}
+              src="/img/hero-donut-blue.webp"
+              alt="Donut with white icing and blue sprinkles"
+              fetchPriority="high"
+              decoding="async"
+            />
+          </motion.div>
+
+          {/* Over the pair, not on either one. It is a mark about the bakery,
+              not about a flavour, so it sits on the composition — and outside
+              both motion wrappers, or it would be trapped in one donut's
+              transform and travel with it. */}
+          <img
+            src="/img/badge-socials.svg"
+            alt="Proudly Canadian made"
+            className="hero-duo__seal"
+            loading="lazy"
+          />
+        </div>
       </div>
     </section>
   );

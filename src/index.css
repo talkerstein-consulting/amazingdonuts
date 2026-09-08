@@ -971,11 +971,97 @@ nav a,
   }
 }
 
-/* On desktop the photo owns its grid track, so the phone's 74% would leave it
-   floating in the middle of a column that is already the right width. */
-@media (min-width: 900px) {
-  .hero__art .hero-photo {
-    width: 100%;
+/* ==========================================================================
+   The two hero donuts.
+
+   A square-ish box the two are placed inside as percentages, so the whole
+   composition scales as one thing: change the box's width and the overlap, the
+   offsets and the seal all hold. `aspect-ratio` rather than a height, because
+   the box has to keep its proportions at every column width, and percentage
+   `top`/`left` on the slots need a height to resolve against.
+
+   They are placed by hand. Two donuts of the same size on the same centre line
+   is a diagram; these are different sizes, sitting on different lines, with
+   the blue one lower and in front — the way two things look when someone puts
+   them down next to each other rather than arranges them.
+   ========================================================================== */
+.hero-duo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 0.92;
+  /* The trust band crosses the bottom of the art, as it did the single photo,
+     so the composition is cut by moving text rather than ending on an edge. */
+  margin-bottom: -4%;
+}
+
+.hero-duo__slot {
+  position: absolute;
+  /* Each donut turns on its own centre — `useScrollSpin` rotates the <img>,
+     and an origin anywhere else would swing it around the box. */
+  transform-origin: 50% 50%;
+}
+
+.hero-duo__slot img {
+  width: 100%;
+  height: auto;
+  display: block;
+  will-change: rotate;
+  /* Lifted off the page rather than pasted onto it. Soft and low: the donuts
+     are cut out on transparency, so the shadow is the only thing saying they
+     are objects and not stickers. */
+  filter: drop-shadow(0 18px 26px rgba(14, 62, 105, 0.18));
+}
+
+/* Behind and high, and the smaller of the two. */
+.hero-duo__slot--pink {
+  top: 0;
+  left: 0;
+  width: 62%;
+  z-index: 1;
+  rotate: -6deg;
+}
+
+/* In front and low, overlapping the pink one's lower-right quadrant. Slightly
+   larger, which is what makes it read as nearer rather than merely on top. */
+.hero-duo__slot--blue {
+  top: 26%;
+  left: 34%;
+  width: 66%;
+  z-index: 2;
+  rotate: 5deg;
+}
+
+/* Over the pair — resting on the pink donut's upper-right edge and reaching
+   into the gap above the blue one, rather than parked in the empty corner
+   beside them both. A seal that touches nothing is a logo in a margin; one
+   that overlaps says it is about the things it is lying on.
+
+   Sized off the composition rather than the viewport, so it holds its
+   proportion at every width, and outside both motion wrappers so it is never
+   spun — the seal stays upright while the glaze turns under it. */
+.hero-duo__seal {
+  position: absolute;
+  z-index: 3;
+  /* Measured, not guessed: at 8% it cleared the pink donut's right edge by
+     22px and read as a logo parked in the margin. 16% puts it onto the icing. */
+  top: 1%;
+  right: 16%;
+  width: 26%;
+  max-width: 130px;
+  height: auto;
+  pointer-events: none;
+  /* Its own shadow, so it reads as sitting ON the donut rather than printed
+     into the icing. */
+  filter: drop-shadow(0 6px 14px rgba(14, 62, 105, 0.22));
+}
+
+/* On a phone the art is a row of its own under the copy, so it gives back some
+   of the width — full-bleed, the pair is taller than the buttons above it. */
+@media (max-width: 899px) {
+  .hero-duo {
+    width: 86%;
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 
