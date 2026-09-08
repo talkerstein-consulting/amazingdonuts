@@ -58,7 +58,10 @@ function Checkout(){
      first-time visitor wants; signed-in customers are recognised on arrival
      and never see the choice at all. */
   const [identity,setIdentity]=useState<'guest'|'account'>('guest');
-  const [guest,setGuest]=useState({firstName:'',lastName:'',email:''});
+  /* One name, not two. The bakery calls it out at a counter and writes it on
+     a box; a surname is a field a stranger fills in because a form asked, and
+     Square wants `display_name`, which one name satisfies. */
+  const [guest,setGuest]=useState({name:'',email:''});
   /* Empty until one is picked. It defaulted to 'card', which mounted the Square
      card iframe on arrival and made "choose how to pay" a decision nobody was
      asked to make — the intake was simply already there. */
@@ -93,7 +96,7 @@ function Checkout(){
   /* One answer to "who is this order for", whichever lane produced it, so
      nothing downstream has to ask which lane that was. */
   const asGuest=!session?.user&&identity==='guest';
-  const contact=session?.user??(asGuest?{firstName:guest.firstName.trim(),lastName:guest.lastName.trim(),email:guest.email.trim()}:null);
+  const contact=session?.user??(asGuest?{firstName:guest.name.trim(),lastName:'',email:guest.email.trim()}:null);
   /* Enough to place an order with. A guest needs a name to call out at the
      counter and an address to send the confirmation to; everything past that
      is what an account is FOR, and asking for it here would rebuild the wall
@@ -143,6 +146,17 @@ function Checkout(){
     <header className="commerce-top"><a href="/shop/"><ArrowLeft/> <span>Back to the shop</span></a><CommerceLogo/>{session?.user?<a href="/account/">My account</a>:<button type="button" className="commerce-top__signin" onClick={()=>setAuthOpen(true)}>Sign in</button>}</header>
     <div className="checkout-grid"><form id="checkout" className="checkout-form" onSubmit={place}>
       <div className="commerce-heading"><p>Secure checkout</p><h1>Finish your order</h1><span><LockKeyhole/> <span>Card details are encrypted and handled by Square. We never see them.</span></span></div>
+      {/* Three panels, in the order they are answered: who you are, how you
+          want it, how you are paying. Each is numbered, and each is disabled
+          until the one above it is answered — which is what makes it a
+          sequence rather than three sections that happen to be stacked.
+
+          Payment used to sit in the right-hand column beside the bag. That put
+          the last step of the form outside the form, in the summary, where it
+          read as part of the receipt; it also meant the eye had to cross the
+          page and come back. The bag stays on the right because it is not a
+          step — it is what all three steps are about. */}
+      <div className="checkout-step" data-step="1">
       {session?.user?<section className="signed-row"><div><strong>{session.user.firstName} {session.user.lastName}</strong><span>{session.user.email}</span></div><a href="/account/">Manage account</a></section>:<fieldset className="identity-choice" disabled={busy}><legend>Your details</legend>
         {/* Two lanes, guest open by default. Not a segmented control: these are
             not two settings of one thing, they are two different amounts of
@@ -153,8 +167,7 @@ function Checkout(){
             <UserRound/><span><strong>Continue as a guest</strong><small>No account, no password. We email the receipt.</small></span>
           </button>
           {identity==='guest'&&<div className="identity-lane__body">
-            <label><span>First name</span><input value={guest.firstName} onChange={event=>setGuest({...guest,firstName:event.target.value})} autoComplete="given-name" required/></label>
-            <label><span>Last name</span><input value={guest.lastName} onChange={event=>setGuest({...guest,lastName:event.target.value})} autoComplete="family-name"/></label>
+            <label><span>Name</span><input value={guest.name} onChange={event=>setGuest({...guest,name:event.target.value})} autoComplete="name" required/></label>
             <label><span>Email</span><input type="email" value={guest.email} onChange={event=>setGuest({...guest,email:event.target.value})} autoComplete="email" required/></label>
             {/* The three Square actually needs from a guest, together.
                 `OrderFulfillmentRecipient` takes `display_name` and
@@ -185,6 +198,9 @@ function Checkout(){
           </div>}
         </div>
       </fieldset>}
+      </div>
+
+      <div className="checkout-step" data-step="2">
       <fieldset disabled={!identified||busy}><legend>Fulfillment</legend>
         <div className="segment"><button type="button" className={fulfillment==='pickup'?'active':''} onClick={()=>{setFulfillment('pickup');writeFulfillmentPreference('pickup')}}><Store/> Pickup</button><button type="button" className={fulfillment==='delivery'?'active':''} disabled={config?.delivery?.enabled===false} onClick={()=>{setFulfillment('delivery');writeFulfillmentPreference('delivery');clearPickup()}}><Truck/> Delivery</button></div>
         {fulfillment==='delivery'&&config?.delivery&&<p className="delivery-policy">Local delivery is {money(config.delivery.feeAmount/100)} and free on merchandise orders of {money(config.delivery.freeThreshold/100)} or more. {money(config.delivery.minimumAmount/100)} minimum.</p>}
@@ -195,37 +211,15 @@ function Checkout(){
         {!asGuest&&<label><span>Phone</span><input type="tel" value={phone} onChange={event=>setPhone(formatNorthAmericanPhone(event.target.value))} autoComplete="tel" required/></label>}
         {fulfillment==='delivery'&&<div className="address-fields">{savedAddresses.length>0&&<label className="saved-address-select"><span>Saved address</span><select value={savedAddresses.find(item=>sameAddress(item,address))?.id||''} onChange={event=>{const selected=savedAddresses.find(item=>item.id===event.target.value);if(selected)setAddress(addressValue(selected));}}><option value="">Use another address</option>{savedAddresses.map(item=><option key={item.id} value={item.id}>{item.label}{item.isDefault?' · Default':''}</option>)}</select></label>}<label><span>Street address</span><AddressAutocomplete address={address} onChange={setAddress} enabled={config?.placesEnabled} required/></label><label><span>Unit</span><input value={address.addressLine2} onChange={event=>setAddress({...address,addressLine2:event.target.value})} autoComplete="address-line2"/></label><label><span>City</span><input value={address.locality} onChange={event=>setAddress({...address,locality:event.target.value})} autoComplete="address-level2" required/></label><label><span>Postal code</span><input value={address.postalCode} onChange={event=>setAddress({...address,postalCode:event.target.value.toUpperCase()})} autoComplete="postal-code" required/></label>{!savedAddresses.some(item=>sameAddress(item,address))&&<div className="save-address-row"><label className="no-contact"><input type="checkbox" checked={saveAddress} onChange={event=>setSaveAddress(event.target.checked)}/><span>Save this address</span></label>{saveAddress&&<><label><span>Label</span><input value={addressLabel} onChange={event=>setAddressLabel(event.target.value)} placeholder="Home, Work..." required/></label><label><span>Type</span><select value={addressType} onChange={event=>setAddressType(event.target.value as typeof addressType)}><option value="home">Home</option><option value="work">Work</option><option value="other">Other</option></select></label></>}</div>}<label className="delivery-instructions"><span>Drop-off instructions</span><textarea value={deliveryInstructions} onChange={event=>setDeliveryInstructions(event.target.value)} maxLength={500} rows={3}/></label><label className="no-contact"><input type="checkbox" checked={noContact} onChange={event=>setNoContact(event.target.checked)}/><span>No-contact delivery</span></label></div>}
       </fieldset>
-      {/* Payment lives in the summary column — see the aside below. */}
-    </form><div className="checkout-side">
-      {/* The bag first, then how to pay for it.
+      </div>
 
-          Payment led this column, which put an intake — and a mounted Square
-          iframe — above the only thing on the page that says what is being
-          bought and what it costs. Nobody chooses a card before they have
-          checked the total. The order now reads the way the decision does:
-          here is your bag, here is the total, here is how you would like to
-          settle it, here is the button. */}
-      <aside className="order-summary">
-<p>Your bag</p><h2>{lines.reduce((total,line)=>total+line.qty,0)} items</h2>{lines.map(line=>{
-  /* The line that is holding the order up, marked on the line itself.
-     The place-order button knew one of these existed and said so, but it
-     could not say WHICH — and the bag it sent people back to could not
-     answer the question either, because a bag row reads a spec back rather
-     than asking for it. The ring is Signal, the same colour every other
-     "this needs you" on the site uses, and the question follows underneath
-     it in place. */
-  const blocked=!customizationComplete(line.product.id,line.qty,line.customization);
-  return <div className={`summary-item${blocked?' summary-item--attention':''}`} key={line.product.id}>
-    <div className="summary-line"><img src={line.product.img} alt=""/><span><strong>{line.product.name}</strong><small>Qty {line.qty}</small></span><b>{money(Number(line.product.price.replace(/[^0-9.]/g,''))*line.qty)}</b></div>
-    {blocked&&<CheckoutFix productId={line.product.id} qty={line.qty} value={line.customization} onChange={next=>customize(line.product.id,next)}/>}
-  </div>;
-})}<div className="summary-breakdown"><span>Merchandise</span><b>{quote?money((quote.order.subtotal-(quote.delivery?.fee||0))/100):money(subtotal)}</b>{quote?.delivery&&<><span>Delivery</span><b>{quote.delivery.free?'Free':money(quote.delivery.fee/100)}</b></>}{quote&&<><span>HST</span><b>{money(quote.order.tax/100)}</b></>}</div><div className="summary-total"><span>{quote?'Total':'Estimated subtotal'}</span><strong>{money(quote?payable:subtotal)}</strong></div><small>{quote?.delivery?'The bakery assigns the driver after payment. Square does not dispatch the courier.':'Square confirms catalog pricing, HST, discounts, and the final total before payment.'}</small></aside>
-      <fieldset className="payment-panel" form="checkout" disabled={!ready||busy}><legend>Payment</legend>
-        {/* Apple Pay and Google Pay are choices in the list now, not a strip
-            above it labelled "express checkout". They are ways to pay, exactly
-            as a card is, and pressing one is the whole transaction — so a
-            visitor scanning the options should see all of them at once rather
-            than a shortcut bar and then, separately, "the real options". */}
+      <div className="checkout-step" data-step="3">
+      <fieldset className="payment-panel" disabled={!ready||busy}><legend>Payment</legend>
+        {/* Apple Pay and Google Pay are choices in the list, not a strip above
+            it labelled "express checkout". They are ways to pay, exactly as a
+            card is, and pressing one is the whole transaction — so a visitor
+            scanning the options should see all of them at once rather than a
+            shortcut bar and then, separately, "the real options". */}
         <div className="payment-options">
           {ready&&quote?.order?.total&&wallets.apple!=='unavailable'&&<div className="apple-pay-slot">{wallets.apple==='ready'?<button type="button" className="apple-pay-button" aria-label="Pay with Apple Pay" onClick={()=>payWithWallet(applePay.current)}/>:<div className="wallet-loading" aria-hidden="true"/>}</div>}
           {ready&&quote?.order?.total&&wallets.google!=='unavailable'&&<div className="google-pay-slot"><div id="google-pay-button" className={wallets.google==='ready'?'is-ready':''} onClick={()=>payWithWallet(googlePay.current)}/>{wallets.google==='loading'&&<div className="wallet-loading" aria-hidden="true"/>}</div>}
@@ -242,6 +236,24 @@ function Checkout(){
         {method==='house_account'&&<><p className="house-note">This order will be added to your account balance and included on your next statement.</p><label><span>Authorization PIN</span><input type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} value={authorizationPin} onChange={event=>setAuthorizationPin(event.target.value)} autoComplete="off" required/></label></>}
         {!method&&<p className="payment-hint">Wallet payments are one press. Choose a card to enter its details.</p>}
       </fieldset>
+      </div>
+    </form><div className="checkout-side">
+      {/* What all three steps are about, and the button that commits them. */}
+      <aside className="order-summary">
+<p>Your bag</p><h2>{lines.reduce((total,line)=>total+line.qty,0)} items</h2>{lines.map(line=>{
+  /* The line that is holding the order up, marked on the line itself.
+     The place-order button knew one of these existed and said so, but it
+     could not say WHICH — and the bag it sent people back to could not
+     answer the question either, because a bag row reads a spec back rather
+     than asking for it. The ring is Signal, the same colour every other
+     "this needs you" on the site uses, and the question follows underneath
+     it in place. */
+  const blocked=!customizationComplete(line.product.id,line.qty,line.customization);
+  return <div className={`summary-item${blocked?' summary-item--attention':''}`} key={line.product.id}>
+    <div className="summary-line"><img src={line.product.img} alt=""/><span><strong>{line.product.name}</strong><small>Qty {line.qty}</small></span><b>{money(Number(line.product.price.replace(/[^0-9.]/g,''))*line.qty)}</b></div>
+    {blocked&&<CheckoutFix productId={line.product.id} qty={line.qty} value={line.customization} onChange={next=>customize(line.product.id,next)}/>}
+  </div>;
+})}<div className="summary-breakdown"><span>Merchandise</span><b>{quote?money((quote.order.subtotal-(quote.delivery?.fee||0))/100):money(subtotal)}</b>{quote?.delivery&&<><span>Delivery</span><b>{quote.delivery.free?'Free':money(quote.delivery.fee/100)}</b></>}{quote&&<><span>HST</span><b>{money(quote.order.tax/100)}</b></>}</div><div className="summary-total"><span>{quote?'Total':'Estimated subtotal'}</span><strong>{money(quote?payable:subtotal)}</strong></div><small>{quote?.delivery?'The bakery assigns the driver after payment. Square does not dispatch the courier.':'Square confirms catalog pricing, HST, discounts, and the final total before payment.'}</small></aside>
       {(quoteError||error)&&<p className="checkout-error" role="alert">{quoteError||error}</p>}
       {/* Outside the form element, attached to it by `form`: the button belongs
           under the total it quotes, and the total lives in this column. */}

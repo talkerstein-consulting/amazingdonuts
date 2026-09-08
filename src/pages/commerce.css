@@ -421,6 +421,69 @@
   color: var(--text-body);
 }
 
+/* ==========================================================================
+   The form as three numbered steps.
+
+   Who you are, how you want it, how you are paying — answered in that order,
+   because each one narrows the next: delivery grows an address block, an
+   account unlocks paying on credit. They were three stacked panels with no
+   numbers and no sequence, and payment was not even among them; it sat in the
+   right-hand column beside the bag, which put the last step of the form
+   outside the form and made the eye cross the page and come back.
+
+   The number is drawn from `data-step` rather than typed into the markup, so
+   the order is a property of the layout and renumbering is a matter of moving
+   a panel.
+   ========================================================================== */
+.checkout-step {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.checkout-step::before {
+  content: attr(data-step);
+  margin-top: clamp(20px, 2.4vw, 30px);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--navy);
+  color: var(--cream);
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: 15px;
+  /* The number is decoration for a heading that already says the same thing;
+     a screen reader should hear "Your details", not "1 Your details". */
+  speak: never;
+}
+
+/* A step whose turn has not come. The fieldset inside is genuinely disabled —
+   this is the visual half of that, and it has to be on the number too, or a
+   greyed panel sits beside a confident navy badge. */
+.checkout-step:has(fieldset:disabled)::before {
+  background: rgba(14, 62, 105, 0.22);
+}
+
+/* `> *` is element children only — a pseudo-element is not one, so the badge
+   keeps its own treatment above and is not dimmed twice. */
+.checkout-step:has(fieldset:disabled) > * {
+  opacity: 0.55;
+}
+
+/* The number column is a luxury a phone does not have; the panels take the
+   full width and the steps read in order because they are in order. */
+@media (max-width: 700px) {
+  .checkout-step {
+    display: block;
+  }
+  .checkout-step::before {
+    display: none;
+  }
+}
+
 /* --- who is ordering ------------------------------------------------------ */
 /* Two lanes rather than a segmented control.
 
@@ -793,11 +856,10 @@
 }
 
 .payment-panel {
-  margin: 0;
-  padding: clamp(18px, 2.2vw, 24px);
-  border: 0;
-  border-radius: var(--radius-panel);
-  background: var(--cream);
+  /* Sand, like the other two steps. It was Canvas because it used to be a
+     card in the summary column, floating on the page's own ground; in the
+     form it is one panel of three and has to match them. */
+  background: var(--sand);
 }
 
 .payment-panel > legend {
