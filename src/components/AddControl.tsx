@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import type { Product } from '../data/products';
 import { C } from './brand';
 import { useBoxQty, useShop } from '../lib/shop';
-import { BOX_PRODUCTS } from '../lib/custom-order';
+import { customizationFor } from '../lib/custom-order';
 import { flyToCart } from '../lib/fly-to-cart';
 
 /**
@@ -82,17 +82,30 @@ export default function AddControl({
     cursor: 'pointer'
   };
 
-  /* A box you fill yourself cannot be added from a tile: an empty box is a
-     cart line the counter cannot pack, and there is nowhere in the drawer to
-     choose the six. The knob opens the builder instead — which is also why this
-     one never becomes a stepper. */
-  if (BOX_PRODUCTS.has(product.id)) {
+  /* Anything that has to be specified opens its page instead of being added.
+
+     It was only the boxes: an empty box is a line the counter cannot pack, so
+     the knob opened the builder. But the same is true of every product that
+     carries a customization — a letter cake with no letter, a printed dozen
+     with no artwork, a petite tray with no colours. Adding those from a tile
+     put a line in the bag that checkout then refused, and the visitor had to
+     work out which one and go and finish it.
+
+     `customizationFor` is the existing answer to "does this need specifying",
+     so the rule follows the data rather than a list kept in step by hand: add a
+     product to the customization system and its knob starts opening its page.
+
+     These never become steppers either. A second press should ask the second
+     donut's questions, not silently make two of the first. */
+  const needsSpec = Boolean(customizationFor(product.id));
+
+  if (needsSpec) {
     return (
       <button
         type="button"
         className="brand-press"
         onClick={() => openProduct(product.id)}
-        aria-label={`Build your own ${product.name}`}
+        aria-label={`Choose options for ${product.name}`}
         style={{ ...face, width: s.pill, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
       >
         <Plus size={s.icon} strokeWidth={3} />
@@ -115,7 +128,7 @@ export default function AddControl({
         aria-label={
           product.id === 'twelve-custom-printed-donuts'
             ? 'Customize Twelve Custom Printed Donuts'
-            : `Add ${product.name} to box`
+            : `Add ${product.name} to bag`
         }
         style={{ ...face, width: s.pill, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
       >
