@@ -17,7 +17,7 @@ type Props = {
 /** L · Detail — the large product card. */
 export default function ProductCard({
   donut,
-  cta = 'Add to box',
+  cta = 'Add to bag',
   onAdd,
   width,
   style

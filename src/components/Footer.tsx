@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { motion, useReducedMotion, type Variants } from 'motion/react';
 import { Facebook, Instagram } from 'lucide-react';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useScrollSpin } from '../hooks/useScrollSpin';
-import { Badge } from './brand';
+import { Badge, BadgeDot } from './brand';
 import type { BadgeKey } from './brand';
 import KosherBadge from './KosherBadge';
 import { HOME_HREF, onHomeClick } from '../lib/home-href';
@@ -127,9 +127,8 @@ const ALLERGEN: BadgeKey[] = ['nut', 'dairy', 'sesame'];
 const KOSHER: KosherKey[] = ['cor', 'pareve', 'yoshon'];
 
 /* Matches the certification bar's pill exactly. */
-const FOOTER_PILL = {
+const FOOTER_MARK = {
   color: 'var(--cream)',
-  boxShadow: 'inset 0 0 0 2px rgba(251,247,239,.55)',
   whiteSpace: 'nowrap'
 } as const;
 
@@ -219,15 +218,22 @@ export default function Footer({ ready }: { ready: boolean }) {
               Donuts, cupcakes and custom orders — get the drop on new flavours before anyone else.
             </p>
 
-            {/* Same pills as the certification bar. The kosher marks are
-                white-only artwork and need a solid Harbour ground, which this
-                panel gives them. */}
+            {/* Set exactly as the certification bar sets them: icon, label, no
+                container, dots at the seams. The kosher marks are white-only
+                artwork and need a solid Harbour ground, which this panel
+                gives them. */}
             <div className="footer-badges">
-              {ALLERGEN.map((key) => (
-                <Badge key={key} badge={key} forceOutline style={FOOTER_PILL} />
+              {ALLERGEN.map((key, i) => (
+                <Fragment key={key}>
+                  {i > 0 && <BadgeDot style={FOOTER_MARK} />}
+                  <Badge badge={key} forceOutline style={FOOTER_MARK} />
+                </Fragment>
               ))}
               {KOSHER.map((key) => (
-                <KosherBadge key={key} badge={key} style={FOOTER_PILL} />
+                <Fragment key={key}>
+                  <BadgeDot style={FOOTER_MARK} />
+                  <KosherBadge badge={key} style={FOOTER_MARK} />
+                </Fragment>
               ))}
             </div>
           </div>

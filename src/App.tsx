@@ -10,11 +10,11 @@ import { markPreloaded, preloadVariant } from './lib/preload-session';
 import { initSmoothScroll } from './lib/smooth-scroll';
 import ProductPanel from './shop/ProductPanel';
 import CartDrawer from './shop/CartDrawer';
+import ReturnPrompt from './shop/ReturnPrompt';
 import AuthModal from './shop/AuthModal';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import TrustBar from './components/TrustBar';
-import Lanes from './components/Lanes';
 import Catalog from './components/Catalog';
 import Features from './components/Features';
 import Social from './components/Social';
@@ -39,7 +39,6 @@ function Site({ ready, slideIn }: { ready: boolean; slideIn: boolean }) {
         <Header onSignIn={() => setAuthOpen(true)} />
         <Hero ready={ready} />
         <TrustBar />
-        <Lanes />
         <Catalog />
         <Features />
         <Social />
@@ -49,10 +48,14 @@ function Site({ ready, slideIn }: { ready: boolean; slideIn: boolean }) {
       {/* The product cabinet slides over the catalogue it came from. */}
       <AnimatePresence>{product && <ProductPanel key={product.id} product={product} />}</AnimatePresence>
       <CartDrawer />
+      <ReturnPrompt />
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </>
   );
 }
+
+/** Matches `.site-slide-in`'s animation in index.css, plus a frame of slack. */
+const SLIDE_MS = 620;
 
 export default function App() {
   // The preloader owns the first moment. The site — and so the header — is
@@ -67,6 +70,22 @@ export default function App() {
   /* The return variant's navy panel wipes right while the page slides in from
      the left. Both start on `onExit`, one movement; `onDone` then unmounts. */
   const [sliding, setSliding] = useState(false);
+  /* And taken off again once it has played.
+
+     `.site-slide-in` animates a transform, and a transformed element is the
+     containing block for every `position: fixed` descendant under it — the
+     cart drawer, the product panel, the auth modal, all of which expect the
+     viewport. The class was set once and never cleared, so the wrapper kept
+     an animation on it for the life of the page; while that animation is in
+     flight the whole site is a containing block, and anything that stalls it
+     leaves the page shifted with fixed positioning quietly broken.
+
+     Half a second after it starts, it has done its job. */
+  useEffect(() => {
+    if (!sliding) return;
+    const done = window.setTimeout(() => setSliding(false), SLIDE_MS);
+    return () => window.clearTimeout(done);
+  }, [sliding]);
   /* Stable identities. The preloader no longer restarts if these change, but a
      frame loop should not be handed a moving target either way. */
   const onExit = useCallback(() => setSliding(true), []);

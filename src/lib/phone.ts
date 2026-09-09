@@ -1,3 +1,8 @@
+export function isValidNorthAmericanPhone(value: string) {
+  const national = value.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+  return /^[2-9]\d{2}[2-9]\d{6}$/.test(national);
+}
+
 export function formatNorthAmericanPhone(value: string) {
   const raw = value.replace(/\D/g, "").slice(0, 11);
   const national = raw.startsWith("1") ? raw.slice(1) : raw.slice(0, 10);

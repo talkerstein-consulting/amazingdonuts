@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState, type CSSPropertie
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertTriangle,
+  ArrowLeft,
   Building2,
   Cake,
   CalendarClock,
@@ -9,8 +10,11 @@ import {
   Dessert,
   Donut,
   GraduationCap,
+  Check,
+  Mail,
   MessageSquare,
   MoreHorizontal,
+  Phone,
   PartyPopper,
   Printer,
   Store,
@@ -26,6 +30,8 @@ import '../components/brand/brand.css';
 import '../shop/shop.css';
 import { SquircleDefs, BrandButton, C, F } from '../components/brand';
 import { formatNorthAmericanPhone } from '../lib/phone';
+import { SHOP_PRODUCTS, type Category, type Product } from '../data/products';
+import { tagFor } from '../data/product-tags';
 import { NavThemeProvider } from '../lib/nav-theme';
 import { ShopProvider } from '../lib/shop';
 import { initSmoothScroll } from '../lib/smooth-scroll';
@@ -90,6 +96,46 @@ const PRODUCTS: [string, LucideIcon][] = [
   ['Breads / challah', Wheat],
   ['Custom printed', Printer]
 ];
+
+/**
+ * The catalogue counter each bulk option stands for, and the product that
+ * shows its face.
+ *
+ * The question used to be six icon pills. A pill is the right size for "what is
+ * it for", where the answer is a word — but this question is asking what the
+ * bakery should make, and an outline donut glyph is a poor stand-in for a
+ * counter of real ones. So the options are the shop's own collection cards: a
+ * cut-out of a product from that counter on a bed, its name beside it. The
+ * visitor is picking from the same six things the shop shows, drawn the same
+ * way.
+ *
+ * The face is derived, never a hardcoded id — `products.ts` is generated from
+ * the scrape and a fixed id would quietly become a broken image the next time
+ * it is regenerated. Best Seller first, then Popular, then the run's first.
+ * "Custom printed" has no counter of its own, so it takes the printed dozen,
+ * which is the product it means.
+ */
+const BULK_FACE_CATEGORY: Record<string, Category | null> = {
+  Donuts: 'Donuts',
+  Muffins: 'Muffins',
+  Cupcakes: 'Cupcakes',
+  Cookies: 'Cookies',
+  'Breads / challah': 'Breads',
+  'Custom printed': null
+};
+
+const bulkFace = (label: string): Product | undefined => {
+  if (label === 'Custom printed') {
+    return SHOP_PRODUCTS.find((p) => p.id === 'twelve-custom-printed-donuts');
+  }
+  const category = BULK_FACE_CATEGORY[label];
+  const scope = SHOP_PRODUCTS.filter((p) => p.category === category);
+  const rank = (p: Product) => {
+    const tag = tagFor(p.id);
+    return tag === 'seller' ? 0 : tag === 'popular' ? 1 : 2;
+  };
+  return [...scope].sort((a, b) => rank(a) - rank(b))[0];
+};
 const FULFILMENT: [string, LucideIcon][] = [
   ['Delivery', Truck],
   ['Pickup', Store]
@@ -264,6 +310,92 @@ function IntakeForm() {
   const toggleProduct = (p: string) =>
     setProducts((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
 
+  /* --- one question at a time ------------------------------------------
+     The intake was eight blocks stacked on one page. Every one of them is a
+     small question, and a wall of small questions reads as a long form: the
+     visitor sizes up the whole thing before answering any of it. Asked one at
+     a time it is the same eight answers, but the only thing on screen is the
+     one being given — which is how the Donut Lab's builder already works on
+     this site, so the pattern is the site's own.
+
+     `STEPS` is the order and the rules. `done` decides whether the step can be
+     left, so Next is refused rather than the form failing at the end; `auto` is
+     set on the single-answer steps, which advance on the tap that answers them
+     because a Next after a radio is a second tap for nothing. The multi-select,
+     the date and the two typing steps keep their Next. */
+  const STEPS = [
+    { id: 'type', auto: true, done: () => Boolean(orderType) },
+    { id: 'people', auto: true, done: () => Boolean(headCount) },
+    { id: 'products', auto: false, done: () => products.length > 0 },
+    { id: 'fulfilment', auto: true, done: () => Boolean(fulfilment) },
+    { id: 'date', auto: false, done: () => Boolean(date) },
+    /* One field per question. These were a single "contact" step holding four
+       inputs, which is the old stacked form in miniature — and it was the only
+       step that could fail on three counts at once, so its one error line had
+       to name all three and left the visitor to work out which was missing. */
+    { id: 'organization', auto: false, done: () => Boolean(organization.trim()) },
+    { id: 'name', auto: false, done: () => Boolean(name.trim()) },
+    { id: 'email', auto: false, done: () => /.+@.+\..+/.test(email) },
+    /* Optional, and says so: a phone number is how the bakery reaches you
+       faster, not something the enquiry needs to be sent. */
+    { id: 'phone', auto: false, done: () => true },
+    { id: 'notes', auto: false, done: () => true }
+  ] as const;
+
+  /* One line per step, because "please answer this" is not an instruction —
+     it has to name the answer that is missing. A single fallback message put
+     "fill in the organization, your name and an email" under "Delivery or
+     pickup?", which is worse than saying nothing. */
+  const NUDGE: Record<string, string> = {
+    type: 'Pick the one that fits best.',
+    people: 'Roughly how many people is fine — pick the nearest.',
+    products: 'Pick at least one — you can choose several.',
+    fulfilment: 'Choose delivery or pickup.',
+    date: 'Choose the date you need the order.',
+    organization: 'Tell us who the order is for.',
+    name: 'Who should we reply to?',
+    email: 'We need an email address to send the quote to.',
+    phone: '',
+    notes: ''
+  };
+
+  const [stepIndex, setStepIndex] = useState(0);
+  const [dir, setDir] = useState(1);
+  /* Set when Next is pressed on an unanswered step, cleared as soon as it is
+     answered — so the message appears in reply to the press rather than
+     scolding the visitor for a question they have not reached yet. */
+  const [nudged, setNudged] = useState(false);
+  const step = STEPS[stepIndex];
+  const stepDone = step.done();
+  const lastStep = stepIndex === STEPS.length - 1;
+
+  useEffect(() => {
+    if (stepDone) setNudged(false);
+  }, [stepDone]);
+
+  const goNext = () => {
+    if (!stepDone) return setNudged(true);
+    setDir(1);
+    setStepIndex((n) => Math.min(STEPS.length - 1, n + 1));
+  };
+  const goBack = () => {
+    setDir(-1);
+    setNudged(false);
+    setStepIndex((n) => Math.max(0, n - 1));
+  };
+  /* A single-answer step advances itself, but only forward and only from the
+     step being answered — picking a different answer on a step you have come
+     BACK to should change the answer, not fling you forward again. */
+  const answered = (index: number) => {
+    if (index === stepIndex && STEPS[index].auto && index < STEPS.length - 1) {
+      window.setTimeout(() => {
+        setDir(1);
+        setStepIndex((n) => (n === index ? n + 1 : n));
+      }, 260);
+    }
+  };
+
+
   const send = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -291,6 +423,9 @@ function IntakeForm() {
       form.reset();
       setOrderType(''); setHeadCount(''); setProducts([]); setFulfilment(''); setDate('');
       setOrganization(''); setName(''); setEmail(''); setPhone(''); setNotes('');
+      /* Back to question one with the answers, or the confirmed enquiry leaves
+         the visitor looking at an empty "Anything else" box. */
+      setStepIndex(0); setDir(1); setNudged(false);
     } catch (error) {
       setSubmitState('error');
       setSubmitMessage(error instanceof Error ? error.message : 'We could not send your request.');
@@ -298,146 +433,285 @@ function IntakeForm() {
   };
 
   return (
-    <form onSubmit={send} style={{ display: 'grid', gap: 26 }}>
-      <Row label="What is it for?" Icon={PartyPopper}>
-        {ORDER_TYPES.map(([t, Icon]) => (
-          <Choice
-            key={t}
-            name="orderType"
-            value={t}
-            type="radio"
-            checked={orderType === t}
-            onChange={() => setOrderType(t)}
-            Icon={Icon}
+    <form onSubmit={send} style={{ display: 'grid', gap: 22 }}>
+      {/* Where you are, and how much is left. A stepped form without this is a
+          corridor with no end in sight — the count is the promise that this is
+          seven short questions and not seventy. */}
+      <div className="bulk-progress">
+        <span className="bulk-progress__count">
+          Question {stepIndex + 1} of {STEPS.length}
+        </span>
+        <span className="bulk-progress__track" aria-hidden="true">
+          <span
+            className="bulk-progress__fill"
+            style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%` }}
           />
-        ))}
-      </Row>
+        </span>
+      </div>
 
-      <Row label="How many people?" Icon={Users}>
-        {HEAD_COUNTS.map((h) => (
-          <Choice
-            key={h}
-            name="headCount"
-            value={h}
-            type="radio"
-            checked={headCount === h}
-            onChange={() => setHeadCount(h)}
-          />
-        ))}
-      </Row>
+      {/* One question on screen at a time. `mode="wait"` so the outgoing answer
+          is gone before the next arrives — two questions crossfading over each
+          other is two questions to read. */}
+      <div className="bulk-step">
+          {/* A keyed plain div, not an AnimatePresence pair.
 
-      <Row label="What are you after?" Icon={Donut}>
-        {PRODUCTS.map(([p, Icon]) => (
-          <Choice
-            key={p}
-            name="products"
-            value={p}
-            type="checkbox"
-            checked={products.includes(p)}
-            onChange={() => toggleProduct(p)}
-            Icon={Icon}
-          />
-        ))}
-      </Row>
+              `mode="wait"` holds the outgoing question until its exit resolves,
+              and on this form the exits do not always resolve: a radio answers
+              and advances on its own 260ms timer, so a quick run through the
+              first questions changes the key while the previous exit is still
+              in flight. Twice that left the counter reading "Question 6 of 7"
+              over the date picker, and once it wedged there for good.
 
-      <Row label="Delivery or pickup?" Icon={Truck}>
-        {FULFILMENT.map(([f, Icon]) => (
-          <Choice
-            key={f}
-            name="fulfilment"
-            value={f}
-            type="radio"
-            checked={fulfilment === f}
-            onChange={() => setFulfilment(f)}
-            Icon={Icon}
-          />
-        ))}
-      </Row>
+              There is nothing to coordinate here — the old question is simply
+              gone — so the key remounts the div and a CSS keyframe slides the
+              new one in. No exit to lose, and the direction rides on a data
+              attribute so Back still comes from the left. */}
+          <div key={step.id} className="bulk-step__panel" data-dir={dir >= 0 ? 'fwd' : 'back'}>
+            {step.id === 'type' && (
+              <Row label="What is it for?" Icon={PartyPopper}>
+                {ORDER_TYPES.map(([t, Icon]) => (
+                  <Choice
+                    key={t}
+                    name="orderType"
+                    value={t}
+                    type="radio"
+                    checked={orderType === t}
+                    onChange={() => { setOrderType(t); answered(0); }}
+                    Icon={Icon}
+                  />
+                ))}
+              </Row>
+            )}
 
-      <div>
-        <FieldLabel label="When do you need it?" Icon={CalendarClock} />
-        <BrandDatePicker value={date} min={minDate} onChange={setDate} ariaLabel="Choose the date for your bulk order" />
+            {step.id === 'people' && (
+              <Row label="How many people?" Icon={Users}>
+                {HEAD_COUNTS.map((h) => (
+                  <Choice
+                    key={h}
+                    name="headCount"
+                    value={h}
+                    type="radio"
+                    checked={headCount === h}
+                    onChange={() => { setHeadCount(h); answered(1); }}
+                  />
+                ))}
+              </Row>
+            )}
 
-        {tooSoon && (
-          <p
-            role="status"
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 10,
-              margin: '12px 0 0',
-              maxWidth: '52ch',
-              padding: '12px 14px',
-              borderRadius: 14,
-              background: 'rgba(255,104,50,.12)',
-              boxShadow: 'inset 0 0 0 1.5px rgba(255,104,50,.45)',
-              fontFamily: F.text,
-              fontSize: 14.5,
-              lineHeight: 1.45,
-              color: C.navy
-            }}
-          >
-            <AlertTriangle size={17} strokeWidth={2.3} aria-hidden="true" style={{ flex: 'none', marginTop: 2 }} />
-            <span>
-              That is inside our {LEAD_DAYS}-day window. Send this anyway and email{' '}
-              <a href={`mailto:${SHOP_ADDRESS.email}`} style={{ fontWeight: 700, color: C.navy }}>
-                {SHOP_ADDRESS.email}
-              </a>{' '}
-              with anything time-sensitive so the bakery team can review it quickly.
-            </span>
-          </p>
+            {step.id === 'products' && (
+              <fieldset style={{ border: 0, margin: 0, padding: 0 }} aria-label="What are you after?">
+                {/* `FieldLabel`, not a `<legend>`: a legend is forced to
+                    `display: block` inside a fieldset in Chrome whatever the
+                    style says, which put the icon on its own line and killed
+                    the `margin-left: auto` holding the hint apart from the
+                    question. The fieldset keeps the grouping; `aria-label`
+                    keeps the name. */}
+                <span className="bulk-picks__head">
+                  <FieldLabel label="What are you after?" Icon={Donut} />
+                  <span className="bulk-picks__hint">Choose as many as you like</span>
+                </span>
+
+                {/* The shop's own collection cards, as checkboxes. A grid, not
+                    the shop's scrolling rail: nothing here is being filtered
+                    down, so all six should be readable at once rather than
+                    swiped past. */}
+                <div className="bulk-picks">
+                  {PRODUCTS.map(([pr, Icon]) => {
+                    const face = bulkFace(pr);
+                    const on = products.includes(pr);
+                    return (
+                      <label key={pr} className={`collection-card bulk-pick${on ? ' is-on' : ''}`}>
+                        <input
+                          type="checkbox"
+                          name="products"
+                          value={pr}
+                          checked={on}
+                          onChange={() => toggleProduct(pr)}
+                          className="bulk-pick__input"
+                        />
+                        <span className="collection-card__bed">
+                          {face ? (
+                            <img src={face.img} alt="" loading="lazy" />
+                          ) : (
+                            <Icon size={26} strokeWidth={2.2} aria-hidden="true" />
+                          )}
+                        </span>
+                        <span className="collection-card__text">
+                          <span className="collection-card__name">{pr}</span>
+                        </span>
+                        {/* The tick is the state, drawn where the eye already
+                            is once a card has been chosen. */}
+                        <span className="bulk-pick__tick" aria-hidden="true">
+                          <Check size={14} strokeWidth={3.2} />
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+
+            {step.id === 'fulfilment' && (
+              <Row label="Delivery or pickup?" Icon={Truck}>
+                {FULFILMENT.map(([f, Icon]) => (
+                  <Choice
+                    key={f}
+                    name="fulfilment"
+                    value={f}
+                    type="radio"
+                    checked={fulfilment === f}
+                    onChange={() => { setFulfilment(f); answered(3); }}
+                    Icon={Icon}
+                  />
+                ))}
+              </Row>
+            )}
+
+            {step.id === 'date' && (
+              <div>
+                <FieldLabel label="When do you need it?" Icon={CalendarClock} />
+                <BrandDatePicker value={date} min={minDate} onChange={setDate} ariaLabel="Choose the date for your bulk order" inline />
+
+                {tooSoon && (
+                  <p
+                    role="status"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 10,
+                      margin: '12px 0 0',
+                      maxWidth: '52ch',
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      background: 'rgba(255,104,50,.12)',
+                      boxShadow: 'inset 0 0 0 1.5px rgba(255,104,50,.45)',
+                      fontFamily: F.text,
+                      fontSize: 14.5,
+                      lineHeight: 1.45,
+                      color: C.navy
+                    }}
+                  >
+                    <AlertTriangle size={17} strokeWidth={2.3} aria-hidden="true" style={{ flex: 'none', marginTop: 2 }} />
+                    <span>
+                      That is inside our {LEAD_DAYS}-day window. Send this anyway and email{' '}
+                      <a href={`mailto:${SHOP_ADDRESS.email}`} style={{ fontWeight: 700, color: C.navy }}>
+                        {SHOP_ADDRESS.email}
+                      </a>{' '}
+                      with anything time-sensitive so the bakery team can review it quickly.
+                    </span>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {step.id === 'organization' && (
+              <label className="bulk-field">
+                <FieldLabel label="Organization or event" Icon={Building2} />
+                <input value={organization} onChange={(e) => setOrganization(e.target.value)} style={field} autoComplete="organization" autoFocus />
+              </label>
+            )}
+
+            {step.id === 'name' && (
+              <label className="bulk-field">
+                <FieldLabel label="Your name" Icon={UserRound} />
+                <input value={name} onChange={(e) => setName(e.target.value)} style={field} autoComplete="name" autoFocus />
+              </label>
+            )}
+
+            {step.id === 'email' && (
+              <label className="bulk-field">
+                <FieldLabel label="Email" Icon={Mail} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={field}
+                  autoComplete="email"
+                  autoFocus
+                />
+                <span className="bulk-field__note">This is where the quote goes.</span>
+              </label>
+            )}
+
+            {step.id === 'phone' && (
+              <label className="bulk-field">
+                <FieldLabel label="Phone" Icon={Phone} />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(formatNorthAmericanPhone(e.target.value))}
+                  style={field}
+                  autoComplete="tel"
+                  autoFocus
+                />
+                <span className="bulk-field__note">Optional — only if a call would be quicker than an email.</span>
+              </label>
+            )}
+
+            {step.id === 'notes' && (
+              <label>
+                <FieldLabel label="Anything else" Icon={MessageSquare} />
+                <textarea
+                  rows={5}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Allergies, logos, colours, delivery window, budget"
+                  style={{ ...field, resize: 'vertical', lineHeight: 1.5 }}
+                />
+              </label>
+            )}
+          </div>
+      </div>
+
+      {/* Said in reply to a press, not in advance: the step's own question is
+          the instruction, and a requirement stated before anyone has tried to
+          leave is a telling-off for nothing. */}
+      {/* Always rendered, so it holds its line whether or not it has something
+          to say — see the note in index.css. */}
+      <p role="alert" className="bulk-step__nudge">
+        {nudged && !stepDone ? NUDGE[step.id] : ''}
+      </p>
+
+      {/* Back on the left, the way on at the right, facing each other across
+          the row: the two directions out of a step, placed where each one
+          goes. Both were stacked at the left before, which put the retreat
+          first in the reading order and left the whole right half empty. */}
+      <div className="bulk-nav">
+        <span className="bulk-nav__backSlot">
+          {stepIndex > 0 && (
+            /* The site's standard back control — the same pill the product
+               panel, the box builder and the bag all use. It was an underlined
+               link here, which was a fourth way of saying "back" on a site that
+               already has one. */
+            <button type="button" className="cabinet__back bulk-nav__back" onClick={goBack}>
+              <ArrowLeft size={18} strokeWidth={2.6} aria-hidden="true" />
+              Back
+            </button>
+          )}
+        </span>
+
+        {lastStep ? (
+          <BrandButton type="submit" className="bulk-nav__next" disabled={submitState === 'sending'}>
+            {submitState === 'sending' ? 'Sending...' : 'Send the enquiry'}
+          </BrandButton>
+        ) : (
+          <BrandButton type="button" onClick={goNext} className="bulk-nav__next">
+            Next
+          </BrandButton>
         )}
       </div>
 
-      <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
-        <label>
-          <FieldLabel label="Organization or event" Icon={Building2} />
-          <input required value={organization} onChange={(e) => setOrganization(e.target.value)} style={field} autoComplete="organization" />
-        </label>
-        <label>
-          <FieldLabel label="Your name" Icon={UserRound} />
-          <input required value={name} onChange={(e) => setName(e.target.value)} style={field} autoComplete="name" />
-        </label>
-        <label>
-          <span style={legend}>Email</span>
-          <input
-            required
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={field}
-            autoComplete="email"
-          />
-        </label>
-        <label>
-          <span style={legend}>Phone</span>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(formatNorthAmericanPhone(e.target.value))}
-            style={field}
-            autoComplete="tel"
-          />
-        </label>
-      </div>
-
-      <label>
-        <FieldLabel label="Anything else" Icon={MessageSquare} />
-        <textarea
-          rows={5}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Allergies, logos, colours, delivery window, budget"
-          style={{ ...field, resize: 'vertical', lineHeight: 1.5 }}
-        />
-      </label>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <BrandButton type="submit" disabled={submitState === 'sending'}>{submitState === 'sending' ? 'Sending...' : 'Send the enquiry'}</BrandButton>
+      {/* Only on the last question. Sending is the end of the sequence, and a
+          submit sitting under question one invites a half-answered enquiry the
+          bakery then has to chase. The error line stays visible wherever the
+          send failed from. */}
+      {/* The send button lives in the nav row with Back — this is only what it
+          promises, and whatever went wrong. */}
+      {(lastStep || submitState === 'error') && (
         <span role="status" style={{ fontFamily: F.text, fontSize: 13.5, color: submitState === 'error' ? '#9d2424' : 'rgba(14,62,105,.7)' }}>
           {submitState === 'error' ? submitMessage : 'Your request goes directly to the bakery team for review.'}
         </span>
-      </div>
+      )}
 
       <AnimatePresence>
         {submitState === 'sent' && (
@@ -517,11 +791,15 @@ export default function BulkOrdersPage() {
             </h1>
             <p
               style={{
-                margin: '18px auto clamp(30px,3.6vw,52px)',
+                margin: '18px 0 clamp(30px,3.6vw,52px)',
                 maxWidth: '56ch',
                 fontSize: 'var(--type-body)',
                 lineHeight: 1.45,
-                textAlign: 'center',
+                /* Left, like the heading above it. Centred, four lines of body
+                   copy give the eye a new starting x on every line — fine for
+                   a one-line strapline, tiring for a paragraph that is asking
+                   the reader to supply a date, a guest count and a plan. */
+                textAlign: 'left',
                 color: 'rgba(14,62,105,.72)'
               }}
             >
@@ -560,7 +838,7 @@ export default function BulkOrdersPage() {
                   color: 'rgba(14,62,105,.72)'
                 }}
               >
-                Four questions and a date. Enough for us to prepare a clear quote and reply by email.
+                Ten short questions, one at a time. Enough for us to prepare a clear quote and reply by email.
               </p>
               <IntakeForm />
             </section>

@@ -1,5 +1,5 @@
 import LogoLoop from './LogoLoop';
-import { Badge } from './brand';
+import { Badge, BadgeDot } from './brand';
 import type { BadgeKey } from './brand';
 import KosherBadge from './KosherBadge';
 import type { KosherKey } from './KosherBadge';
@@ -17,18 +17,28 @@ import type { KosherKey } from './KosherBadge';
 const ALLERGEN: BadgeKey[] = ['nut', 'dairy', 'sesame'];
 const KOSHER: KosherKey[] = ['cor', 'pareve', 'yoshon'];
 
-/* Both kinds wear the same pill so the two sets read as one family. */
-const PILL = {
+/* Both kinds are set the same way — icon, label, no container — so the two
+   sets read as one family. The ring these used to wear is gone: a loop of
+   ringed pills reads as a row of buttons scrolling past, and none of them is
+   pressable. */
+const MARK = {
   color: 'var(--cream)',
-  boxShadow: 'inset 0 0 0 2px rgba(251,247,239,.55)',
   whiteSpace: 'nowrap'
 } as const;
 
+const DOT = { color: 'var(--cream)' } as const;
+
 /* Interleaved rather than grouped, so a single pass of the loop always shows
-   a mix instead of three of one kind then three of the other. */
+   a mix instead of three of one kind then three of the other.
+
+   Each mark is followed by its own dot rather than the dots being set between
+   pairs: the loop is a ring with no first or last item, so a divider that
+   skipped the final seam would leave one gap in every revolution. */
 const LOGOS = ALLERGEN.flatMap((key, i) => [
-  { node: <Badge badge={key} forceOutline style={PILL} />, ariaLabel: key },
-  { node: <KosherBadge badge={KOSHER[i]} style={PILL} />, ariaLabel: KOSHER[i] }
+  { node: <Badge badge={key} forceOutline style={MARK} />, ariaLabel: key },
+  { node: <BadgeDot style={DOT} />, ariaLabel: '' },
+  { node: <KosherBadge badge={KOSHER[i]} style={MARK} />, ariaLabel: KOSHER[i] },
+  { node: <BadgeDot style={DOT} />, ariaLabel: '' }
 ]);
 
 export default function TrustBar() {

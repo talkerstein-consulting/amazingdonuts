@@ -18,6 +18,13 @@ type Props = {
   emptyLabel?: string;
   ariaLabel?: string;
   disabledDay?: (date: Date) => boolean;
+  /** Draw the calendar in the flow instead of behind a trigger.
+
+      A popover is right where the date is one field among many and the page
+      cannot afford a calendar's height. On a form that asks one question at a
+      time the date IS the question, and a trigger there is a tap that only
+      reveals the thing the visitor came to that step for. */
+  inline?: boolean;
 };
 
 export default function BrandDatePicker({
@@ -26,15 +33,18 @@ export default function BrandDatePicker({
   onChange,
   emptyLabel = 'Choose a date',
   ariaLabel = 'Choose a date',
-  disabledDay
+  disabledDay,
+  inline = false
 }: Props) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
+  const shown = inline || open;
   const selected = value ? new Date(`${value}T12:00:00`) : undefined;
   const earliest = new Date(`${min}T12:00:00`);
 
   useEffect(() => {
-    if (!open) return;
+    /* Nothing to dismiss when the calendar is the page's own content. */
+    if (inline || !open) return;
     const close = (event: PointerEvent) => {
       if (!wrap.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -47,10 +57,11 @@ export default function BrandDatePicker({
       document.removeEventListener('pointerdown', close);
       document.removeEventListener('keydown', escape);
     };
-  }, [open]);
+  }, [open, inline]);
 
   return (
-    <div className="brand-date" ref={wrap}>
+    <div className={`brand-date${inline ? ' brand-date--inline' : ''}`} ref={wrap}>
+      {!inline && (
       <button
         type="button"
         className="brand-date__trigger"
@@ -61,7 +72,8 @@ export default function BrandDatePicker({
         <CalendarClock aria-hidden="true" />
         <span>{selected ? new Intl.DateTimeFormat('en-CA', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }).format(selected) : emptyLabel}</span>
       </button>
-      {open && (
+      )}
+      {shown && (
         <div className="brand-date__panel" role="dialog" aria-label={ariaLabel}>
           <DayPicker
             mode="single"
@@ -70,7 +82,7 @@ export default function BrandDatePicker({
             onSelect={day => {
               if (!day) return;
               onChange(localDateValue(day));
-              setOpen(false);
+              if (!inline) setOpen(false);
             }}
             disabled={disabledDay ? [{ before: earliest }, disabledDay] : { before: earliest }}
             showOutsideDays

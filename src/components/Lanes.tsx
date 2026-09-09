@@ -1,15 +1,13 @@
-import { useRef, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 import { BrandButton } from './brand';
 import { SHOP_HREF } from '../lib/shop-href';
-import { BULK_HREF, PICKUP_HREF } from '../lib/routes';
-import { useNavClaimAtMidpoint } from '../lib/nav-theme';
 import { writeFulfillmentPreference, type FulfillmentPreference } from '../lib/fulfillment';
 import { clearPickup } from '../lib/pickup';
 
-/* The three ways to buy, not the three product tiers. The lanes used to be
+/* The two ways to buy, not the product tiers. The lanes used to be
    Classic / Special / Donut lab, which split the catalogue three ways and then
    sent two of the cards to the same filtered grid — the section repeated what
-   "Everyone has a favorite" does directly below it. These answer the question
+   "Everyone has a favourite" does directly below it. These answer the question
    that grid cannot: how do I actually get them.
 
    Small cards, and the donut is the only picture on them. There were drawn
@@ -23,9 +21,9 @@ import { clearPickup } from '../lib/pickup';
    rather than the stock-looking `public/img` boxes that stood in before. Each
    lane names its own donuts, and they rise out of the top of the card on hover
    — see `.lane-card__peek`. */
-const LANES = [
+export const LANES = [
   {
-    bg: 'var(--pink)',
+    bg: 'var(--orange)',
     text: 'var(--navy)',
     title: 'Delivery',
     fulfillment: 'delivery' as FulfillmentPreference,
@@ -38,32 +36,21 @@ const LANES = [
     border: 'var(--navy)'
   },
   {
-    bg: 'var(--blue)',
-    text: 'var(--sand)',
-    title: 'Pick up',
+    bg: 'var(--pink)',
+    text: 'var(--navy)',
+    title: 'Pickup',
     fulfillment: 'pickup' as FulfillmentPreference,
     images: [
       '/products/donuts/hava-nagilla-donut-blue-white-sprinkles.png',
       '/products/donuts/star-of-david-donut-special-order.png',
       '/products/donuts/candy-donut-round-sprinkles.png'
     ],
-    /* The only card that does not go straight to the catalogue: pick-up needs
-       a day and a window first, and the gate hands the visitor on to the shop
-       once it has them. */
-    href: PICKUP_HREF,
-    border: 'var(--sand)'
-  },
-  {
-    bg: 'var(--orange)',
-    text: 'var(--navy)',
-    title: 'Bulk',
-    fulfillment: null,
-    images: [
-      '/products/donuts/chocolate-marble-donut.png',
-      '/products/donuts/chocolate-glazed-donut.png',
-      '/products/donuts/white-marble-donut.png'
-    ],
-    href: BULK_HREF,
+    /* Straight to the catalogue, like every other lane. It used to divert
+       through a gate that asked for the day and window before letting anyone
+       shop — an interstitial between "I want donuts" and the donuts, asking
+       for an appointment against a bag that did not exist yet. The question
+       is now asked at checkout, where the order is known. */
+    href: SHOP_HREF,
     border: 'var(--navy)'
   }
 ];
@@ -88,11 +75,18 @@ const FAN_3 = [
   { x: 73, scale: 0.84, rot: 16, lift: 0, z: 2 }
 ];
 
-/* One label for all three, so the section reads as one decision with three
-   answers rather than three different-sized commitments. */
-const CTA = 'Order now';
+/* The label names the lane's own action, because the two lanes do different
+   things: Delivery goes to the catalogue, Pickup goes to a gate that wants a
+   day and a window first. Both used to read "Order now", which gave two
+   controls with different destinations the same accessible name — a screen
+   reader heard "Order now, Order now" and a scanning eye had to fall back on
+   the heading above each to tell them apart. */
+const CTA: Record<string, string> = {
+  Delivery: 'Order delivery',
+  Pickup: 'Book a pickup'
+};
 
-function LaneCard({ lane }: { lane: (typeof LANES)[number] }) {
+export function LaneCard({ lane }: { lane: (typeof LANES)[number] }) {
   const rememberFulfillment = () => {
     if (lane.fulfillment) {
       writeFulfillmentPreference(lane.fulfillment);
@@ -157,45 +151,8 @@ function LaneCard({ lane }: { lane: (typeof LANES)[number] }) {
            lane's contrast colour, since navy on Signal blue would not clear AA. */
         style={{ boxShadow: `inset 0 0 0 2px ${lane.border}`, color: lane.border }}
       >
-        {CTA}
+        {CTA[lane.title] ?? 'Order now'}
       </BrandButton>
     </article>
-  );
-}
-
-export default function Lanes() {
-  const sectionRef = useRef<HTMLElement | null>(null);
-  /* Flat at every width. The phone layout used to be a ScrollStack, which hid
-     two of the three cards behind the first until the visitor scrolled the
-     section — the opposite of what three comparable ways to buy needs. Three
-     narrow columns show all of them at once instead.
-
-     With no stack there is no card "in focus", so the bar takes the first
-     card's colour whenever the section owns the middle of the screen. */
-  useNavClaimAtMidpoint(sectionRef, 'lanes', {
-    bg: LANES[0].bg,
-    fg: LANES[0].text
-  });
-
-  return (
-    <section
-      id="lanes"
-      ref={sectionRef}
-      /* The top padding was the removed heading's, which is why it is here now
-         and not a leftover: the trust band sits directly above, and the cards
-         cannot start against it. */
-      style={{
-        position: 'relative',
-        zIndex: 4,
-        background: 'var(--cream)',
-        paddingTop: 'clamp(16px,1.8vw,24px)'
-      }}
-    >
-      <div className="lanes-row">
-        {LANES.map((lane) => (
-          <LaneCard key={lane.title} lane={lane} />
-        ))}
-      </div>
-    </section>
   );
 }

@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "node --watch apps/house-accounts/apps/api/index.js",
+    "dev:api:sandbox": "HOUSE_LOCAL_MODE=sandbox node --watch apps/house-accounts/apps/api/index.js",
+    "dev:sandbox": "HOUSE_API_URL=http://127.0.0.1:3102 vite --host 127.0.0.1 --port 5175 --strictPort",
     "build": "npm run build:site && npm run build:accounts",
     "build:site": "tsc -b && vite build",
     "build:accounts": "vite build --config apps/house-accounts/vite.config.js",
@@ -43,6 +46,7 @@
     "@types/react-dom": "^19.2.4",
     "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "^4.3.4",
+    "cookie": "^0.7.2",
     "tailwindcss": "^4.3.3",
     "terser": "^5.50.0",
     "typescript": "^5.6.3",

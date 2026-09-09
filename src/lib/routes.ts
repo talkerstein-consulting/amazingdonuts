@@ -14,11 +14,18 @@ export const CAREERS_HREF = '/careers/';
 export const BULK_HREF = '/bulk-orders/';
 
 /**
- * The pickup gate, asked before the catalogue rather than at checkout.
+ * The standalone pickup page.
  *
- * Pointed at by the Pick up lane card and by the header's slot chip, which is
- * how a chosen slot is edited — two references, so it is a constant like the
- * others rather than a literal in each.
+ * Nothing in the site links here any more. It was a gate between the homepage
+ * and the catalogue — the Pick up lane card went to it, and it asked for a day
+ * and a window before handing the visitor on to the shop. That question is now
+ * asked at checkout, where there is an order to collect; the band across the
+ * top of every shopping page is where a slot gets picked early if anyone wants
+ * to.
+ *
+ * The page itself still builds and still works, because the path has been
+ * live and may be bookmarked or printed on something. It is deliberately not
+ * reachable from any navigation.
  */
 export const PICKUP_HREF = '/pickup/';
 

@@ -1,0 +1,6 @@
+.git
+.vercel
+.env*
+node_modules
+dist
+house-account-platform-pitch.md

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type InputHTMLAttributes } from "react";
-import { ArrowLeft, Building2, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, ReceiptText, UserRound, X } from "lucide-react";
+import { ArrowLeft, Building2, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, ReceiptText, Truck, UserRound, X } from "lucide-react";
 import { PRODUCTS } from "../data/products";
 import AuthModal from "../shop/AuthModal";
 import CommerceLogo from "./CommerceLogo";
@@ -267,6 +267,7 @@ function Orders({ orders }: { orders: any[] }) {
                 </span>
                 <strong>{cash(order.total, order.currency)}</strong>
               </footer>
+              {order.delivery && <p className="delivery-test-status"><Truck/> Uber Direct {order.delivery.environment === "sandbox" ? "test" : "delivery"}: {String(order.delivery.status).replace(/_/g," ")}{order.delivery.trackingUrl&&<a href={order.delivery.trackingUrl} target="_blank" rel="noreferrer">Track test delivery</a>}</p>}
             </article>
           ))}
         </div>

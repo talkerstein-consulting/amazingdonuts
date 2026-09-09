@@ -8,9 +8,11 @@ import { NavThemeProvider } from '../lib/nav-theme';
 import { ShopProvider, useShop } from '../lib/shop';
 import { initSmoothScroll } from '../lib/smooth-scroll';
 import Header from '../components/Header';
+import PickupBanner from '../components/PickupBanner';
 import Footer from '../components/Footer';
 import AuthModal from '../shop/AuthModal';
 import CartDrawer from '../shop/CartDrawer';
+import ReturnPrompt from '../shop/ReturnPrompt';
 import ProductPanel from '../shop/ProductPanel';
 import ShopAll from '../shop/ShopAll';
 
@@ -54,6 +56,7 @@ export default function ShopPage() {
         <SquircleDefs />
         <div style={{ background: 'var(--cream)', color: 'var(--navy)' }}>
           <Header onSignIn={() => setAuthOpen(true)} />
+          <PickupBanner />
           <main>
             <ShopBody />
           </main>
@@ -63,6 +66,7 @@ export default function ShopPage() {
         </div>
 
         <CartDrawer />
+        <ReturnPrompt />
         <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
       </ShopProvider>
     </NavThemeProvider>

@@ -6,7 +6,7 @@
  */
 export { C, F, SQUIRCLE, RADIUS } from './tokens';
 export { default as SquircleDefs } from './SquircleDefs';
-export { default as Badge, BadgeRow, BADGES, BADGE_KEYS } from './Badge';
+export { default as Badge, BadgeRow, BadgeDot, BADGES, BADGE_KEYS } from './Badge';
 export type { BadgeKey } from './Badge';
 export { default as BrandButton, BrandTextLink } from './BrandButton';
 export type { BrandButtonVariant } from './BrandButton';

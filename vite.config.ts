@@ -65,6 +65,14 @@ export default defineConfig({
      the harness can assign a free one instead of the config pinning a number
      that another process may already hold. `vite preview` does not read PORT
      on its own, hence the second line. */
-  server: { port: Number(process.env.PORT) || undefined },
+  server: {
+    port: Number(process.env.PORT) || undefined,
+    proxy: {
+      '/api/house': {
+        target: process.env.HOUSE_API_URL || 'http://127.0.0.1:3101',
+        rewrite: (requestPath) => requestPath.replace(/^\/api\/house(?=\/|$)/, '/api')
+      }
+    }
+  },
   preview: { port: Number(process.env.PORT) || undefined }
 });

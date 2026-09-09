@@ -3,6 +3,8 @@ import type { CSSProperties } from 'react';
 import type { Product } from '../data/products';
 import { C } from './brand';
 import { useBoxQty, useShop } from '../lib/shop';
+import { customizationFor } from '../lib/custom-order';
+import { flyToCart } from '../lib/fly-to-cart';
 
 /**
  * The add control on a product photo bed — the same knob on the homepage
@@ -23,8 +25,11 @@ import { useBoxQty, useShop } from '../lib/shop';
  * Nothing here opens the cart drawer — not the first add and not the steps
  * after it. The knob turning into a stepper, on the tile, is the confirmation:
  * the drawer sliding over the grid buried the very thing it was confirming,
- * and it meant every add cost a dismissal before the next one. Items still
- * announce themselves through the header's cart count.
+ * and it meant every add cost a dismissal before the next one. What connects
+ * the tile to the header's count is the flight — the product arcs up to the
+ * bag and the bag reacts, so the number changing in the far corner is
+ * something you watched happen rather than something you have to go and
+ * check.
  */
 
 /**
@@ -49,7 +54,7 @@ export default function AddControl({
   product: Product;
   size?: keyof typeof SIZES;
 }) {
-  const { add, setQty } = useShop();
+  const { add, setQty, openProduct } = useShop();
   const qty = useBoxQty()[product.id] ?? 0;
   const s = SIZES[size];
 
@@ -77,16 +82,53 @@ export default function AddControl({
     cursor: 'pointer'
   };
 
+  /* Anything that has to be specified opens its page instead of being added.
+
+     It was only the boxes: an empty box is a line the counter cannot pack, so
+     the knob opened the builder. But the same is true of every product that
+     carries a customization — a letter cake with no letter, a printed dozen
+     with no artwork, a petite tray with no colours. Adding those from a tile
+     put a line in the bag that checkout then refused, and the visitor had to
+     work out which one and go and finish it.
+
+     `customizationFor` is the existing answer to "does this need specifying",
+     so the rule follows the data rather than a list kept in step by hand: add a
+     product to the customization system and its knob starts opening its page.
+
+     These never become steppers either. A second press should ask the second
+     donut's questions, not silently make two of the first. */
+  const needsSpec = Boolean(customizationFor(product.id));
+
+  if (needsSpec) {
+    return (
+      <button
+        type="button"
+        className="brand-press"
+        onClick={() => openProduct(product.id)}
+        aria-label={`Choose options for ${product.name}`}
+        style={{ ...face, width: s.pill, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+      >
+        <Plus size={s.icon} strokeWidth={3} />
+      </button>
+    );
+  }
+
   if (!qty) {
     return (
       <button
         type="button"
         className="brand-press"
-        onClick={() => add(product, 1, { openCart: false })}
+        onClick={(event) => {
+          add(product, 1, { openCart: false });
+          /* The button itself is gone on the next tick — it becomes a stepper —
+             so the flight is measured from the photo bed it sits on, which
+             stays put and is what the donut appears to leave. */
+          flyToCart(event.currentTarget.parentElement, product.img);
+        }}
         aria-label={
           product.id === 'twelve-custom-printed-donuts'
             ? 'Customize Twelve Custom Printed Donuts'
-            : `Add ${product.name} to box`
+            : `Add ${product.name} to bag`
         }
         style={{ ...face, width: s.pill, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
       >
@@ -98,17 +140,23 @@ export default function AddControl({
   return (
     /* Not a button: it holds two of them. The count between them is plain
        text, so a screen reader reads "remove one, 3, add one" rather than
-       announcing the number as a third control. */
+       announcing the number as a third control.
+
+       Dare Devil, like the plus it replaces. The knob is one control in two
+       states — add, then adjust — and changing its colour on the first tap
+       made it read as a different control appearing rather than the same one
+       counting. The photo bed behind it carries the "in your bag" signal in
+       Harbour; the knob stays the action. */
     <div
       style={{ ...face, display: 'flex', alignItems: 'center', padding: '0 2px' }}
       role="group"
-      aria-label={`${product.name}: ${qty} in your box`}
+      aria-label={`${product.name}: ${qty} in your bag`}
     >
       <button
         type="button"
         className="brand-press"
         onClick={() => setQty(product.id, qty - 1)}
-        aria-label={qty === 1 ? `Remove ${product.name} from your box` : `Remove one ${product.name}`}
+        aria-label={qty === 1 ? `Remove ${product.name} from your bag` : `Remove one ${product.name}`}
         style={stepFace}
       >
         <Minus size={s.stepIcon} strokeWidth={3.2} />
@@ -125,7 +173,10 @@ export default function AddControl({
       <button
         type="button"
         className="brand-press"
-        onClick={() => setQty(product.id, qty + 1)}
+        onClick={(event) => {
+          setQty(product.id, qty + 1);
+          flyToCart(event.currentTarget.closest('div')?.parentElement ?? null, product.img);
+        }}
         aria-label={`Add another ${product.name}`}
         style={stepFace}
       >

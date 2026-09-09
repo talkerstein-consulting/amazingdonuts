@@ -76,13 +76,13 @@ function Pickup() {
     <main className="pickup-page">
       <div className="pickup-card">
         <span className="pickup-eyebrow">
-          <Store size={15} strokeWidth={2.4} aria-hidden="true" /> Pick up in store
+          <Store size={15} strokeWidth={2.4} aria-hidden="true" /> Pickup in store
         </span>
 
         <h1 className="pickup-title">When are you collecting?</h1>
 
         <p className="pickup-lede">
-          Pick a day and a window and we will have the box boxed and waiting at{' '}
+          Pick a day and a window and we will have your bag boxed and waiting at{' '}
           {SHOP_ADDRESS.street}. You can change it any time before you check out.
         </p>
 

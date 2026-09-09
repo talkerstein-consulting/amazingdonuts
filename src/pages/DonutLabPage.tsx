@@ -30,6 +30,16 @@ export default function DonutLabPage() {
   const [authOpen, setAuthOpen] = useState(false);
   useEffect(initSmoothScroll, []);
 
+  /* No pickup/delivery band on this page — see `.no-fulfillment-band` in
+     index.css. The builder's bands are sized to fill `100dvh - --nav-h`
+     exactly, so a strip between the header and the stage pushes the CTA off
+     the bottom of the sheet, and the band itself is truncated at the widths
+     where that matters most. */
+  useEffect(() => {
+    document.body.classList.add('no-fulfillment-band');
+    return () => document.body.classList.remove('no-fulfillment-band');
+  }, []);
+
   return (
     <NavThemeProvider>
       <ShopProvider>

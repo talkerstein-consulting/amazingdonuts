@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import type { CSSProperties } from 'react';
 import {
   Flame,
@@ -33,7 +34,9 @@ type Spec = {
   Icon: LucideIcon;
   bg?: string;
   fg?: string;
-  /** Diet badges read as outlines so merchandising keeps the solid fills. */
+  /** Diet and certification marks carry no container at all — icon and label
+      only, separated by dots when they sit in a row. Merchandising keeps the
+      solid fills, which is what the distinction is for. */
   outline?: boolean;
   /** Fills in the 3:1–4:1 band need the large-text threshold. */
   large?: boolean;
@@ -99,11 +102,16 @@ export default function Badge({ badge, forceOutline = false, compact = false, st
         textTransform: 'uppercase',
         ...(outline
           ? {
+              /* No ring and no ground. Six ringed pills in a row read as six
+                 buttons, and none of them is pressable — they are a list of
+                 facts about the donut. Stripped to icon and label they read as
+                 one, and `BadgeRow` sets the dots between them. The horizontal
+                 padding goes with the ring: with nothing drawn around the
+                 label, padding is just a wider gap. */
               background: 'transparent',
               color: C.navy,
-              /* A 2px ring around a 25px pill reads as a blob; the compact
-                 outline thins to match its smaller type. */
-              boxShadow: `inset 0 0 0 ${compact ? 1.5 : 2}px ${C.navy}`
+              paddingLeft: 0,
+              paddingRight: 0
             }
           : { background: spec.bg, color: spec.fg }),
         ...style
@@ -115,7 +123,33 @@ export default function Badge({ badge, forceOutline = false, compact = false, st
   );
 }
 
-/** Convenience wrapper for the wrapping badge rows used on cards and specimens. */
+/** The separator between two container-less badges. Never between a badge and
+    a filled merchandising pill — the pill draws its own edge, so a dot beside
+    it is a second divider for the same seam. */
+export function BadgeDot({ style }: { style?: CSSProperties }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        opacity: 0.45,
+        fontFamily: F.display,
+        fontWeight: 700,
+        lineHeight: 1,
+        ...style
+      }}
+    >
+      &middot;
+    </span>
+  );
+}
+
+/** Convenience wrapper for the wrapping badge rows used on cards and specimens.
+
+    Dots go between adjacent container-less badges only, which is why this walks
+    the list rather than using a CSS `:not(:last-child)::after` rule: whether a
+    seam gets a dot depends on BOTH badges either side of it. */
 export function BadgeRow({
   badges,
   forceOutline = false,
@@ -127,10 +161,15 @@ export function BadgeRow({
   compact?: boolean;
   gap?: number;
 }) {
+  const bare = (key: BadgeKey) => forceOutline || Boolean(BADGES[key].outline);
+
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap }}>
-      {badges.map((b) => (
-        <Badge key={b} badge={b} forceOutline={forceOutline} compact={compact} />
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap }}>
+      {badges.map((b, i) => (
+        <Fragment key={b}>
+          {i > 0 && bare(b) && bare(badges[i - 1]) && <BadgeDot />}
+          <Badge badge={b} forceOutline={forceOutline} compact={compact} />
+        </Fragment>
       ))}
     </div>
   );

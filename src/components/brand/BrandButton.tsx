@@ -93,7 +93,11 @@ export default function BrandButton({
 
   const inner = (
     <>
-      {children}
+      {/* Wrapped rather than dropped in bare. A raw text node becomes an
+          anonymous flex item, which no rule can reach — so the label could not
+          be told to wrap, shrink or align when the button got narrow, and it
+          simply overflowed instead. */}
+      <span className="bbtn__label">{children}</span>
 
       <span className={`bbtn__knob${popping ? ' bbtn__knob--pop' : ''}`} aria-hidden="true">
         <span className="bbtn__track">

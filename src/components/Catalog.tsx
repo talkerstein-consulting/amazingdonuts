@@ -1,12 +1,16 @@
-import { useMemo, useState } from 'react';
-import { ChevronDown, Search } from 'lucide-react';
-import { CATEGORIES, PRODUCTS, type Category, type Product } from '../data/products';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { BOX_BUILDER_IDS, CATEGORIES, INTERNAL_PRODUCT_IDS, type Category, type Product } from '../data/products';
+import CollectionRail from '../shop/CollectionRail';
+import BoxCard from './BoxCard';
 import { tagFor } from '../data/product-tags';
 import { Badge, C, F, SQUIRCLE } from './brand';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useBoxQty, useShop } from '../lib/shop';
 import AddControl from './AddControl';
-import { shopHref } from '../lib/shop-href';
+import { SHOP_HREF, shopHref } from '../lib/shop-href';
+import { smoothScrollTo } from '../lib/smooth-scroll';
+import { COMPACT_CATEGORY_BAR_HEIGHT, useStickyCategoryBar } from '../hooks/useStickyCategoryBar';
 
 /** One product inside an expanded category: squircle photo bed, name, price, add. */
 function ProductThumb({ product }: { product: Product }) {
@@ -19,7 +23,10 @@ function ProductThumb({ product }: { product: Product }) {
   const inBox = useBoxQty()[product.id] ?? 0;
 
   return (
-    <article style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <article
+      className={BOX_BUILDER_IDS.has(product.id) ? 'product-wide' : undefined}
+      style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}
+    >
       <div style={{ position: 'relative' }}>
       <button
         type="button"
@@ -35,7 +42,7 @@ function ProductThumb({ product }: { product: Product }) {
           /* The bed carries the state, not a ring around it: the bed is
              clipped to a squircle, and a border or box-shadow on a clipped
              element is clipped away with it. */
-          background: inBox ? C.orange : C.canvas,
+          background: inBox ? C.navy : C.canvas,
           clipPath: SQUIRCLE,
           overflow: 'hidden',
           transition: 'background .2s ease'
@@ -109,11 +116,32 @@ function CategoryRow({
   open: boolean;
   onToggle: () => void;
 }) {
-  const shown = products.slice(0, columns * PREVIEW_ROWS);
+  /* Two full rows, counted in CELLS rather than in products — the two
+     build-your-own boxes take two columns each, so slicing to a product count
+     overfills the teaser and leaves the ragged half-row the count was written
+     to avoid. Take products until the next one would not fit. */
+  const shown = useMemo(() => {
+    const budget = columns * PREVIEW_ROWS;
+    let used = 0;
+    return products.filter((product) => {
+      const cells = BOX_BUILDER_IDS.has(product.id) ? 2 : 1;
+      if (used + cells > budget) return false;
+      used += cells;
+      return true;
+    });
+  }, [products, columns]);
   const hidden = products.length - shown.length;
 
   return (
-    <div style={{ borderRadius: 24, background: C.cream, overflow: 'hidden' }}>
+    /* Anchored, so the category rail above can jump to it. `scroll-margin-top`
+       is what keeps the row's own heading out from under the sticky navbar and
+       the pickup/delivery band — the same allowance the shop grid's counter
+       dividers make. */
+    <div
+      id={`home-${category.toLowerCase()}`}
+      className="home-category"
+      style={{ borderRadius: 24, background: C.cream, overflow: 'hidden' }}
+    >
       <button
         type="button"
         className="brand-press"
@@ -164,9 +192,13 @@ function CategoryRow({
             className="product-grid"
             style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16, padding: '4px 12px 16px' }}
           >
-            {shown.map((product) => (
-              <ProductThumb key={product.id} product={product} />
-            ))}
+            {shown.map((product) =>
+              BOX_BUILDER_IDS.has(product.id) ? (
+                <BoxCard key={product.id} product={product} />
+              ) : (
+                <ProductThumb key={product.id} product={product} />
+              )
+            )}
           </div>
 
           {/* The row is a teaser, not the catalogue — the rest live in Shop all. */}
@@ -213,97 +245,121 @@ function CategoryRow({
 }
 
 export default function Catalog() {
-  const [query, setQuery] = useState('');
-  /* Every counter is open on arrival, and the set tracks what has been closed
-     rather than what is open. It used to hold a single `openCategory`, which
-     made the section an accordion: four of the five categories were collapsed
-     to a 72px strip, so the homepage showed one row of product and asked for a
-     click before it showed any more. Closing one is still possible — the
-     chevron is unchanged — it is just no longer the default. */
+  const { products } = useShop();
   const [collapsed, setCollapsed] = useState<Set<Category>>(() => new Set());
-  /* Two rows of the grid, and the grid is four-up from 900px and two-up below
-     — the same breakpoint `.product-grid` uses in `index.css`. */
+  const [active, setActive] = useState<Category | null>(null);
   const columns = useIsDesktop() ? 4 : 2;
+  const bar = useStickyCategoryBar();
 
-  const searching = query.trim().length > 0;
+  const byCategory = useMemo(() => CATEGORIES.map((category) => ({
+    category,
+    products: products.filter((product) => product.category === category && !BOX_BUILDER_IDS.has(product.id) && !INTERNAL_PRODUCT_IDS.has(product.id))
+  })).filter((group) => group.products.length > 0), [products]);
+  const boxes = useMemo(() => products.filter((product) => BOX_BUILDER_IDS.has(product.id)), [products]);
 
-  const byCategory = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const pool = needle ? PRODUCTS.filter((p) => p.name.toLowerCase().includes(needle)) : PRODUCTS;
-    return CATEGORIES.map((category) => ({
-      category,
-      products: pool.filter((p) => p.category === category)
-    })).filter((group) => group.products.length > 0);
-  }, [query]);
+  const jumpTo = (category: Category | null) => {
+    if (!category) {
+      window.location.href = SHOP_HREF;
+      return;
+    }
+    setActive(category);
+    setCollapsed((current) => {
+      const next = new Set(current);
+      next.delete(category);
+      return next;
+    });
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const row = document.getElementById(`home-${category.toLowerCase()}`);
+      // Lenis and native scrolling both honor the measured scroll-margin-top.
+      if (row) smoothScrollTo(row);
+    }));
+  };
+
+  useEffect(() => {
+    let frame = 0;
+    const measure = () => {
+      const viewportTop = bar.stuck
+        ? (bar.inner.current?.getBoundingClientRect().bottom ?? bar.stickyTop + COMPACT_CATEGORY_BAR_HEIGHT) + 16
+        : bar.stickyTop;
+      let current: Category | null = null;
+      let preceding: Category | null = null;
+      let largestVisible = 0;
+      // Follow the section being read, even before its heading reaches the bar.
+      for (const { category } of byCategory) {
+        const row = document.getElementById(`home-${category.toLowerCase()}`);
+        if (!row) continue;
+        const bounds = row.getBoundingClientRect();
+        if (bounds.top <= viewportTop) preceding = category;
+        const visible = Math.max(0, Math.min(bounds.bottom, window.innerHeight) - Math.max(bounds.top, viewportTop));
+        if (visible > largestVisible) {
+          current = category;
+          largestVisible = visible;
+        }
+      }
+      setActive(current ?? preceding);
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+    const observer = new ResizeObserver(schedule);
+    byCategory.forEach(({ category }) => {
+      const row = document.getElementById(`home-${category.toLowerCase()}`);
+      if (row) observer.observe(row);
+    });
+    if (bar.inner.current) observer.observe(bar.inner.current);
+    measure();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, [byCategory, bar.stickyTop, bar.stuck]);
 
   return (
     <section
       id="favorites"
       className="section-band"
-      style={{ maxWidth: 1240, margin: '0 auto', padding: 'clamp(18px,2.4vw,32px) clamp(18px,4vw,40px) var(--gap-section-y)' }}
+      style={{
+        maxWidth: 1240,
+        margin: '0 auto',
+        padding: 'clamp(18px,2.4vw,32px) clamp(18px,4vw,40px) var(--gap-section-y)',
+        ['--home-category-offset' as string]: `${bar.stickyTop + COMPACT_CATEGORY_BAR_HEIGHT + 16}px`
+      }}
     >
+      {boxes.length > 0 && (
+        <div className="home-boxes">
+          {boxes.map((product) => <BoxCard key={product.id} product={product} />)}
+        </div>
+      )}
       <h2 className="favorites-title" style={{ margin: '0 0 clamp(18px,2.4vw,28px)', maxWidth: '14ch', fontSize: 'var(--type-section)', lineHeight: 0.92, color: 'var(--navy)' }}>
-        Everyone has a favorite
+        Everyone has a favourite
       </h2>
-
-      <label
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          minHeight: 52,
-          padding: '0 18px',
-          borderRadius: 99,
-          background: C.cream,
-          boxShadow: 'inset 0 0 0 2px rgba(14,62,105,.12)',
-          marginBottom: 'clamp(16px,2vw,24px)'
-        }}
-      >
-        <Search size={18} strokeWidth={2.25} style={{ flex: 'none', color: C.mute }} />
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="What are you craving?"
-          aria-label="Search the menu"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            border: 'none',
-            background: 'transparent',
-            outline: 'none',
-            fontFamily: F.text,
-            fontSize: 16,
-            color: C.navy
-          }}
-        />
-      </label>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {byCategory.map(({ category, products }) => (
+      <div ref={bar.sentinel} className="category-bar-sentinel" aria-hidden="true" />
+      <div className={`category-bar home-rail${bar.stuck ? ' is-stuck' : ''}`} style={bar.style}>
+        <div className="category-bar__inner home-rail__inner" ref={bar.inner}>
+          <CollectionRail active={active} onPick={jumpTo} compact={bar.stuck} showAll={false} />
+        </div>
+      </div>
+      <div className="home-categories">
+        {byCategory.map(({ category, products: categoryProducts }) => (
           <CategoryRow
             key={category}
             category={category}
-            products={products}
+            products={categoryProducts}
             columns={columns}
-            // A search force-opens every matching category, whatever was closed.
-            open={searching || !collapsed.has(category)}
-            onToggle={() =>
-              setCollapsed((current) => {
-                const next = new Set(current);
-                if (next.has(category)) next.delete(category);
-                else next.add(category);
-                return next;
-              })
-            }
+            open={!collapsed.has(category)}
+            onToggle={() => setCollapsed((current) => {
+              const next = new Set(current);
+              if (next.has(category)) next.delete(category);
+              else next.add(category);
+              return next;
+            })}
           />
         ))}
-
-        {byCategory.length === 0 && (
-          <p style={{ margin: 0, fontFamily: F.text, fontSize: 16, color: C.mute }}>
-            Nothing matches that search. Try a flavour, or clear the box.
-          </p>
-        )}
       </div>
     </section>
   );

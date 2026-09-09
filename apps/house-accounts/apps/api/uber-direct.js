@@ -1,16 +1,18 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 export class UberDirectClient {
-  constructor({clientId,clientSecret,customerId,fetchImpl=fetch}) {
+  constructor({clientId,clientSecret,customerId,mode="sandbox",fetchImpl=fetch}) {
     this.clientId=clientId;
     this.clientSecret=clientSecret;
     this.customerId=customerId;
+    this.mode=mode;
     this.fetch=fetchImpl;
     this.token=null;
     this.tokenExpiresAt=0;
   }
 
   get configured(){return Boolean(this.clientId&&this.clientSecret&&this.customerId);}
+  get sandbox(){return this.mode==="sandbox";}
 
   async accessToken(){
     if(!this.configured)throw Object.assign(new Error("Uber Direct sandbox credentials are not configured."),{status:503,code:"UBER_DIRECT_NOT_CONFIGURED"});
@@ -33,6 +35,7 @@ export class UberDirectClient {
 
   createQuote(input){return this.request("/delivery_quotes",{method:"POST",body:input});}
   createDelivery(input){return this.request("/deliveries",{method:"POST",body:input});}
+  retrieveDelivery(id){return this.request(`/deliveries/${encodeURIComponent(id)}`);}
 }
 
 export function validUberSignature(rawBody,signature,signingKey){

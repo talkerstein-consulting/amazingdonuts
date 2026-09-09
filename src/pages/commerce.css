@@ -205,6 +205,52 @@
   font: inherit;
 }
 
+/* The question the schedule answers, said out loud.
+
+   The fieldset's own legend reads "Fulfillment", which names the section but
+   asks nothing — and the two fields under it were a bare Date and Time window
+   floating beneath a segmented control. This is the heading the pickup gate
+   used to carry ("When are you collecting?"), brought here with the question
+   itself, and it changes with the mode because the two are not the same
+   question: one books an appointment at a counter, the other asks when
+   somebody should be home. */
+.schedule-legend {
+  margin: 18px 0 10px;
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: var(--fs-body);
+  letter-spacing: -0.01em;
+  color: var(--navy);
+}
+
+/* Where the order is being collected from — pickup only, because delivery
+   states its address in the fields directly below.
+
+   The gate said this, and it is the half of the pickup question that is not a
+   field: a day and a window mean nothing without the counter they are at, and
+   this bakery has customers who assume the wrong one. */
+.pickup-where {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(14, 62, 105, 0.06);
+  color: var(--navy);
+  font-size: var(--fs-small);
+  line-height: 1.45;
+}
+
+.pickup-where svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  stroke-width: 2.3;
+}
+
 .fulfillment-schedule {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -237,7 +283,8 @@
 }
 
 .segment button,
-.payment-options button {
+.payment-options > button,
+.payment-choice > button {
   min-height: 52px;
   padding: 0 20px;
   border: 0;
@@ -263,16 +310,64 @@
 }
 
 .segment button:active,
-.payment-options button:active {
+.payment-options > button:active,
+.payment-choice > button:active {
   transform: scale(0.97);
 }
 
-.segment button.active,
-.payment-options button.active {
-  background: var(--pink);
+/* Dare Devil, matching the fulfillment toggle and the identity lane's ring.
+   All three are the same statement — "this is the answer you have given" —
+   and Bubblegum here made payment look like a different system from the two
+   steps above it. Cream type: this is the palette's dark accent and it
+   carries white the way the place-order button does. */
+.payment-options > button.active,
+.payment-choice > button.active {
+  background: var(--orange);
   box-shadow: none;
-  /* Navy on Bubblegum — it is far too light to carry cream type. */
-  color: var(--navy);
+  color: var(--cream);
+}
+
+/* A wallet that has not resolved yet still holds its place in the list.
+
+   The slots used to render only once Square had returned a total, so on
+   arrival the list was one row — "Credit or debit card" — and Apple Pay and
+   Google Pay appeared underneath it a second later, after the eye had already
+   settled on the only option there was. A named row that fills in is a
+   choice being loaded; a row that appears from nothing is a choice you were
+   not offered. */
+.wallet-slot {
+  position: relative;
+  min-height: 48px;
+}
+
+.wallet-slot.is-disabled {
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.wallet-slot__label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 48px;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.24);
+  color: var(--text-muted);
+  font-family: var(--font-cta);
+  font-weight: 700;
+}
+
+/* Pickup or delivery is the one choice on this page that changes what the
+   rest of the form asks for — a delivery answer grows an address block, a
+   pickup answer names a counter. Bubblegum stated it as quietly as the
+   payment list beside it; Dare Devil says a decision has been taken. Cream
+   type, not navy: this is the palette's dark accent, and it carries white
+   the way the place-order button does. */
+.segment button.active {
+  background: var(--orange);
+  box-shadow: none;
+  color: var(--cream);
 }
 
 .segment button:disabled,
@@ -292,29 +387,40 @@
   flex-direction: column;
 }
 
-.payment-options button {
+.payment-options > button,
+.payment-choice > button {
   justify-content: flex-start;
   text-align: left;
   padding: 14px 18px;
   border-radius: var(--radius-chip);
 }
 
-.payment-options button span,
-.payment-options button strong,
-.payment-options button small {
+.payment-options > button span,
+.payment-options > button strong,
+.payment-options > button small,
+.payment-choice > button span,
+.payment-choice > button strong,
+.payment-choice > button small {
   display: block;
 }
 
-.payment-options button small {
+.payment-options > button small,
+.payment-choice > button small {
   margin-top: 3px;
   color: var(--text-muted);
   font-weight: 500;
 }
 
-.payment-options button.active small {
+.payment-options > button.active small,
+.payment-choice > button.active small {
   /* On the Bubblegum fill the muted ink is too light to stay legible. */
   color: rgba(14, 62, 105, 0.75);
 }
+
+.payment-choice { min-width: 0; }
+.payment-choice > button { width: 100%; }
+.payment-choice__fields { margin-top: 12px; }
+.payment-choice__fields .square-card { margin-top: 0; }
 
 /* --- sign-in state ------------------------------------------------------- */
 /* No accent stripe. A single-sided rule is not a pattern the brand system
@@ -364,11 +470,254 @@
   color: var(--text-body);
 }
 
+/* ==========================================================================
+   The form as three numbered steps.
+
+   Who you are, how you want it, how you are paying — answered in that order,
+   because each one narrows the next: delivery grows an address block, an
+   account unlocks paying on credit. They were three stacked panels with no
+   numbers and no sequence, and payment was not even among them; it sat in the
+   right-hand column beside the bag, which put the last step of the form
+   outside the form and made the eye cross the page and come back.
+
+   The number is drawn from `data-step` rather than typed into the markup, so
+   the order is a property of the layout and renumbering is a matter of moving
+   a panel.
+   ========================================================================== */
+.checkout-step {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.checkout-step::before {
+  content: attr(data-step);
+  margin-top: clamp(20px, 2.4vw, 30px);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--navy);
+  color: var(--cream);
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: 15px;
+  /* The number is decoration for a heading that already says the same thing;
+     a screen reader should hear "Your details", not "1 Your details". */
+  speak: never;
+}
+
+/* A step whose turn has not come. The fieldset inside is genuinely disabled —
+   this is the visual half of that, and it has to be on the number too, or a
+   greyed panel sits beside a confident navy badge. */
+.checkout-step:has(fieldset:disabled)::before {
+  background: rgba(14, 62, 105, 0.22);
+}
+
+/* `> *` is element children only — a pseudo-element is not one, so the badge
+   keeps its own treatment above and is not dimmed twice. */
+.checkout-step:has(fieldset:disabled) > * {
+  opacity: 0.55;
+}
+
+/* The number column is a luxury a phone does not have; the panels take the
+   full width and the steps read in order because they are in order. */
+@media (max-width: 700px) {
+  .checkout-step {
+    display: block;
+  }
+  .checkout-step::before {
+    display: none;
+  }
+}
+
+/* --- who is ordering ------------------------------------------------------ */
+/* Two lanes rather than a segmented control.
+
+   A segment says "one of these two settings applies"; this is a choice between
+   two different amounts of work, and the lane that costs nothing is already
+   open when the page loads. Both heads stay visible and pressable throughout,
+   so switching is one press and nothing is hidden behind a state the visitor
+   has to discover. */
+.identity-choice {
+  margin: clamp(20px, 2.4vw, 28px) 0 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 10px;
+}
+
+/* Neither lane is a step toward the other, and stacked with a plain gap they
+   read as one form in two parts — fill in your name, then also sign in. The
+   rule says they are alternatives. */
+.identity-or {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 2px 0;
+  font-family: var(--font-label);
+  font-weight: 700;
+  font-size: var(--fs-label);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.identity-or::before,
+.identity-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(14, 62, 105, 0.18);
+}
+
+.identity-lane {
+  border-radius: var(--radius-chip);
+  background: var(--sand);
+  overflow: hidden;
+  transition: box-shadow 140ms ease;
+}
+
+/* The open lane is ringed, not filled: a second fill against the sand would
+   make the closed lane read as disabled, and it is not — it is the other
+   choice, one press away.
+
+   Dare Devil, matching the fulfillment toggle directly below it. The two are
+   the same kind of statement — "this is the answer you have given" — and a
+   navy ring above an orange pill read as two unrelated systems. */
+.identity-lane.is-open {
+  box-shadow: inset 0 0 0 2px var(--orange);
+}
+
+.identity-lane__head {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+  border: 0;
+  background: transparent;
+  color: var(--navy);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, box-shadow 160ms ease;
+}
+
+/* Only the lane that is NOT open answers to the pointer.
+
+   Both heads stay pressable the whole time — that is what makes switching one
+   press — but only one of them is an offer. Hovering the open lane and having
+   it light up says "press me to do something", and pressing it does nothing at
+   all, which is the worst kind of affordance: it teaches that the control is
+   broken rather than that it is already chosen.
+
+   Sand's own deepening rather than a new colour: the lane sits on Sand, so the
+   hover is the same surface a shade further in, and the Dare Devil ring stays
+   the only thing that means "this is your answer". */
+.identity-lane:not(.is-open) .identity-lane__head:hover {
+  background: rgba(14, 62, 105, 0.05);
+}
+
+.identity-lane:not(.is-open) .identity-lane__head:active {
+  background: rgba(14, 62, 105, 0.09);
+}
+
+/* Keyboard gets the same treatment plus a real focus ring — a hover-only
+   affordance is invisible to anyone tabbing through the form. */
+.identity-lane__head:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--navy);
+}
+
+.identity-lane__head svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  stroke-width: 2.2;
+}
+
+.identity-lane__head strong {
+  display: block;
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: var(--fs-body);
+}
+
+.identity-lane__head small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+}
+
+.identity-lane__body {
+  padding: 0 20px 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+/* Four short fields make a clean 2x2 — name, name, email, phone — rather than
+   a column the height of the fulfillment section beside it. Only the things
+   that are not fields span. */
+.identity-lane__body > p,
+.identity-lane__body .identity-note,
+.identity-lane__body .identity-signin {
+  grid-column: 1 / -1;
+}
+
+.identity-lane__body > p {
+  margin: 0;
+  color: var(--text-body);
+}
+
+.identity-note {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: rgba(214, 84, 42, 0.12);
+  color: var(--navy);
+  font-size: var(--fs-small);
+  line-height: 1.45;
+}
+
+.identity-signin {
+  justify-self: start;
+}
+
+/* Sign in reads as the quieter of the two links in the top bar, because on
+   this page it is: the visitor is already checking out, and this is the
+   alternative to the lane that is open below. */
+.commerce-top__signin {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-underline-offset: 4px;
+  transition: opacity 140ms ease;
+}
+
+/* It is a link in a bar of links, so it behaves like one. */
+.commerce-top__signin:hover {
+  text-decoration: underline;
+}
+
+.commerce-top__signin:active {
+  opacity: 0.7;
+}
+
 /* --- primary actions ----------------------------------------------------- */
 /* Dare Devil, pill, one per screen. The checkout's hero action is the place
    order button; the sign-in gate and the success screen each have their own
    screen, so none of them collide. */
 .signin-gate button,
+.identity-signin,
 .place-order,
 .commerce-success a,
 .account-gate > section > button,
@@ -385,10 +734,26 @@
   font-size: var(--fs-body);
   text-decoration: none;
   cursor: pointer;
-  transition: transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 140ms ease;
+}
+
+/* These had a press state and no hover at all, so on a desktop the primary
+   action of every commerce screen — Sign In/Create Account, Place order —
+   gave nothing back until the mouse was already down. A shade darker rather
+   than a second colour: Dare Devil is the one-per-screen accent and a hover
+   tint would be a second version of it. */
+.signin-gate button:hover,
+.identity-signin:hover,
+.place-order:hover:not(:disabled),
+.commerce-success a:hover,
+.account-gate > section > button:hover,
+.no-orders a:hover,
+.profile-form button:hover {
+  filter: brightness(0.93);
 }
 
 .signin-gate button:active,
+.identity-signin:active,
 .place-order:active,
 .commerce-success a:active,
 .account-gate > section > button:active,
@@ -578,10 +943,59 @@
    (the footer, the account nav, the careers panel). `--text-on-navy` is the
    token for secondary copy in this direction - do not reuse `--text-muted`
    here, it is tuned for a light ground. */
-.order-summary {
+/* The right-hand column: how you pay, then what you are paying for, then the
+   button. Payment moved over here from the form, and it cannot go INSIDE the
+   summary — that panel is Harbour, and every control payment owns (the Square
+   iframe included) is drawn for a light ground. So the column is a stack of
+   two cards, and this is the one that sticks. */
+.checkout-side {
   position: sticky;
   top: 24px;
   align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 1.6vw, 20px);
+}
+
+.payment-panel {
+  /* Sand, like the other two steps. It was Canvas because it used to be a
+     card in the summary column, floating on the page's own ground; in the
+     form it is one panel of three and has to match them. */
+  background: var(--sand);
+}
+
+.payment-panel > legend {
+  padding: 0;
+  font-family: var(--font-label);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* A column, not a row: the options carry two lines of type each and the
+   wallet buttons are full-width slabs the platforms draw themselves. */
+.payment-panel .payment-options {
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: 14px;
+  gap: 8px;
+}
+
+.payment-hint {
+  margin: 12px 0 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Under the summary it quotes, and the full width of the column. */
+.checkout-side .place-order { width: 100%; }
+
+.order-summary {
+  position: static;
+  align-self: stretch;
   padding: clamp(20px, 2.4vw, 28px);
   border-radius: var(--radius-panel);
   background: var(--navy);
@@ -604,6 +1018,29 @@
   font-size: var(--type-card-heading-sm);
   font-weight: 400;
   line-height: 1.1;
+}
+
+/* --- a line that is holding the order up ---------------------------------
+   The ring is Dare Devil, which is what this palette uses everywhere else for
+   "this one needs you". On the navy summary panel it is the only warm thing
+   in the column, so it is found without being hunted for — which was the
+   whole failure of the old message, that it announced a problem and then made
+   the customer go and look for it.
+
+   Wrapping the row rather than restyling it: the fix sits under the line and
+   the two have to be ringed together, or the question reads as a note about
+   the next item down. */
+.summary-item--attention {
+  margin: 8px -12px;
+  padding: 4px 12px 12px;
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 2px var(--orange);
+}
+
+/* The row's own rule draws a divider under every line; inside the ring that
+   divider lands between the line and its own question. */
+.summary-item--attention .summary-line {
+  border-bottom: 0;
 }
 
 .summary-line {
@@ -892,6 +1329,7 @@
   border-radius: var(--radius-chip);
   background: var(--cream);
 }
+.customer-orders article .delivery-test-status{align-items:center;justify-content:flex-start;border-top:1px solid rgba(14,62,105,.14);border-radius:0;text-transform:capitalize}.delivery-test-status svg{width:18px;flex:none}.delivery-test-status a{margin-left:auto;color:var(--navy);font-weight:800;text-decoration:underline;text-underline-offset:3px}
 .organization-member-list article{position:relative;box-shadow:inset 0 0 0 1.5px rgba(14,62,105,.12)}
 .organization-member-list .organization-member--admin{box-shadow:inset 5px 0 0 var(--pink),inset 0 0 0 1.5px rgba(14,62,105,.18)}
 .organization-member-list .organization-member--current{box-shadow:inset 0 0 0 3px var(--navy)}
@@ -1206,6 +1644,9 @@
     grid-template-columns: 1fr;
   }
 
+  /* Stacked, so nothing sticks: the column is the page at this width. */
+  .checkout-side { position: static; }
+
   .order-summary {
     position: static;
     grid-row: 1;
@@ -1226,6 +1667,7 @@
   }
 
   .address-fields,
+  .identity-lane__body,
   .fulfillment-schedule,
   .profile-form,
   .auth__nameRow {
@@ -1251,5 +1693,40 @@
   .commerce-shell *,
   .account-gate * {
     transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* --- Checkout heading: icon and sentence, top-aligned -------------------
+   The lock is a marker on the first line, not a bullet centred against a
+   block: the sentence wraps to two lines on a phone and the glyph drifted to
+   the middle of the pair, level with neither. */
+.commerce-heading span {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.commerce-heading span > svg {
+  flex: none;
+  /* Optically level with the cap height of the first line rather than its box,
+     which is what "aligned" looks like to a reader. */
+  margin-top: 0.15em;
+}
+
+@media (max-width: 700px) {
+  /* The words go, the arrow stays. "Back to the shop" beside a wordmark and
+     "My account" is three labels competing for a 375px bar, and the arrow in
+     the top-left corner is the one control on the page nobody needs told
+     about. */
+  .commerce-top > a:first-child > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }

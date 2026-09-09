@@ -3,7 +3,8 @@ import { BrandButton } from './brand';
 import { useNavClaimAtMidpoint } from '../lib/nav-theme';
 import { LAB_HREF } from '../lib/lab-href';
 import { BULK_HREF } from '../lib/routes';
-import { shopHref } from '../lib/shop-href';
+import { SHOP_HREF } from '../lib/shop-href';
+import { PETITE_PRODUCT_ID } from '../data/products';
 
 /**
  * The petite lineup. Trimmed WebP copies of the catalogue cut-outs, in
@@ -127,7 +128,16 @@ export default function Features() {
           ))}
         </div>
 
-        <BrandButton href={shopHref({ tier: 'classic' })} variant="outline" block style={{ marginTop: 'auto' }}>
+        {/* Straight to the petite tray. It pointed at the classic tier — 48
+            products, none of them petite — so the one card on the homepage
+            selling petite donuts led to a grid where they could not be found.
+            The hash is the product panel's own deep link. */}
+        <BrandButton
+          href={`${SHOP_HREF}#product/${PETITE_PRODUCT_ID}`}
+          variant="outline"
+          block
+          style={{ marginTop: 'auto' }}
+        >
           Shop petite
         </BrandButton>
 

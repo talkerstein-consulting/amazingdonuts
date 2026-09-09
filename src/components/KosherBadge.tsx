@@ -47,8 +47,6 @@ export default function KosherBadge({
         alignItems: 'center',
         gap: 8,
         height: 34,
-        padding: '0 14px',
-        borderRadius: 'var(--radius-pill)',
         whiteSpace: 'nowrap',
         ...style
       }}

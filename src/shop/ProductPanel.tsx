@@ -1,35 +1,53 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
+  ArrowLeft,
   Check,
   ChevronDown,
   Heart,
+  Instagram,
   Link2,
+  FileImage,
   Minus,
   Plus,
   Sunrise,
   Truck,
   X
 } from 'lucide-react';
-import { PRODUCTS, type Product } from '../data/products';
+import FacebookSolid from '../components/FacebookSolid';
+import WhatsAppSolid from '../components/WhatsAppSolid';
+import { SHOP_PRODUCTS, type Product } from '../data/products';
+import { tagFor } from '../data/product-tags';
 import { C, F, BadgeRow, BrandButton } from '../components/brand';
 import { useShop, money, priceOf } from '../lib/shop';
-import { minimumQuantityFor, PRINT_PRODUCTS } from '../lib/custom-order';
+import { PRINT_SPRINKLE_SWATCHES } from '../lib/petite-palette';
+import {
+  BOX_PRODUCTS,
+  BULK_PACK_SIZES,
+  GLYPH_PRODUCTS,
+  imageDataUrl,
+  minimumQuantityFor,
+  FINISH_PRODUCTS,
+  PRINT_PRODUCTS,
+  type Artwork
+} from '../lib/custom-order';
+import FinishPicker, { EMPTY_FINISH, type Finish } from './FinishPicker';
+import BoxBuilder from './BoxBuilder';
+import { flyManyToCart, flyToCart } from '../lib/fly-to-cart';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+/* What the letter cake can be cut as. Explicit lists rather than a char range,
+   so a shape the bakery cannot make is removed by deleting it from one. */
+type GlyphMode = 'number' | 'letter';
+const NUMBERS = '0123456789'.split('');
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 /** Pieces sold singly can be bought by the box; a made-up pack has its own price. */
 const PACKS = [
   { id: 'single', label: 'Single', pieces: 1, note: 'One piece' },
   { id: 'half', label: 'Half dozen', pieces: 6, note: '6 pieces' },
   { id: 'dozen', label: 'Dozen', pieces: 12, note: '12 pieces' }
-] as const;
-
-/** Framings of the single product photo. See the note on `views` below. */
-const VIEWS = [
-  { id: 'full', label: 'Full view', scale: 1, position: '50% 50%' },
-  { id: 'top', label: 'Top detail', scale: 1.85, position: '50% 30%' },
-  { id: 'base', label: 'Side detail', scale: 1.85, position: '50% 72%' }
 ] as const;
 
 const REASSURANCE = [
@@ -42,17 +60,45 @@ const REASSURANCE = [
  * rail and stacked info cards — delivered as a cabinet slide over whatever it
  * was opened from.
  *
- * ecommerce-1 shows six views of one product; the catalogue has a single
- * cut-out per item, so the rail carries the product itself plus its
- * shelf-mates from the same category. Picking one swaps the product, which is
- * more use than five angles of the same donut would be.
+ * ecommerce-1 shows six views of one product and a thumbnail rail to pick
+ * between them. The rail here is driven by `secondary` in `products.ts`, and
+ * it appears only for products that have a second view — never as crops of the
+ * one photograph, which is three thumbnails of a picture you can already see.
+ *
+ * Every catalogue product but the round challah has two: the cut-out on
+ * transparency the grid uses, and the studio original on its white ground. The
+ * white-ground shots are photographs of a whole object rather than a shape to
+ * float on the pane, so they fill the frame (`--photo`) instead of sitting
+ * inside its padding.
  */
-export default function ProductPanel({ product }: { product: Product }) {
-  const { closeProduct, openProduct, add, wishlist, toggleWishlist } = useShop();
+/**
+ * The cabinet proper. Not the default export: a box the visitor fills is a
+ * different page with the same job, and which one opens is decided below.
+ */
+function Cabinet({ product }: { product: Product }) {
+  const { closeProduct, openProduct, add, customize, wishlist, toggleWishlist } = useShop();
   const [qty, setQty] = useState(1);
   const [pack, setPack] = useState<(typeof PACKS)[number]['id']>('single');
   const [openSection, setOpenSection] = useState<'details' | 'allergens' | 'delivery' | ''>('details');
-  const [view, setView] = useState(0);
+  /* One character, and which list it came from. Only meaningful for the letter
+     and number cake — see `isGlyph`. */
+  const [glyphMode, setGlyphMode] = useState<GlyphMode>('number');
+  const [glyph, setGlyph] = useState('1');
+  /* The petite tray's finish, and the colours it asks for. Only meaningful for
+     a bulk-only product - see `bulkMinimum`. */
+  /* The finish, as the two answers it now is — see `FinishPicker`. */
+  const [finish, setFinish] = useState<Finish>(EMPTY_FINISH);
+  /* The printed dozen's spec: what the print is laid onto, what goes over it,
+     and the artwork itself. Only meaningful for a print product — see
+     `isPrint`. It lives here rather than on the cart line, like every other
+     product's choices: a required field on a bag row asks the question after
+     the sale, and this one can fail — a file too big, a design that covers
+     more dozens than were ordered — which is not something to discover in a
+     checkout. */
+  const [printIcing, setPrintIcing] = useState<'' | 'Chocolate' | 'Vanilla'>('');
+  const [printSprinkle, setPrintSprinkle] = useState('');
+  const [artworks, setArtworks] = useState<Artwork[]>([]);
+  const [artError, setArtError] = useState('');
   const saved = wishlist.includes(product.id);
   const [copied, setCopied] = useState(false);
   const [added, setAdded] = useState(false);
@@ -68,7 +114,22 @@ export default function ProductPanel({ product }: { product: Product }) {
      the CTA under, and a breakpoint would miss that. */
   const cabRef = useRef<HTMLElement | null>(null);
   const addRef = useRef<HTMLDivElement | null>(null);
+  /* Where each add's flight starts. The photograph for the two buttons that
+     buy the product on show, and the strip itself for the bundle. */
+  const mediaRef = useRef<HTMLDivElement | null>(null);
+  const bundleRef = useRef<HTMLElement | null>(null);
   const [ctaOnScreen, setCtaOnScreen] = useState(true);
+
+  /* Which view of the product is on the pane. `views[0]` is always the
+     catalogue cut-out, so index 0 is the state every product starts in and the
+     only state a product without a `secondary` list can be in. */
+  const views = useMemo(() => [product.img, ...(product.secondary ?? [])], [product]);
+  const [view, setView] = useState(0);
+  /* Reset with the product: the cabinet is reused across products, so view 1
+     of a donut would otherwise carry into the next one — which has its own
+     second photograph, or none at all. */
+  useEffect(() => setView(0), [product.id]);
+  const shown = views[view] ?? product.img;
 
   /* A new product opens at the top of the panel. The cabinet is one scroll
      container reused across products, so without this, picking something from
@@ -95,17 +156,106 @@ export default function ProductPanel({ product }: { product: Product }) {
 
   const unit = priceOf(product);
   const requiresPrintLeadTime = PRINT_PRODUCTS.has(product.id);
+  const isGlyph = GLYPH_PRODUCTS.has(product.id);
+  /* Bulk-only, and the smallest order it takes. Petite donuts are priced per
+     donut with a 75 minimum, so the stepper counts donuts and simply starts
+     there — see `BULK_PACK_SIZES`. How many donuts are in one pack, or
+     undefined for everything that is not sold in packs. */
+  const packSize = BULK_PACK_SIZES.get(product.id);
+  /* Finished to order — the petite tray and the Customizable Donut ask the
+     same two questions. Neither has a default: "no sprinkles" is a real answer
+     the kitchen needs told, and an unanswered question is not the same thing. */
+  const isFinish = FINISH_PRODUCTS.has(product.id);
+  const petiteReady = !isFinish || (Boolean(finish.icingId) && Boolean(finish.sprinkleId));
+
+  /* The printed dozen, and whether it is answered.
+
+     `assigned` is how many of the ordered dozens the uploaded designs account
+     for. A design covers up to four dozen — the bakery's own limit on one print
+     run — so several designs split one order, and the line is only ready when
+     every dozen has a design against it. Sprinkles are the one optional answer:
+     the print is the decoration, so "No sprinkles" is a choice rather than a
+     blank. */
+  const isPrint = PRINT_PRODUCTS.has(product.id);
+  const printSprinkleChoice = PRINT_SPRINKLE_SWATCHES.find((sw) => sw.id === printSprinkle);
+  const assigned = artworks.reduce((sum, art) => sum + art.count, 0);
+  const remaining = Math.max(0, qty - assigned);
+  const printReady =
+    !isPrint || (Boolean(printIcing) && Boolean(printSprinkleChoice) && artworks.length > 0 && remaining === 0);
+  /* A cake with no shape is not an order. The gate was missing entirely: the
+     glyph starts empty and nothing required one, so an ordinary add put a line
+     in the bag that `customizationComplete` rejects — and checkout then refused
+     to proceed over an item whose question had never been asked out loud. */
+  const glyphReady = !isGlyph || glyph.trim().length > 0;
+
+  /* Every gate behind one name, so the two add buttons and the label they share
+     each ask one question. */
+  const ready = petiteReady && printReady && glyphReady;
+
+  const addArtwork = async (file?: File) => {
+    if (!file) return;
+    setArtError('');
+    try {
+      const dataUrl = await imageDataUrl(file);
+      setArtworks((list) => [
+        ...list,
+        { key: crypto.randomUUID(), name: file.name, dataUrl, count: Math.min(4, remaining) }
+      ]);
+    } catch (error) {
+      setArtError(error instanceof Error ? error.message : 'That file could not be read.');
+    }
+  };
+  const setArtworkCount = (key: string, next: number) =>
+    setArtworks((list) =>
+      list.map((art) =>
+        art.key === key ? { ...art, count: Math.max(1, Math.min(4, art.count + remaining, next || 1)) } : art
+      )
+    );
+  const removeArtwork = (key: string) => setArtworks((list) => list.filter((art) => art.key !== key));
+
+  /* The chosen character, written onto the line as the `glyph` customization
+     checkout already sends the bakery. Called from both add buttons, so the
+     shape travels whichever one is pressed. */
+  const addToBag = () => {
+    if (!ready) return;
+    add(product, pieces * qty);
+    if (isPrint) {
+      customize(product.id, {
+        kind: 'print',
+        icingFlavour: printIcing,
+        sprinkleId: printSprinkle,
+        /* The mix's own name, which is what the counter reads; the id is how
+           the bag line finds its swatch again to draw the dots. */
+        sprinkleColours: printSprinkleChoice?.name ?? '',
+        artworks
+      });
+    }
+    if (isGlyph) customize(product.id, { kind: 'glyph', glyph });
+    if (isFinish) customize(product.id, finish);
+    setAdded(true);
+  };
   const minimumQuantity = minimumQuantityFor(product.id);
   // A boxed item is already a set quantity; only by-the-piece stock takes packs.
-  const byThePiece = unit > 0 && unit < 10;
+  /* A bulk line has no box size. Petite donuts are cheap enough per unit to
+     look like a by-the-piece product, but they are sold by the donut against a
+     75 minimum — a Single / Half dozen / Dozen pair on that card offers a
+     choice the order cannot honour, and contradicts the "75 minimum · bulk
+     order" sitting directly under it. */
+  const byThePiece = unit > 0 && unit < 10 && !packSize;
   const pieces = byThePiece ? PACKS.find((p) => p.id === pack)!.pieces : 1;
 
   // A fresh product resets the picker — carrying a dozen over is never intended.
   useEffect(() => {
     setQty(minimumQuantityFor(product.id));
     setPack('single');
-    setView(0);
     setAdded(false);
+    /* The cabinet is one component reused across products, so a previous
+       print's designs and colours would otherwise follow you onto the next
+       one. */
+    setPrintIcing('');
+    setPrintSprinkle('');
+    setArtworks([]);
+    setArtError('');
   }, [product.id]);
 
   useEffect(() => {
@@ -120,32 +270,93 @@ export default function ProductPanel({ product }: { product: Product }) {
     return () => clearTimeout(t);
   }, [added]);
 
-  /* The rail is this product, not its shelf-mates.
-     It used to list five other donuts, which made the thumbnails read as a
-     picker — click one and the whole panel swapped to a different item, which
-     is not what a thumbnail rail anywhere else on the web does.
+  /**
+   * The two things to buy with this one.
+   *
+   * There is no order history to mine, so "frequently" is inferred from what
+   * the bakery already says moves: the hand-set Best Seller and Popular tags,
+   * which are the same ranking the grid's "Most popular" sort uses. Anything
+   * untagged is not a candidate — a bundle of three arbitrary items is not a
+   * recommendation, it is filler.
+   *
+   * Two constraints beyond the ranking, and both are what make the strip an
+   * add-on rather than three separate purchases stapled together:
+   *
+   *   - a different counter from the product being viewed, so the bundle is a
+   *     donut and a challah rather than three donuts the visitor is already
+   *     choosing between;
+   *   - under $10, so the total stays an impulse. The $75 letter cake is a
+   *     best seller and belongs nowhere near an "add all three" button.
+   *
+   * If real basket data ever lands, this becomes a lookup and the heuristic
+   * goes — the section's copy is already honest either way.
+   */
+  const bundle = useMemo(() => {
+    const rank = (p: Product) => {
+      const tag = tagFor(p.id);
+      return tag === 'seller' ? 0 : tag === 'popular' ? 1 : 2;
+    };
+    return SHOP_PRODUCTS.filter(
+      (p) => p.category !== product.category && priceOf(p) > 0 && priceOf(p) < 10 && rank(p) < 2
+    )
+      .sort((a, b) => rank(a) - rank(b))
+      .slice(0, 2);
+  }, [product]);
 
-     The catalogue ships exactly one photograph per product (25 files for 25
-     donuts), so there are no second and third angles to show. These are
-     framings of that one photograph: the whole cut-out, then two closer crops.
-     Real detail views of the real product — but crops, not separate shots. If
-     the bakery ever shoots additional angles, this becomes a per-product list
-     in `products.ts` and the crops go away. */
-  const views = VIEWS;
+  // Something from a different counter, and never one of the two already shown
+  // in the bundle directly above it.
+  const pairsWith = useMemo(() => {
+    const inBundle = new Set(bundle.map((p) => p.id));
+    return SHOP_PRODUCTS.filter((p) => p.category !== product.category && !inBundle.has(p.id)).slice(0, 4);
+  }, [product, bundle]);
 
-  // Something from a different counter, so the row is a suggestion rather than
-  // a repeat of the thumbnail rail.
-  const pairsWith = useMemo(
-    () => PRODUCTS.filter((p) => p.category !== product.category).slice(0, 4),
-    [product]
-  );
+  const bundleTotal = unit + bundle.reduce((n, p) => n + priceOf(p), 0);
+
+  const addBundle = () => {
+    add(product, pieces * qty, { openCart: false });
+    bundle.forEach((p) => add(p, minimumQuantityFor(p.id), { openCart: false }));
+    setAdded(true);
+    /* Three donuts, staggered — one per thing that just went in. Fired on the
+       same frame they would be three copies on one arc landing as a single
+       thick-outlined donut, which is why `flyManyToCart` spaces them. */
+    flyManyToCart(bundleRef.current, [product, ...bundle].map((p) => p.img));
+  };
 
   const total = unit * pieces * qty;
 
+  /* Signed out, `toggleWishlist` raises the sign-in modal rather than saving —
+     see `lib/shop`. Signed in, it writes through to the account's wishlist. The
+     catch is not optional: the call reaches the network, and a bare `void` on a
+     rejected promise is an unhandled rejection in the console. */
+  const saveToggle = () => {
+    void toggleWishlist(product.id).catch(() => {});
+  };
+
+  /* The product's own deep link — the hash route the panel is opened by, so
+     what gets shared reopens on this product rather than on the catalogue. */
+  const shareUrl =
+    typeof window === 'undefined' ? '' : `${window.location.origin}/shop/#product/${product.id}`;
+
   const copyLink = async () => {
-    await navigator.clipboard.writeText(`${window.location.origin}/shop/#product/${product.id}`);
+    await navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
+  };
+
+  /* The platform's share sheet where there is one, and the clipboard where
+     there is not. `navigator.share` rejects on dismissal as well as on failure,
+     which is not an error worth reporting — a visitor who closed the sheet has
+     not had anything go wrong. */
+  const shareNative = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: product.name, text: product.name, url: shareUrl });
+        return;
+      } catch {
+        return;
+      }
+    }
+    await copyLink();
   };
 
   return (
@@ -176,62 +387,88 @@ export default function ProductPanel({ product }: { product: Product }) {
     >
       <div className="cabinet__inner">
         {/* --- media pane --- */}
-        <div className="cabinet__media">
+        <div className="cabinet__media" ref={mediaRef}>
+          {/* Share, on the media's own corner. The favourite is not here — it
+              belongs beside the buy action, which is where it is; these three
+              send the product to someone else, which is a different job from
+              keeping it for yourself. */}
           <div className="cabinet__mediaTools">
+            <a
+              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Share ${product.name} on Facebook`}
+              className="cabinet__iconBtn"
+            >
+              <FacebookSolid size={18} />
+            </a>
+
+            {/* Instagram has no share-by-URL: you cannot hand it a link and a
+                caption the way Facebook and WhatsApp take one. So this is the
+                platform's own share sheet, which lists Instagram on a phone
+                where the app is installed — and a copied link on a desktop,
+                where posting to Instagram means going to the app anyway. */}
             <button
               type="button"
-              onClick={() => void toggleWishlist(product.id)}
-              aria-pressed={saved}
-              aria-label={saved ? 'Saved to favourites' : 'Save to favourites'}
-              className={`cabinet__iconBtn${saved ? ' is-on' : ''}`}
+              onClick={shareNative}
+              aria-label={`Share ${product.name}`}
+              className="cabinet__iconBtn"
             >
-              <Heart size={17} strokeWidth={2.4} fill={saved ? 'currentColor' : 'none'} />
+              {copied ? <Check size={18} strokeWidth={2.6} /> : <Instagram size={18} strokeWidth={2.2} />}
             </button>
+
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`${product.name} — ${shareUrl}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Share ${product.name} on WhatsApp`}
+              className="cabinet__iconBtn"
+            >
+              <WhatsAppSolid size={18} />
+            </a>
+
             <button type="button" onClick={copyLink} aria-label="Copy link to this product" className="cabinet__iconBtn">
               {copied ? <Check size={17} strokeWidth={2.6} /> : <Link2 size={17} strokeWidth={2.4} />}
             </button>
           </div>
 
-          <div className="cabinet__rail">
-            {views.map((v, i) => (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => setView(i)}
-                aria-label={`${product.name} — ${v.label}`}
-                aria-current={i === view}
-                className={`cabinet__thumb${i === view ? ' is-on' : ''}`}
-              >
-                <img
-                  src={product.img}
-                  alt=""
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    objectPosition: v.position,
-                    transform: `scale(${v.scale})`
-                  }}
-                />
-              </button>
-            ))}
-          </div>
-
           <AnimatePresence mode="wait">
             <motion.img
-              /* Keyed on the view too, so picking a crop crossfades exactly the
-                 way switching product does. */
-              key={`${product.id}-${views[view].id}`}
-              src={product.img}
+              /* Keyed on the product, not the view: the crossfade belongs to
+                 arriving at a new product. A thumbnail is a tap on a control
+                 the visitor is looking at, and `mode="wait"` would make it sit
+                 through an exit before the picture it asked for appeared. The
+                 src swap is immediate. */
+              key={product.id}
+              src={shown}
               alt={product.name}
-              initial={{ opacity: 0, scale: views[view].scale * 1.03 }}
-              animate={{ opacity: 1, scale: views[view].scale }}
-              exit={{ opacity: 0, scale: views[view].scale * 0.98 }}
+              initial={{ opacity: 0, scale: 1.03 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.36, ease: EASE }}
-              style={{ objectPosition: views[view].position }}
-              className="cabinet__hero"
+              className={`cabinet__hero${view === 0 ? '' : ' cabinet__hero--photo'}`}
             />
           </AnimatePresence>
+
+          {/* One view is not a choice, so the rail is absent rather than
+              disabled for products with a single photograph. */}
+          {views.length > 1 && (
+            <div className="cabinet__rail" role="tablist" aria-label={`${product.name} photographs`}>
+              {views.map((src, index) => (
+                <button
+                  key={src}
+                  type="button"
+                  role="tab"
+                  aria-selected={index === view}
+                  aria-label={`View ${index + 1} of ${views.length}`}
+                  className={`cabinet__thumb${index === view ? ' is-active' : ''}`}
+                  onClick={() => setView(index)}
+                >
+                  <img src={src} alt="" loading="lazy" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* --- info column --- */}
@@ -262,12 +499,18 @@ export default function ProductPanel({ product }: { product: Product }) {
                 {product.price}
               </p>
               <span style={{ fontFamily: F.text, fontSize: 14, color: C.mute }}>
-                {byThePiece ? 'per piece' : 'per box'}
+                {packSize ? `per ${packSize}` : byThePiece ? 'per piece' : 'per box'}
               </span>
             </div>
 
             <p style={{ margin: '14px 0 0', fontFamily: F.text, fontSize: 15, lineHeight: 1.55, color: C.body }}>
-              Prepared and finished in our own kitchen, and sold {byThePiece ? 'by the piece' : 'as a box'}.
+              Prepared and finished in our own kitchen, and sold{' '}
+              {packSize
+                ? `in packs of ${packSize}, at $${(unit / packSize).toFixed(2)} a donut`
+                : byThePiece
+                  ? 'by the piece'
+                  : 'as a box'}
+              .
             </p>
 
             <div style={{ marginTop: 18 }}>
@@ -277,6 +520,198 @@ export default function ProductPanel({ product }: { product: Product }) {
 
           {/* pack size, quantity + add */}
           <div className="cabinet__card">
+            {/* The shape, for the letter and number cake. One character, from
+                a list of what the bakery can actually cut — it used to be a
+                120-character textarea on the cart line, which asked the
+                question after the sale and accepted things nobody can bake.
+
+                Built out of the panel's own controls: the same segmented pair
+                the box size uses, and a select. It sits above Box size because
+                on this product there is no box size — the cake is a single
+                item — so it is the first choice to make. */}
+            {/* How this donut is finished: one icing, one sprinkle answer.
+
+                It used to be a single "Donut type" — Sprinkle, Glazed, or
+                Coloured icing — which forced two icings and a topping through
+                one control, so a coloured icing WITH sprinkles could not be
+                ordered at all. Asked separately they compose. Same component
+                as the bag drawer's editor and the checkout page's rescue, so
+                the three cannot drift. */}
+            {isFinish && (
+              <div style={{ marginBottom: 20 }}>
+                <FinishPicker value={finish} onChange={setFinish} units={packSize ? packSize * qty : undefined} />
+              </div>
+            )}
+
+            {/* The printed dozen, answered here rather than on the cart line.
+
+                Every other product on this panel is specified before it is
+                bought — the box is filled, the cake's shape is cut, the petite
+                tray's colours are picked — and this one was the exception:
+                icing, sprinkles and the artwork were all asked for on the bag
+                row, after the sale. Which meant the one choice that can
+                actually fail (a file that will not read, designs covering more
+                dozens than were ordered) failed in the checkout.
+
+                Same controls as the petite tray, for the same reason: the two
+                icings the bakery prints onto as a segmented pair, and the lab's
+                own sprinkle mixes as swatches. */}
+            {isPrint && (
+              <div style={{ marginBottom: 20 }}>
+                <span className="cabinet__label">Icing</span>
+                <div className="cabinet__packs" role="radiogroup" aria-label="Icing">
+                  {(['Chocolate', 'Vanilla'] as const).map((flavour) => (
+                    <button
+                      key={flavour}
+                      type="button"
+                      role="radio"
+                      aria-checked={printIcing === flavour}
+                      onClick={() => setPrintIcing(flavour)}
+                      className={`cabinet__pack${printIcing === flavour ? ' is-on' : ''}`}
+                    >
+                      <strong>{flavour}</strong>
+                    </button>
+                  ))}
+                </div>
+
+                {/* "No sprinkles" is on this list on purpose. The print is the
+                    decoration, so declining sprinkles is a real answer — and
+                    one worth making out loud rather than by leaving a field
+                    blank and hoping the counter reads it the same way. */}
+                <div className="cabinet__swatches">
+                  <span className="cabinet__label">Which sprinkles?</span>
+                  <div role="radiogroup" aria-label="Which sprinkles">
+                    {PRINT_SPRINKLE_SWATCHES.map((sw) => (
+                      <button
+                        key={sw.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={printSprinkle === sw.id}
+                        title={sw.name}
+                        onClick={() => setPrintSprinkle(sw.id)}
+                        className={`cabinet__swatch${printSprinkle === sw.id ? ' is-on' : ''}`}
+                      >
+                        <span aria-hidden="true">
+                          {sw.dots.map((dot, i) => (
+                            <i key={i} style={{ background: dot }} />
+                          ))}
+                        </span>
+                        {sw.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* The artwork, and how much of the order each design covers.
+                    One design prints up to four dozen, so a larger order is
+                    several designs — and the count beside the label is what
+                    says whether the order is accounted for yet. */}
+                <div className="cabinet__art">
+                  <span className="cabinet__label">
+                    Print artwork
+                    <span className="cabinet__trayCount">
+                      {assigned}/{qty} dozen assigned
+                    </span>
+                  </span>
+
+                  {artworks.map((art, index) => (
+                    <div className="cabinet__artRow" key={art.key}>
+                      <img src={art.dataUrl} alt="" />
+                      <span className="cabinet__artName">
+                        <strong>Design {index + 1}</strong>
+                        <small>{art.name}</small>
+                      </span>
+                      <label className="cabinet__artCount">
+                        <span>Dozens</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={Math.min(4, art.count + remaining)}
+                          value={art.count}
+                          onChange={(event) => setArtworkCount(art.key, Number(event.target.value))}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => removeArtwork(art.key)}
+                        aria-label={`Remove ${art.name}`}
+                      >
+                        <X size={16} strokeWidth={2.6} />
+                      </button>
+                    </div>
+                  ))}
+
+                  {remaining > 0 && (
+                    <label className="cabinet__artDrop">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={(event) => {
+                          void addArtwork(event.target.files?.[0]);
+                          event.currentTarget.value = '';
+                        }}
+                      />
+                      <FileImage size={20} strokeWidth={2.2} />
+                      <span>
+                        <strong>{artworks.length ? 'Add another design' : 'Choose print file'}</strong>
+                        <small>
+                          This design covers {Math.min(4, remaining)} dozen
+                          {Math.min(4, remaining) === 1 ? '' : 's'}
+                        </small>
+                      </span>
+                      <Plus size={18} strokeWidth={2.6} />
+                    </label>
+                  )}
+
+                  {remaining === 0 && artworks.length > 0 && (
+                    <small className="cabinet__artReady">All {qty} dozen are covered.</small>
+                  )}
+                  {artError && <small className="cabinet__artError">{artError}</small>}
+                </div>
+              </div>
+            )}
+
+            {isGlyph && (
+              <div style={{ marginBottom: 20 }}>
+                <span className="cabinet__label">Cut as</span>
+                <div className="cabinet__packs" role="radiogroup" aria-label="Letter or number">
+                  {(['number', 'letter'] as GlyphMode[]).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      role="radio"
+                      aria-checked={glyphMode === option}
+                      onClick={() => {
+                        setGlyphMode(option);
+                        /* A "2" is not a letter: switching kind has to move the
+                           value onto the new list, or the select shows an
+                           option it does not offer. */
+                        setGlyph(option === 'number' ? '1' : 'A');
+                      }}
+                      className={`cabinet__pack${glyphMode === option ? ' is-on' : ''}`}
+                    >
+                      <strong>{option === 'number' ? 'Number' : 'Letter'}</strong>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="cabinet__glyphPick">
+                  <select
+                    aria-label={glyphMode === 'number' ? 'Which number' : 'Which letter'}
+                    value={glyph}
+                    onChange={(event) => setGlyph(event.target.value)}
+                  >
+                    {(glyphMode === 'number' ? NUMBERS : LETTERS).map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                  <span aria-hidden="true">{glyph}</span>
+                </div>
+              </div>
+            )}
+
             {byThePiece && (
               <div style={{ marginBottom: 20 }}>
                 <span className="cabinet__label">Box size</span>
@@ -298,9 +733,17 @@ export default function ProductPanel({ product }: { product: Product }) {
               </div>
             )}
 
+            {/* A fixed tray keeps the stepper — one tray or two is a real
+                choice — and states how many donuts are in one beside the label,
+                so the count is never mistaken for the quantity. The tray's own
+                75 used to seed the quantity, which put a single tray in the bag
+                as 75 lines at the tray price. */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
               <span className="cabinet__label" style={{ marginBottom: 0 }}>
-                Quantity
+                {packSize ? 'Packs' : 'Quantity'}
+                {packSize && (
+                  <span className="cabinet__trayCount">{packSize} donuts each · bulk order</span>
+                )}
               </span>
               <div className="cabinet__stepper">
                 <button type="button" disabled={qty<=minimumQuantity} onClick={() => setQty((q) => Math.max(minimumQuantity, q - 1))} aria-label="One fewer">
@@ -313,29 +756,64 @@ export default function ProductPanel({ product }: { product: Product }) {
               </div>
             </div>
 
+            {/* The same pair as the sticky bar, in the same order. The bar is
+                only on screen while this button is not, so without a heart
+                here the favourite would be unreachable on any window tall
+                enough to keep the CTA in view — which is most of them. Add is
+                already duplicated between the two for exactly this reason. */}
             <div ref={addRef} className="cabinet__addAnchor">
+              <button
+                type="button"
+                onClick={saveToggle}
+                aria-pressed={saved}
+                aria-label={saved ? 'Saved to favourites' : 'Save to favourites'}
+                className={`cabinet__save${saved ? ' is-on' : ''}`}
+              >
+                <Heart size={19} strokeWidth={2.4} fill={saved ? 'currentColor' : 'none'} />
+              </button>
+
               <BrandButton
                 block
                 className="cabinet__brandAdd"
-                style={added ? { background: C.navy } : undefined}
+                style={
+                  added
+                    ? { background: C.navy }
+                    : ready
+                      ? undefined
+                      : { opacity: 0.45, pointerEvents: 'none' }
+                }
                 onClick={() => {
-                  add(product, pieces * qty);
-                  setAdded(true);
+                  addToBag();
+                  flyToCart(mediaRef.current, product.img);
                 }}
               >
                 {added ? (
                   <>
                     <Check size={18} strokeWidth={3} />
-                    Added to the box
+                    Added to bag
                   </>
+                ) : !ready ? (
+                  <>{isPrint ? 'Finish your design' : 'Choose your colours'}</>
                 ) : (
-                  <>Add to the box — {money(total)}</>
+                  /* No price on the knob. It is the third place the same
+                     number appears on this card — the price is at the top and
+                     the piece count is in the fine print below — and at a
+                     dozen of anything the label wrapped to two lines, which
+                     changed the button's height as the quantity changed. */
+                  <>Add to bag</>
                 )}
               </BrandButton>
             </div>
 
             <p className="cabinet__fineprint">
-              {requiresPrintLeadTime ? `${qty} dozen units · one week's notice required` : `${pieces * qty} ${pieces * qty === 1 ? 'piece' : 'pieces'} · order by 4pm for next-day collection`}
+              {requiresPrintLeadTime
+                ? `${qty} dozen units · one week's notice required`
+                : packSize
+                  /* The listing's own condition, verbatim in substance: this
+                     size is only sold in bulk. It said nothing about a lead
+                     time, so nothing here claims one. */
+                  ? `${qty * packSize} donuts · this size is bulk order only`
+                  : `${pieces * qty} ${pieces * qty === 1 ? 'piece' : 'pieces'} · order by 4pm for next-day collection`}
             </p>
           </div>
 
@@ -420,6 +898,61 @@ export default function ProductPanel({ product }: { product: Product }) {
             ))}
           </div>
         </section>
+      {/* --- frequently bought together --- */}
+      {/* Below "Goes well with", and doing a different job: that row is four
+          things to look at, this is one thing to buy. The distinction is the
+          button — a browse row that added to the box would be a trap, and a
+          bundle you have to assemble tile by tile is not a bundle. */}
+      {bundle.length === 2 && (
+        <section className="cabinet__bundle" ref={bundleRef}>
+          <h3 className="cabinet__pairsTitle">Frequently bought together</h3>
+
+          <div className="cabinet__bundleRow">
+            {[product, ...bundle].map((p, i) => (
+              <Fragment key={p.id}>
+                {i > 0 && (
+                  <span className="cabinet__bundlePlus" aria-hidden="true">
+                    <Plus size={16} strokeWidth={3} />
+                  </span>
+                )}
+                {/* The product being viewed is not a link to itself. */}
+                {i === 0 ? (
+                  <span className="cabinet__bundleItem">
+                    <span className="cabinet__pairBed">
+                      <img src={p.img} alt="" loading="lazy" />
+                    </span>
+                    <strong>{p.name}</strong>
+                    <span className="cabinet__pairPrice">{p.price}</span>
+                    <span className="cabinet__bundleThis">This item</span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openProduct(p.id)}
+                    className="cabinet__bundleItem cabinet__bundleItem--link"
+                  >
+                    <span className="cabinet__pairBed">
+                      <img src={p.img} alt="" loading="lazy" />
+                    </span>
+                    <strong>{p.name}</strong>
+                    <span className="cabinet__pairPrice">{p.price}</span>
+                  </button>
+                )}
+              </Fragment>
+            ))}
+          </div>
+
+          <div className="cabinet__bundleFoot">
+            <span className="cabinet__bundleTotal">
+              Three for <strong>{money(bundleTotal)}</strong>
+            </span>
+            <BrandButton variant="outline" className="cabinet__bundleAdd" onClick={addBundle}>
+              Add all three
+            </BrandButton>
+          </div>
+        </section>
+      )}
+
       </div>
 
       {/* Sticky buy bar. Last child of the scroll container and
@@ -439,15 +972,49 @@ export default function ProductPanel({ product }: { product: Product }) {
             </span>
           </span>
         </span>
+        {/* Favourite, then add — the two things you can do with a product you
+            have decided about, kept together at the end of the bar rather than
+            split by the running total. On a phone the total is not there at
+            all, so the pair is the whole bar.
+
+            It used to float over the top-right of the photograph, which is the
+            part of the panel that scrolls away first: the moment the bar
+            appeared, the only way to save something was to scroll back up to
+            the picture. */}
+        <button
+          type="button"
+          onClick={saveToggle}
+          aria-pressed={saved}
+          aria-label={saved ? 'Saved to favourites' : 'Save to favourites'}
+          tabIndex={ctaOnScreen ? -1 : 0}
+          className={`cabinet__buybarSave${saved ? ' is-on' : ''}`}
+        >
+          <Heart size={19} strokeWidth={2.4} fill={saved ? 'currentColor' : 'none'} />
+        </button>
+
         <BrandButton
           className="cabinet__buybarButton"
-          style={added ? { background: C.navy } : undefined}
+          /* Same gate as the inline button, and it has to be here too: the bar
+             is the only Add on screen once the card has scrolled past, and
+             `addToBag` refuses an unfinished petite line silently — so without
+             this the bar reads as live and pressing it does nothing at all. */
+          style={
+            added
+              ? { background: C.navy }
+              : ready
+                ? undefined
+                : { opacity: 0.45, pointerEvents: 'none' }
+          }
           /* Not focusable while hidden, or a keyboard user tabs into a button
              that is translated off the bottom of the panel. */
           tabIndex={ctaOnScreen ? -1 : 0}
-          onClick={() => {
-            add(product, pieces * qty);
-            setAdded(true);
+          onClick={(event) => {
+            addToBag();
+            /* From the bar, not the photograph: by the time this button is on
+               screen the photograph has been scrolled off the top of the panel,
+               and a donut launching from above the fold is a donut nobody
+               sees. */
+            flyToCart(event.currentTarget, product.img);
           }}
         >
           {added ? (
@@ -455,16 +1022,47 @@ export default function ProductPanel({ product }: { product: Product }) {
               <Check size={18} strokeWidth={3} style={{ marginRight: 8 }} />
               Added
             </>
+          ) : !ready ? (
+            <>{isPrint ? 'Finish your design' : 'Choose your colours'}</>
           ) : (
-            <>Add to the box</>
+            <>Add to bag</>
           )}
         </BrandButton>
       </div>
 
-      <button type="button" onClick={closeProduct} aria-label="Close" className="cabinet__close">
-        <X size={18} strokeWidth={2.6} />
+      {/* Labelled "Back", not a bare cross. The panel is a product page over
+          the catalogue it was opened from, and closing it returns to exactly
+          that — which is what a visitor arriving on a deep link needs told,
+          since there is no page behind them to infer it from. The word is
+          worth the width: a cross in a corner is the one control on this panel
+          nobody can be sure about until they press it. */}
+      <button type="button" onClick={closeProduct} className="cabinet__back">
+        <ArrowLeft size={18} strokeWidth={2.6} aria-hidden="true" />
+        Back
       </button>
     </motion.aside>
     </>
+  );
+}
+
+/**
+ * Which product page opens.
+ *
+ * Split here rather than inside the cabinet, so no layout carries another's
+ * hooks — the two builders need almost none of the twelve above.
+ */
+export default function ProductPanel({ product }: { product: Product }) {
+  /* No scrim on the box builder: it covers the viewport, so there is nothing
+     behind it to dim and nothing to click past it.
+
+     The letter cake is NOT split out. It briefly had a full-screen page of its
+     own, which bought a big preview and lost everything else the panel carries
+     — the price, the quantity, the allergens, the pickup and delivery lines,
+     "goes well with". One dropdown does not need its own page; it needs to be
+     one more control on the page that already exists. */
+  return BOX_PRODUCTS.has(product.id) ? (
+    <BoxBuilder product={product} />
+  ) : (
+    <Cabinet product={product} />
   );
 }

@@ -1,94 +1,78 @@
 import { useEffect, useRef, useState } from 'react';
-import { LOGO_W, LOGO_H, WORDMARK, LETTER_R, SKEL } from './wordmark';
+import { LOGO_W, LOGO_H, WORDMARK } from './wordmark';
 import type { PreloadVariant } from '../lib/preload-session';
 import './preloader.css';
 
 /**
- * The rolling-donut preloader, ported from the 'Donut roll logo animation'
- * bundle.
+ * The preloader: the wordmark's letters pop in one at a time, then the whole
+ * thing is handed to the navbar as the blue field slides up off the page.
  *
- * The original ran inside a 1920x1080 authoring stage with a timeline engine,
- * a scrubber and a video exporter. All of that is dropped: the animation was
- * already written as a pure function of authored time, so here it is driven
- * by one requestAnimationFrame loop and laid out in viewport units instead.
+ * It was a rolling donut that inked a centreline while each letter filled in
+ * behind it — thirteen letters, a crumb trail, and a pen path, all driven per
+ * frame from an authored 1920x1080 timeline ported out of an animation bundle.
  *
- * What it does, in order:
- *   roll   — the donut rolls in from the left, dropping crumbs, while a white
- *            'pen' inks the wordmark's centreline and each letter fills just
- *            after the donut clears its right edge
- *   settle — the donut leaves; the finished wordmark holds, centred
- *   hand   — the wordmark flies to the real navbar logo's measured position
- *            and size while the navy field shrinks up into the navbar
+ * Two things were wrong with that. It was slow: two and a half seconds before
+ * the site appeared, every visit, spent on a set-piece rather than on the
+ * bakery. And it was fragile in the one place it had to be robust — a wall
+ * clock read per frame does not run slowly when the main thread is busy, it
+ * SKIPS, and the first load is the busiest the main thread ever is. Measured
+ * on this page it got six frames in 2.5 seconds, so the roll played as three
+ * stills and the ink jumped in chunks.
  *
- * The hand-off is measured, not guessed: `navLogoRect()` reads the actual
- * header logo's box so the two line up exactly at the moment we unmount.
+ * The pop is a CSS animation per letter with a staggered delay. Nothing is
+ * driven per frame at all, which means the browser runs it off the main thread
+ * and a slow load costs it nothing — the thing that broke the roll cannot
+ * happen here. Thirteen letters at a 52ms stagger is under a second, and the
+ * hand-off follows immediately.
+ *
+ * What survives unchanged is the hand-off, because it was always the good
+ * part: the wordmark flies to the real header logo's MEASURED box while the
+ * blue field scales up into the navbar, so the loading screen becomes the bar
+ * rather than being replaced by it. `navLogoRect()` reads the live element, so
+ * the two line up exactly at the moment we unmount.
  *
  * That is the `first` variant, and it plays once per session. Come back to the
  * homepage later in the same session — from the Lab, say, which is a real
- * document load — and the `return` variant runs instead, and it is only the
- * slide: the finished wordmark and its panel wipe off to the right while the
- * page comes in from the left, half a second, no donut and no inking. The roll
- * is a first-impression piece and it has already been made.
+ * document load — and the `return` variant runs instead: the finished wordmark
+ * and its panel wipe off to the right while the page comes in from the left,
+ * half a second, no popping. The opening is a first-impression piece and it
+ * has already been made.
  *
- * That wipe is why there are two callbacks. The navy panel leaves to the right
+ * That wipe is why there are two callbacks. The panel leaves to the right
  * while the page slides in from the left — one rightward movement, not two
  * unrelated ones — so the page has to start moving while the panel is still on
  * screen. `onExit` starts the slide; `onDone` unmounts once the panel is gone.
- * Fading the panel out first and sliding afterwards would show the settled page
- * and then yank it sideways.
  */
 
-/* --- timeline, in seconds ------------------------------------------------ */
-const T_ROLL = 2.05; // donut crosses the stage, ink follows it
-const T_HOLD = 0.42; // finished wordmark holds
+/* --- the pop, in ms ------------------------------------------------------
+   POP_MS is one letter's own animation; POP_STEP is the gap between two
+   letters starting. The stagger is what makes it read as letters arriving
+   one by one rather than a word fading up, and 52ms is the point where it
+   still feels like one gesture — much slower and the last letters are a
+   separate event, much faster and it is a single flash. */
+const POP_MS = 460;
+const POP_STEP = 52;
+/* Everything has landed, plus a beat to read the finished wordmark. */
+const POP_TOTAL = POP_STEP * (WORDMARK.length - 1) + POP_MS + 260;
 
 /* The two CSS-driven moves, in ms because that is what a transition takes.
-   HAND_MS was T_HAND: the flight into the navbar, now on the compositor.
-   EXIT_MS matches `.site-slide-in` in index.css - the panel leaving and the
-   page arriving are one movement, so they must take the same time. */
+   HAND_MS is the flight into the navbar. EXIT_MS matches `.site-slide-in` in
+   index.css — the panel leaving and the page arriving are one movement, so
+   they must take the same time. */
 const HAND_MS = 720;
 const EXIT_MS = 520;
 /* The same curve the site uses for entrances, as a CSS easing. */
 const EASE_CSS = 'cubic-bezier(.22, 1, .36, 1)';
 
-/* --- the authored stage the geometry was drawn against ------------------- */
-const STAGE_W = 1920;
+/* --- the authored stage the wordmark was drawn against -------------------
+   Only the wordmark's own placement survives; the donut's travel, its size and
+   the crumb table are gone with the roll. */
 const STAGE_H = 1080;
 const LOGO_L = 240;
 const LOGO_T = 458;
 const SCALE = 1.0375;
-const D_FROM = -320;
-const D_TO = 2500;
-const D_SIZE = 300;
 
-const DOUGH = '#f2c184';
 const WHITE = '#ffffff';
-const ICING = '#1a95d6';
-
-/* Crumb table from the bundle. Sizes are quartered from the original — the
-   brief asked for small crumbs, and the originals were 9–19px on a 1920 stage. */
-const CRUMB_X = [130, 190, 250, 312, 376, 440, 506, 574, 640, 710, 780, 850, 920, 990, 1060, 1130, 1202, 1276, 1350, 1426, 1500, 1580, 1660, 1740, 1820];
-const CRUMB_DY = [8, 28, 0, 34, 12, 40, 4, 26, 14, 42, 2, 24, 10, 36, 16, 0, 30, 12, 38, 6, 26, 14, 34, 4, 28];
-const CRUMB_W = [15, 9, 19, 11, 16, 10, 13, 18, 9, 14, 11, 17, 10, 13, 19, 9, 15, 11, 16, 10, 15, 12, 9, 14, 11];
-const CRUMB_H = [13, 9, 15, 11, 12, 10, 12, 14, 9, 12, 11, 14, 10, 12, 15, 9, 12, 11, 13, 10, 12, 12, 9, 12, 10];
-const CRUMB_C = [DOUGH, WHITE, DOUGH, ICING, WHITE, DOUGH, WHITE, ICING, DOUGH, WHITE, DOUGH, WHITE, ICING, DOUGH, WHITE, DOUGH, ICING, WHITE, DOUGH, WHITE, DOUGH, ICING, WHITE, DOUGH, WHITE];
-const CRUMB_SCALE = 0.26;
-
-const CRUMBS = CRUMB_X.map((x, i) => ({
-  x,
-  y: 636 + CRUMB_DY[i],
-  w: Math.max(3, Math.round(CRUMB_W[i] * CRUMB_SCALE)),
-  h: Math.max(3, Math.round(CRUMB_H[i] * CRUMB_SCALE)),
-  c: CRUMB_C[i]
-}));
-
-const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const easeOutQuad = (t: number) => 1 - (1 - t) * (1 - t);
-const easeOutBack = (t: number) => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2);
-
-/** Ramp from 0 to 1 across [start, end] in seconds. */
-const ramp = (t: number, start: number, end: number) => clamp01((t - start) / Math.max(1e-6, end - start));
 
 /** The live header logo's box, so the hand-off lands exactly on it. */
 function navLogoRect() {
@@ -117,13 +101,7 @@ export default function Preloader({
 }) {
   const isReturn = variant === 'return';
   const fieldRef = useRef<HTMLDivElement | null>(null);
-  const stageWrapRef = useRef<HTMLDivElement | null>(null);
-  const stageRef = useRef<HTMLDivElement | null>(null);
   const logoRef = useRef<HTMLDivElement | null>(null);
-  const donutRef = useRef<HTMLImageElement | null>(null);
-  const crumbRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const fillRefs = useRef<(SVGPathElement | null)[]>([]);
-  const penRef = useRef<SVGPathElement | null>(null);
   const doneRef = useRef(false);
   const exitRef = useRef(false);
 
@@ -145,7 +123,7 @@ export default function Preloader({
   );
 
   useEffect(() => {
-    // Reduced motion: no roll, no flight - just get out of the way.
+    // Reduced motion: no popping, no flight - just get out of the way.
     if (reduced) {
       const t = setTimeout(() => onDoneRef.current(), 260);
       return () => clearTimeout(t);
@@ -153,9 +131,8 @@ export default function Preloader({
 
     /* Fit, not cover. The wordmark is 1388 units wide on a 1920 stage, so a
        cover-fit pushes it off both edges of a portrait phone. Scale so the
-       wordmark spans ~86% of the viewport instead, then place the stage so the
-       wordmark is centred - the donut rolls along the stage's mid-line, which
-       is the same line the wordmark sits on. */
+       wordmark spans as much of the viewport as a guaranteed gutter allows,
+       then centre it. */
     const fit = () => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
@@ -191,15 +168,14 @@ export default function Preloader({
     };
 
     /* ---------------------------------------------------------------------
-       The return load: no roll, no inking. The finished wordmark and its navy
+       The return load: no popping. The finished wordmark and its navy
        panel are on screen for a moment and then wipe off to the right while
        the page slides in from the left - one rightward movement, started in
        the same frame by `onExit`.
        --------------------------------------------------------------------- */
     if (isReturn) {
-      // Nothing gets inked here, so the wordmark has to start finished.
-      fillRefs.current.forEach((n) => n?.setAttribute('fill-opacity', '1'));
-      if (penRef.current) penRef.current.style.strokeDashoffset = '0';
+      /* Nothing pops here — see the `is-static` class on the letters, which is
+         what stops the animation running. */
       placeLogo();
 
       let timer = 0;
@@ -231,45 +207,29 @@ export default function Preloader({
     }
 
     /* ---------------------------------------------------------------------
-       The first load: the roll and the inking are driven per frame - they are
-       a function of authored time and there is no way around that. The
-       hand-off is NOT: it is handed to the compositor as CSS transitions.
+       The first load. Nothing here drives the animation: the letters are
+       popping on their own, in CSS, off the main thread. All this does is
+       wait for them to finish and then start the hand-off — which is itself
+       two CSS transitions, for the same reason.
 
-       That split is the whole point. Driving the flight per frame meant
-       driving it with the main thread, and the main thread on a first page
-       load is the busiest it will ever be - parsing, mounting the site
-       underneath, decoding art, loading fonts. Measured here, the loop got SIX
-       frames in 2.5 seconds: t = 0, 0.01, 0.03, 1.99, 4.01. A wall-clock
-       timeline does not run slowly when it is starved of frames, it skips - so
-       the wordmark jumped from mid-screen to the navbar in a single frame and
-       the field never collapsed at all. A transform transition runs on the
-       compositor and does not care how busy the main thread is.
+       That is the whole design. The main thread on a first page load is the
+       busiest it will ever be — parsing, mounting the site underneath,
+       decoding art, loading fonts — and anything driven per frame against it
+       does not slow down, it skips. The compositor does not care.
        --------------------------------------------------------------------- */
-    let raf = 0;
-    /* The clock starts on the first painted frame, not here. If the tab is
-       backgrounded or the first paint is slow, rAF does not fire for a while -
-       measuring from effect time would mean the first callback already arrives
-       past the end of the timeline and the whole animation is skipped. */
-    let t0 = 0;
     let timer = 0;
     let handed = false;
 
     const onResize = () => {
       view = fit();
+      if (!handed) placeLogo();
     };
     window.addEventListener('resize', onResize);
 
-    /** The wordmark flies to the real navbar logo; the field folds into the bar. */
+    /** The wordmark flies to the real navbar logo; the field slides up into it. */
     const handOff = () => {
       if (handed) return;
       handed = true;
-      cancelAnimationFrame(raf);
-
-      // The crumb trail and the donut have no part in the hand-off.
-      if (stageWrapRef.current) {
-        stageWrapRef.current.style.transition = 'opacity 260ms linear';
-        stageWrapRef.current.style.opacity = '0';
-      }
 
       const { s } = view;
       const fromW = LOGO_W * SCALE * s;
@@ -286,10 +246,11 @@ export default function Preloader({
       }
 
       if (fieldRef.current) {
-        /* scaleY, not height: height is a layout property, and animating it
-           would put the collapse back on the main thread that this whole
-           change exists to get off. The field is a plain navy rectangle, so
-           scaling it is visually identical to shortening it. */
+        /* scaleY from the top, not height: height is a layout property, and
+           animating it would put the move back on the main thread this whole
+           design exists to stay off. Anchored at the top, a plain blue
+           rectangle shortening is exactly the blue sliding up off the page and
+           coming to rest as the navbar. */
         fieldRef.current.style.transformOrigin = 'top center';
         fieldRef.current.style.transition = `transform ${HAND_MS}ms ${EASE_CSS}`;
         fieldRef.current.style.transform = `scaleY(${navBarHeight() / window.innerHeight})`;
@@ -298,65 +259,13 @@ export default function Preloader({
       timer = window.setTimeout(finish, HAND_MS);
     };
 
-    const frame = (now: number) => {
-      if (t0 === 0) t0 = now;
-      const t = (now - t0) / 1000;
+    placeLogo();
+    /* One timer, not a loop. The letters are already going; this is only the
+       moment they are done. */
+    const start = window.setTimeout(handOff, POP_TOTAL);
 
-      /* ---- 1. the roll ------------------------------------------------- */
-      const rollP = ramp(t, 0, T_ROLL);
-      const cx = lerp(D_FROM, D_TO, rollP);
-      const spin = ((cx - D_FROM) / (Math.PI * D_SIZE)) * 360;
-
-      if (stageRef.current) {
-        const { s, ox, oy } = view;
-        // One transform for crumbs and donut alike; both keep stage coordinates.
-        stageRef.current.style.transform = `translate(${ox.toFixed(1)}px, ${oy.toFixed(1)}px) scale(${s.toFixed(4)})`;
-      }
-
-      if (donutRef.current) {
-        donutRef.current.style.transform =
-          `translateX(${(cx - D_SIZE / 2).toFixed(1)}px) rotate(${spin.toFixed(1)}deg)`;
-        // Gone by the time the wordmark starts moving.
-        donutRef.current.style.opacity = (1 - ramp(t, T_ROLL - 0.12, T_ROLL + 0.16)).toFixed(3);
-      }
-
-      /* ---- 2. crumbs drop as the donut passes -------------------------- */
-      CRUMBS.forEach((c, i) => {
-        const node = crumbRefs.current[i];
-        if (!node) return;
-        const t0c = ((c.x - D_FROM) / (D_TO - D_FROM)) * T_ROLL;
-        const p = easeOutBack(ramp(t, t0c, t0c + 0.22));
-        node.style.opacity = clamp01(p * 2).toFixed(3);
-        node.style.transform = `scale(${Math.max(0, p).toFixed(3)})`;
-      });
-
-      /* ---- 3. the pen inks the centreline, letters fill behind it ------- */
-      const xLogo = (cx - LOGO_L) / SCALE - 6;
-      let i = 0;
-      while (i < SKEL.n && SKEL.xs[i + 1] <= xLogo) i++;
-      const inked = SKEL.xs[0] > xLogo ? 0 : clamp01((i + 1) / SKEL.n);
-      if (penRef.current) penRef.current.style.strokeDashoffset = String(1 - inked);
-
-      LETTER_R.forEach((rx, k) => {
-        const node = fillRefs.current[k];
-        if (!node) return;
-        const tx = ((LOGO_L + rx * SCALE - D_FROM) / (D_TO - D_FROM)) * T_ROLL;
-        node.setAttribute('fill-opacity', easeOutQuad(ramp(t, tx - 0.02, tx + 0.14)).toFixed(3));
-      });
-
-      placeLogo();
-
-      /* ---- 4. hand over ------------------------------------------------ */
-      if (t >= T_ROLL + T_HOLD) {
-        handOff();
-        return;
-      }
-      raf = requestAnimationFrame(frame);
-    };
-
-    raf = requestAnimationFrame(frame);
     return () => {
-      cancelAnimationFrame(raf);
+      clearTimeout(start);
       clearTimeout(timer);
       window.removeEventListener('resize', onResize);
     };
@@ -375,80 +284,29 @@ export default function Preloader({
       {/* the navy field — becomes the navbar */}
       <div ref={fieldRef} className="pre__field" style={{ height: '100vh' }} />
 
-      {/* crumbs + the rolling donut, in authored stage coordinates. Not
-          rendered on a return load: there is no roll, so there is nothing for
-          them to do and no reason to fetch the donut. */}
-      {!isReturn && (
-      <div ref={stageWrapRef} className="pre__stageWrap">
-        <div ref={stageRef} className="pre__stage" style={{ width: STAGE_W, height: STAGE_H }}>
-          {CRUMBS.map((c, i) => (
-            <span
-              key={i}
-              ref={(n) => {
-                crumbRefs.current[i] = n;
-              }}
-              className="pre__crumb"
-              style={{
-                left: c.x,
-                top: c.y,
-                width: c.w,
-                height: c.h,
-                borderRadius: Math.max(1, Math.round(c.w / 3)),
-                background: c.c,
-                opacity: 0
-              }}
-            />
-          ))}
-          <img
-            ref={donutRef}
-            className="pre__donut"
-            src="/img/roll-donut.png"
-            alt=""
-            draggable={false}
-            style={{ top: STAGE_H / 2 - D_SIZE / 2, width: D_SIZE, height: D_SIZE }}
-          />
-        </div>
-      </div>
-      )}
-
-      {/* the wordmark — inked either way, then flown into the navbar on the
-          first load and faded in place on the way back */}
+      {/* The wordmark. Each letter is its own path with its own animation
+          delay; `is-static` skips the whole thing on a return load, where the
+          word is simply already there. */}
       <div ref={logoRef} className="pre__logo">
-        <svg viewBox={`0 0 ${LOGO_W} ${LOGO_H}`} width="100%" height="100%" style={{ overflow: 'visible', display: 'block' }}>
-          <defs>
-            <clipPath id="pre-wordmark">
-              {WORDMARK.map((d, k) => (
-                <path key={k} d={d} />
-              ))}
-            </clipPath>
-          </defs>
-
+        <svg
+          viewBox={`0 0 ${LOGO_W} ${LOGO_H}`}
+          width="100%"
+          height="100%"
+          style={{ overflow: 'visible', display: 'block' }}
+        >
           {WORDMARK.map((d, k) => (
             <path
-              key={`f${k}`}
-              ref={(n) => {
-                fillRefs.current[k] = n;
-              }}
+              key={k}
               d={d}
               fill={WHITE}
-              fillOpacity={0}
+              className={`pre__letter${isReturn ? ' is-static' : ''}`}
+              /* Each letter's delay is its place in the word. `backwards` on
+                 the animation is what holds it invisible until its turn —
+                 without it every letter paints at full size for the first
+                 frame and the whole word flashes before the pop begins. */
+              style={isReturn ? undefined : { animationDelay: `${k * POP_STEP}ms` }}
             />
           ))}
-
-          <g clipPath="url(#pre-wordmark)">
-            <path
-              ref={penRef}
-              d={SKEL.d}
-              fill="none"
-              stroke={WHITE}
-              strokeWidth={44}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              pathLength={1}
-              strokeDasharray={1}
-              strokeDashoffset={1}
-            />
-          </g>
         </svg>
       </div>
     </div>
