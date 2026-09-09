@@ -721,10 +721,10 @@ function Checkout() {
                   items: items(),
                   customizations,
                   fulfillment: fulfillmentBody(),
-                  paymentMethod: method,
+                  paymentMethod: presetSource ? "card" : method,
                   sourceId,
                   authorizationPin:
-                    method === "house_account" ? authorizationPin : undefined,
+                    !presetSource && method === "house_account" ? authorizationPin : undefined,
                 },
           ),
         },

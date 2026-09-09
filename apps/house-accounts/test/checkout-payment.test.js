@@ -20,6 +20,8 @@ test("deployed payment pages permit the official Google Pay script, frame and lo
     const directives = Object.fromEntries(policy.split(";").map(value => value.trim().split(/\s+/)).map(([name, ...sources]) => [name, sources]));
     for (const directive of ["script-src", "frame-src", "connect-src"]) assert.ok(directives[directive].includes("https://pay.google.com"));
     assert.ok(directives["img-src"].includes("https://www.gstatic.com"));
+    assert.ok(directives["img-src"].includes("https://web.squarecdn.com"));
+    assert.ok(directives["font-src"].includes("https://cash-f.squarecdn.com"));
     assert.deepEqual(directives["frame-ancestors"], ["'none'"]);
     assert.ok(!directives["script-src"].includes("'unsafe-inline'"));
   }
