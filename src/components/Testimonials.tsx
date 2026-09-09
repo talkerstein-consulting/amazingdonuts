@@ -138,11 +138,44 @@ function AttachedProduct({ product }: { product: Product }) {
   );
 }
 
-function QuoteCard({ q, featured }: { q: (typeof QUOTES)[number]; featured: boolean }) {
+/**
+ * A card the button revealed is a plain element. Only the ones already on the
+ * page when it scrolls into view are animated.
+ *
+ * The column staggers its children through `variants` and a one-shot
+ * `whileInView`. That covers the cards present when the section scrolls past,
+ * and nothing else: `once: true` takes the viewport listener away when it
+ * fires, leaving the container with no `animate` prop, so anything mounted
+ * afterwards resolves the `hidden` variant it inherits and sits at zero
+ * opacity. Pressing "Read 3 more reviews" added three cards to the DOM,
+ * invisible, and made the page taller.
+ *
+ * Giving those cards their own entrance animation fixes the symptom and keeps
+ * the cause: their visibility still depends on an animation actually running.
+ * It does not, everywhere — a throttled background tab, a device that drops
+ * the frame, a motion library that errors — and the failure mode is content
+ * that is present, styled, and unreadable. Reviews are the content; an
+ * entrance is decoration.
+ *
+ * So a revealed card carries no `initial` and no opacity to recover from. It
+ * is visible because it is in the DOM. The reader asked for these by pressing
+ * a button, which is its own transition — they do not need to be introduced.
+ */
+function QuoteCard({
+  q,
+  featured,
+  revealed = false
+}: {
+  q: (typeof QUOTES)[number];
+  featured: boolean;
+  revealed?: boolean;
+}) {
   const product = q.product ? BY_ID.get(q.product) : undefined;
 
+  const Card = revealed ? 'article' : motion.article;
+
   return (
-    <motion.article variants={card} className="regulars-card">
+    <Card {...(revealed ? {} : { variants: card })} className="regulars-card">
       <Stars n={q.stars} />
       <p
         style={{
@@ -165,7 +198,7 @@ function QuoteCard({ q, featured }: { q: (typeof QUOTES)[number]; featured: bool
           credited before the thing it reviews is offered, or the strip reads
           as an ad with a quote attached rather than the reverse. */}
       {product && <AttachedProduct product={product} />}
-    </motion.article>
+    </Card>
   );
 }
 
@@ -270,7 +303,12 @@ export default function Testimonials() {
               style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(14px,1.6vw,22px)' }}
             >
               {(expanded ? QUOTES : QUOTES.slice(0, PHONE_PREVIEW)).map((q, i) => (
-                <QuoteCard key={q.name} q={q} featured={i === 0} />
+                <QuoteCard
+                  key={q.name}
+                  q={q}
+                  featured={i === 0}
+                  revealed={i >= PHONE_PREVIEW}
+                />
               ))}
 
               {!expanded && QUOTES.length > PHONE_PREVIEW && (

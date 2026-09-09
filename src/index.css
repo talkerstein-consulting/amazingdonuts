@@ -1098,10 +1098,30 @@ nav a,
   padding: 0;
   margin: 0;
 }
+/* Pinned, the rail stops being a card and becomes a bar.
+
+   It used to keep its 24px corners and grow a drop shadow, which made it a
+   floating pill hovering under the navbar with the page visible either side of
+   it and a strip of Shortbread sliding through the gap above. Two bars, one of
+   them apparently detached from the site.
+
+   So when it sticks it goes flat and edge to edge — square corners, the page
+   gutter as its own padding, and a hairline under it instead of a shadow. It
+   is the navbar's second row, and it should look like it. The full-bleed is
+   `100vw` with the standard centring escape: both this and the homepage's copy
+   sit inside a max-width container, and `body` clips the horizontal axis, so
+   the half-scrollbar the unit overshoots by never becomes a scrollbar. */
+.category-bar.is-stuck {
+  width: 100vw;
+  max-width: none;
+  margin-inline: calc(50% - 50vw);
+}
+
 .category-bar.is-stuck .category-bar__inner {
-  padding-block: 10px;
-  border-radius: 32px;
-  box-shadow: 0 10px 26px -14px rgba(14, 62, 105, 0.5);
+  padding-block: 5px;
+  padding-inline: var(--shop-gutter, clamp(18px, 4vw, 40px));
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 rgba(14, 62, 105, 0.12);
 }
 .shop-category-bar {
   width: calc(100% - 2 * var(--shop-gutter));
@@ -1245,6 +1265,32 @@ nav a,
     width: 80%;
     margin-left: auto;
     margin-right: auto;
+  }
+
+  /* Bottom left, not top right.
+
+     `top: -4%` lifts the seal out of the art box on purpose: on a wide screen
+     the art sits beside the copy and the overhang lands in empty space above
+     the donuts. Stacked, the art is a row UNDER the copy, so the same overhang
+     lands on the two CTAs — the one decision this screen exists to get — and
+     the seal was sitting across the pickup button.
+
+     The opposite corner is the only one free. The blue donut is front and low
+     to the right, the pink one behind and high to the left, so the lower-left
+     is where the composition already thins out: the seal still overlaps the
+     pink donut's bottom edge, which is what keeps it a stamp on the product
+     rather than a logo in a margin, and nothing above it is clickable.
+
+     Smaller too. 40% of an 80%-wide art block is a big mark to hang off the
+     corner of a phone; 30% keeps it legible without it competing with the
+     donuts it is stamped on. */
+  .hero-duo__seal {
+    top: auto;
+    right: auto;
+    bottom: -2%;
+    left: -4%;
+    width: 30%;
+    max-width: 116px;
   }
 }
 

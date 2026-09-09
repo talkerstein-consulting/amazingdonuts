@@ -2523,8 +2523,8 @@ a.cabinet__iconBtn { text-decoration: none; }
 }
 .collections__arrows--inline button {
   pointer-events: auto;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   /* Canvas with a ring, not the page's own ground: the button sits ON the
      scrolling cards, so it needs to read as a layer above them. */
   background: var(--cream);
@@ -2547,8 +2547,8 @@ a.cabinet__iconBtn { text-decoration: none; }
    makes the browser's own snapping stop at the same line rather than tucking
    a chip under the button it just scrolled past. */
 .collections--compact .collections__rail {
-  padding: 3px var(--rail-gutter) 4px;
-  gap: 8px;
+  padding: 2px var(--rail-gutter) 2px;
+  gap: 6px;
   scroll-padding-inline: var(--rail-gutter);
 }
 
@@ -2562,7 +2562,11 @@ a.cabinet__iconBtn { text-decoration: none; }
    of a 375px screen spent illustrating words the reader is scanning past. */
 .collections--compact .collection-card {
   gap: 0;
-  padding: 8px 16px;
+  /* Slimmer. The pinned strip is a navigation row travelling down the page
+     under the navbar, and every pixel of it is taken off what the visitor can
+     see of the catalogue it is navigating. 8/16 made the whole bar 64px — as
+     tall as the navbar itself, which is a lot of chrome for six words. */
+  padding: 5px 14px;
   border-radius: 99px;
 }
 
@@ -2581,11 +2585,14 @@ a.cabinet__iconBtn { text-decoration: none; }
   gap: 0;
 }
 
-/* Bigger than it was. 16px left the chips reading as labels on a toolbar when
-   they are the page's own navigation, and the strip has the room now that the
-   faces are gone. */
+/* 17, between the 16 it started at and the 20 it grew to.
+
+   20 was right when the strip was a floating pill with its own padding and
+   corners. Flush under the navbar it is a bar, and a bar's labels should not
+   out-size the navbar's own links beside them — the chips were reading louder
+   than the site's navigation while being subordinate to it. */
 .collections--compact .collection-card__name {
-  font-size: 20px;
+  font-size: 17px;
 }
 
 /* The lift belongs to a card in a grid, not to a pill in a strip that is
