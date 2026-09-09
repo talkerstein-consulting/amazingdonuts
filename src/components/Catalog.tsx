@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 import { BOX_BUILDER_IDS, CATEGORIES, SHOP_PRODUCTS, type Category, type Product } from '../data/products';
 import CollectionRail from '../shop/CollectionRail';
@@ -10,6 +10,7 @@ import { useBoxQty, useShop } from '../lib/shop';
 import AddControl from './AddControl';
 import { SHOP_HREF, shopHref } from '../lib/shop-href';
 import { smoothScrollTo } from '../lib/smooth-scroll';
+import { FULFILLMENT_EVENT } from '../lib/fulfillment';
 
 /** One product inside an expanded category: squircle photo bed, name, price, add. */
 function ProductThumb({ product }: { product: Product }) {
@@ -301,9 +302,42 @@ export default function Catalog() {
     const pool = needle ? SHOP_PRODUCTS.filter((p) => p.name.toLowerCase().includes(needle)) : SHOP_PRODUCTS;
     return CATEGORIES.map((category) => ({
       category,
-      products: pool.filter((p) => p.category === category)
+      /* The two boxes are lifted out of the Donuts run — see the band above the
+         heading. Left in, they would appear twice. */
+      products: pool.filter((p) => p.category === category && !BOX_BUILDER_IDS.has(p.id))
     })).filter((group) => group.products.length > 0);
   }, [query]);
+
+  /* The build-your-own boxes, in catalogue order, and only while nobody is
+     searching: they are a standing proposition rather than a result, and a
+     search for "muffin" should not still be offering a box of donuts. */
+  const boxes = useMemo(
+    () => (query.trim() ? [] : SHOP_PRODUCTS.filter((p) => BOX_BUILDER_IDS.has(p.id))),
+    [query]
+  );
+
+  /* Where the sticky furniture ends, so the category rail can park directly
+     under it. Measured rather than assumed: the navbar's height is a clamp and
+     the fulfillment band appears and disappears, so the two together are worth
+     between 60 and 110px depending on the width and on a choice the visitor
+     may not have made yet. Re-read on both events that change it. */
+  const [chromeBottom, setChromeBottom] = useState(0);
+
+  useEffect(() => {
+    const measure = () => {
+      const bottoms = ['header', '.pickup-banner']
+        .map((sel) => document.querySelector(sel)?.getBoundingClientRect().bottom ?? 0)
+        .filter((bottom) => bottom > 0);
+      setChromeBottom(bottoms.length ? Math.max(...bottoms) : 0);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener(FULFILLMENT_EVENT, measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener(FULFILLMENT_EVENT, measure);
+    };
+  }, []);
 
   return (
     <section
@@ -311,6 +345,22 @@ export default function Catalog() {
       className="section-band"
       style={{ maxWidth: 1240, margin: '0 auto', padding: 'clamp(18px,2.4vw,32px) clamp(18px,4vw,40px) var(--gap-section-y)' }}
     >
+      {/* The two boxes lead the section, above its heading.
+
+          They were the first two tiles of the Donuts run, which is several
+          hundred pixels down and behind a collapsible heading — so the one
+          thing on this page with the highest basket value was also the hardest
+          to find. They are not a donut you pick off a shelf either; they are an
+          invitation to go and fill a box, which is a different kind of offer
+          from the grid beneath and reads better before it than inside it. */}
+      {boxes.length > 0 && (
+        <div className="home-boxes">
+          {boxes.map((product) => (
+            <BoxCard key={product.id} product={product} />
+          ))}
+        </div>
+      )}
+
       <h2 className="favorites-title" style={{ margin: '0 0 clamp(18px,2.4vw,28px)', maxWidth: '14ch', fontSize: 'var(--type-section)', lineHeight: 0.92, color: 'var(--navy)' }}>
         Everyone has a favourite
       </h2>
@@ -363,7 +413,20 @@ export default function Catalog() {
           of jumps. Shop all is the exception and stays a link — it means the
           whole catalogue, which is a different page and 62 products this band
           only teases. */}
-      <CollectionRail active={null} onPick={jumpTo} />
+      {/* Sticky, so the way between counters travels with the reader.
+
+          The rail is how you get from Donuts to Breads without scrolling past
+          everything in between — and it scrolled away with the top of the
+          section, so the moment it was useful it was gone and the only way
+          back to it was up. Parked under the header it stays the whole length
+          of the band it indexes.
+
+          `--rail-top` is measured, not a constant: it has to clear the navbar
+          AND the fulfillment band, and the band is only there once a choice has
+          been made. */}
+      <div className="home-rail" style={{ ['--rail-top' as string]: `${chromeBottom}px` }}>
+        <CollectionRail active={null} onPick={jumpTo} />
+      </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {byCategory.map(({ category, products }) => (

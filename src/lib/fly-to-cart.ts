@@ -148,19 +148,56 @@ function burst(x: number, y: number, count = SPRINKLE_COUNT) {
  * rect is still read now rather than at take-off: the button that started a
  * three-donut flight may well have changed by the time the third leaves.
  */
+/**
+ * How many donuts are still in the air.
+ *
+ * The bag opens when the LAST one lands, not the first. "Add all three" fires
+ * three staggered flights, and opening on each would slide the drawer in and
+ * out twice before settling.
+ */
+let inFlight = 0;
+
+/**
+ * The drawer, opened once the animation has finished doing its job.
+ *
+ * The flight explains where the thing went; the bag opening is what lets you
+ * act on it — and the two used to be separate gestures, so the donut flew into
+ * a bag that then just sat there with a bigger number on it. An event rather
+ * than a callback because this module has no access to the shop context and
+ * is called from six places; `ShopProvider` listens.
+ */
+export const CART_LANDED = 'amazing:cart-landed';
+
+function landed() {
+  inFlight = Math.max(0, inFlight - 1);
+  if (inFlight === 0) window.dispatchEvent(new Event(CART_LANDED));
+}
+
 export function flyToCart(origin: Element | null, src: string, delay = 0) {
   const target = cartTarget();
-  if (!target || !origin) return;
+  /* No flight to watch, so nothing will land — but the add still happened, and
+     the bag should still open. */
+  if (!target || !origin) {
+    window.dispatchEvent(new Event(CART_LANDED));
+    return;
+  }
 
   const from = origin.getBoundingClientRect();
   const to = target.getBoundingClientRect();
   // Nothing to watch if the press landed on the bag itself.
-  if (!from.width || !to.width) return;
+  if (!from.width || !to.width) {
+    window.dispatchEvent(new Event(CART_LANDED));
+    return;
+  }
 
   if (reduced()) {
     bumpCart(target);
+    /* Reduced motion skips the flight, not the outcome. */
+    window.dispatchEvent(new Event(CART_LANDED));
     return;
   }
+
+  inFlight += 1;
 
   const startX = from.left + from.width / 2;
   const startY = from.top + from.height / 2;
@@ -212,6 +249,7 @@ export function flyToCart(origin: Element | null, src: string, delay = 0) {
     .finally(() => {
       donut.remove();
       bumpCart(target);
+      landed();
     });
 }
 

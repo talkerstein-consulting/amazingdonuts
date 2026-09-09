@@ -1038,6 +1038,47 @@ nav a,
 }
 
 /* ==========================================================================
+   The homepage's box band and its sticky category rail.
+   ========================================================================== */
+
+/* The two build-your-own boxes, above the section heading. Two across from
+   tablet up, stacked below it — the same pair the shop grid gives a full row
+   to, and each card is a wide one. */
+.home-boxes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(10px, 1.6vw, 18px);
+  margin-bottom: clamp(20px, 2.6vw, 32px);
+}
+
+@media (min-width: 641px) {
+  .home-boxes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* The rail parks under the site's own sticky furniture.
+
+   `--rail-top` comes from the component, which measures the navbar and the
+   fulfillment band together — see `chromeBottom` in Catalog.tsx.
+
+   The negative margins and matching padding are what stop the tiles' shadows
+   being sliced: a sticky element needs a background to travel over the content
+   behind it, and a background that stops at the tiles' edges would cut them.
+   The band's own Canvas, so nothing changes colour when it detaches.
+
+   z-index 40 sits under the navbar (60) and the fulfillment band (59), so both
+   stay over it, and above the grid it scrolls across. */
+.home-rail {
+  position: sticky;
+  top: var(--rail-top, 64px);
+  z-index: 40;
+  margin: 0 calc(-1 * clamp(18px, 4vw, 40px));
+  padding: 10px clamp(18px, 4vw, 40px);
+  background: var(--cream);
+}
+
+/* ==========================================================================
    The two hero donuts.
 
    A square-ish box the two are placed inside as percentages, so the whole

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PRODUCTS, type Product } from '../data/products';
 import { customizationFor, minimumQuantityFor, PRINT_PRODUCTS, type Customization } from './custom-order';
+import { CART_LANDED } from './fly-to-cart';
 
 /**
  * The storefront's client state: which view is showing, which product is open,
@@ -117,6 +118,23 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     window.addEventListener('amazing:auth-changed', changed);
     return () => window.removeEventListener('amazing:auth-changed', changed);
   }, [loadWishlist]);
+
+  /* The bag opens when the flying donut lands in it.
+
+     Every add already animated a donut into the bag button, and the bag then
+     did nothing — the flight said where the thing went and stopped there, so
+     the next step was always the visitor finding and pressing the bag
+     themselves. Opening it on arrival makes the animation the transition into
+     the drawer rather than a flourish beside it.
+
+     Driven by an event because `flyToCart` is a plain module with no access to
+     this context and is called from six places — see `CART_LANDED`, which
+     fires once, after the LAST donut of a batch. */
+  useEffect(() => {
+    const open = () => setCartOpen(true);
+    window.addEventListener(CART_LANDED, open);
+    return () => window.removeEventListener(CART_LANDED, open);
+  }, []);
 
   useEffect(() => {
     const sync = () => setRoute(readHash());

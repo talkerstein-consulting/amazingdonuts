@@ -791,11 +791,15 @@ export default function BulkOrdersPage() {
             </h1>
             <p
               style={{
-                margin: '18px auto clamp(30px,3.6vw,52px)',
+                margin: '18px 0 clamp(30px,3.6vw,52px)',
                 maxWidth: '56ch',
                 fontSize: 'var(--type-body)',
                 lineHeight: 1.45,
-                textAlign: 'center',
+                /* Left, like the heading above it. Centred, four lines of body
+                   copy give the eye a new starting x on every line — fine for
+                   a one-line strapline, tiring for a paragraph that is asking
+                   the reader to supply a date, a guest count and a plan. */
+                textAlign: 'left',
                 color: 'rgba(14,62,105,.72)'
               }}
             >
