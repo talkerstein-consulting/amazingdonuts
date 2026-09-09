@@ -1128,9 +1128,57 @@ nav a,
   box-shadow: 0 10px 26px -14px rgba(14, 62, 105, 0.5);
 }
 
+/* The rail must be allowed to be narrower than its own cards.
+
+   This is the whole reason the page could scroll sideways on a phone. A flex
+   item defaults to `min-width: auto`, which refuses to shrink below its
+   content — so the rail, whose content is a 1063px row of tabs, forced itself
+   to 1063px inside a 375px screen and took the document with it. Its own
+   scroller never got a chance: there was nothing left to scroll, because the
+   overflow had been pushed up into the page instead. Only `overflow-x: clip`
+   on the body was keeping the scrollbar off, and that is a fallback, not a
+   fix — Safari before 16 ignores it and would have scrolled.
+
+   At every width, not just while pinned: the stuck rule set it and the resting
+   state did not, which is why the overflow existed only before it pinned. */
+.home-rail__inner .collections {
+  min-width: 0;
+  width: 100%;
+}
+
 .home-rail.is-stuck .collections {
   flex: 1 1 auto;
-  min-width: 0;
+}
+
+/* Edge to edge on a phone.
+
+   36px of section gutter is a tenth of a 375px screen, and it was being spent
+   on margin either side of a row that wants every pixel for names. The panel
+   runs to both edges instead, and the rail's own inset keeps the first card
+   off the glass while letting the row scroll right up to it. Square, because
+   a rounded corner against the screen edge is a corner nobody sees. */
+@media (max-width: 640px) {
+  .home-rail__inner {
+    margin-inline: calc(-1 * clamp(18px, 4vw, 40px));
+    padding-inline: 0;
+    border-radius: 0;
+  }
+
+  .home-rail__inner .home-search {
+    margin-inline: clamp(18px, 4vw, 40px);
+  }
+
+  /* The panel bleeds; the cards still start on the content line and scroll
+     past it. A pill flush against the glass reads as clipped rather than as
+     the start of a row, and it is the hardest one to tap.
+
+     Only the resting row. The compact strip sets its own inset — an arrow's
+     width at each end, see `--rail-gutter` — because there the ends are not
+     clear: the buttons sit on the rail, and a chip parked under one is a chip
+     you cannot read or press. */
+  .home-rail__inner .collections:not(.collections--compact) .collections__rail {
+    padding-inline: clamp(18px, 4vw, 40px);
+  }
 }
 
 .home-rail.is-stuck .home-search {
@@ -1240,7 +1288,12 @@ nav a,
    of the width — full-bleed, the pair is taller than the buttons above it. */
 @media (max-width: 899px) {
   .hero-duo {
-    width: 86%;
+    /* 80, not 86. The blue donut sits at 34%+66% of this box and carries a 5deg
+       rotation, and a rotated box is wider than the element inside it — at 86%
+       its corner reached 383px on a 375px screen and put the document 8px into
+       horizontal overflow. Sized so the rotation lands inside the screen rather
+       than clipped back into it, which would have cut the donut. */
+    width: 80%;
     margin-left: auto;
     margin-right: auto;
   }

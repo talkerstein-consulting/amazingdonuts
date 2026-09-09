@@ -2395,7 +2395,9 @@ a.cabinet__iconBtn { text-decoration: none; }
    reach a counter comes off: the heading, the counts, and most of the height.
    ========================================================================== */
 .collections--compact {
-  --rail-card-h: 44px;
+  /* The arrow's width plus the room it needs on either side, used by both the
+     buttons and the rail's padding so the two cannot disagree. */
+  --rail-gutter: 42px;
   /* The full rail is a section with room around it. Pinned under the navbar
      that room becomes a band of empty Canvas travelling down the page with the
      strip, so it goes: the wrapper's own padding is all the breathing space a
@@ -2438,27 +2440,36 @@ a.cabinet__iconBtn { text-decoration: none; }
   pointer-events: none;
 }
 
-/* Edge to edge: the strip's own gutter comes from `.home-rail`, and the rail
-   scrolls its cards past it rather than stopping short. */
+/* A gutter at each end, the width of an arrow.
+
+   The arrows sit ON the rail rather than above it, so without this the chips
+   scrolled underneath them and the first and last of the row were always
+   half-covered by a button. The padding is the arrow's own width plus a
+   margin, so a chip parked at either end clears it — and `scroll-padding`
+   makes the browser's own snapping stop at the same line rather than tucking
+   a chip under the button it just scrolled past. */
 .collections--compact .collections__rail {
-  padding: 3px 0 4px;
+  padding: 3px var(--rail-gutter) 4px;
   gap: 8px;
-  scroll-padding-inline: 40px;
+  scroll-padding-inline: var(--rail-gutter);
 }
 
-/* A pill with a small face and a name. The count goes: on a strip that is
-   read at a glance while scrolling, "how many muffins" is the least useful
-   thing on it, and it was the only reason the card needed two lines. */
+/* A word in a pill, and nothing else.
+
+   The face goes with the count. Both earn their place on the resting cards,
+   where the row is answering "what is there" for someone who has just
+   arrived — a photograph of a muffin says muffin faster than the word does.
+   Pinned, the row is answering a different question: "take me to the one I
+   already know I want". A 44px thumbnail on each of six chips is then 264px
+   of a 375px screen spent illustrating words the reader is scanning past. */
 .collections--compact .collection-card {
-  gap: 9px;
-  padding: 5px 16px 5px 5px;
+  gap: 0;
+  padding: 8px 16px;
   border-radius: 99px;
 }
 
 .collections--compact .collection-card__bed {
-  width: var(--rail-card-h);
-  height: var(--rail-card-h);
-  border-radius: 99px;
+  display: none;
 }
 
 .collections--compact .collection-card__count {
@@ -2502,8 +2513,11 @@ a.cabinet__iconBtn { text-decoration: none; }
   scroll-snap-align: start;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 26px 12px 12px;
+  gap: clamp(9px, 1.1vw, 14px);
+  /* Trimmed hardest on the trailing side, which was 26px of nothing next to
+     the words. The name is the thing being read here; the padding was taking
+     its room. */
+  padding: 10px clamp(13px, 1.5vw, 22px) 10px 10px;
   border: none;
   /* A rectangle, not the products' squircle: a tab is a different object from
      the things it filters, and the silhouette is what says so at a glance. */
@@ -2539,8 +2553,11 @@ a.cabinet__iconBtn { text-decoration: none; }
   flex: none;
   display: grid;
   place-items: center;
-  width: 74px;
-  height: 74px;
+  /* Smaller where the row's width is the scarce thing. The face is the least
+     of the three parts doing the telling — the name and the count both say
+     more per pixel. */
+  width: clamp(52px, 15vw, 74px);
+  height: clamp(52px, 15vw, 74px);
   border-radius: 14px;
   background: var(--sand);
   transition: background 0.18s ease;
@@ -2570,7 +2587,11 @@ a.cabinet__iconBtn { text-decoration: none; }
 .collection-card__name {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: clamp(21px, 2.2vw, 28px);
+  /* The floor is the phone's size, and it went up: the display face is
+     condensed, so "SHOP ALL" is only 46px wide at 21px — the tab was mostly
+     bed and padding with the name as the smallest thing on it. With the bed
+     trimmed there is room to let the words be the size they should be. */
+  font-size: clamp(25px, 2.2vw, 28px);
   line-height: 1;
   letter-spacing: 0;
   text-transform: uppercase;

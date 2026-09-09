@@ -324,16 +324,37 @@ export default function Catalog() {
   const [chromeBottom, setChromeBottom] = useState(0);
 
   useEffect(() => {
+    /* Heights, not bottoms.
+
+       Both of these are sticky at the top, so where they end IS how tall they
+       are — but `getBoundingClientRect().bottom` reads where the element is
+       drawn, and the navbar arrives on a motion transform. Measured on mount
+       it was mid-flight and reported 40 against a settled 60, so the rail
+       pinned twenty pixels UNDER the navbar. With no fulfillment band there
+       was nothing covering the mistake.
+
+       `offsetHeight` is layout, which a transform cannot move. It is correct
+       on the first frame and stays correct through the entrance, so there is
+       nothing to wait for and nothing to re-measure. */
     const measure = () => {
-      const bottoms = ['header', '.pickup-banner']
-        .map((sel) => document.querySelector(sel)?.getBoundingClientRect().bottom ?? 0)
-        .filter((bottom) => bottom > 0);
-      setChromeBottom(bottoms.length ? Math.max(...bottoms) : 0);
+      const height = (sel: string) =>
+        (document.querySelector(sel) as HTMLElement | null)?.offsetHeight ?? 0;
+      setChromeBottom(height('header') + height('.pickup-banner'));
     };
     measure();
+
+    /* The band is a different height at different widths, and it appears and
+       disappears with the choice — the event catches the second, the observer
+       the first. */
+    const ro = new ResizeObserver(measure);
+    const header = document.querySelector('header');
+    if (header) ro.observe(header);
+    document.querySelectorAll('.pickup-banner').forEach((el) => ro.observe(el));
+
     window.addEventListener('resize', measure);
     window.addEventListener(FULFILLMENT_EVENT, measure);
     return () => {
+      ro.disconnect();
       window.removeEventListener('resize', measure);
       window.removeEventListener(FULFILLMENT_EVENT, measure);
     };
