@@ -533,7 +533,7 @@ export default function Catalog() {
           fifth of a phone screen permanently, to keep answering a question
           already answered. So the same rail, one row and half the height,
           while it is doing the other job. */}
-      <CollectionRail active={null} onPick={jumpTo} compact={stuck} />
+      <CollectionRail active={null} onPick={jumpTo} compact={stuck} showAll={false} />
         </div>
       </div>
 

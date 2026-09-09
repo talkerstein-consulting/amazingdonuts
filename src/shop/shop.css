@@ -2476,8 +2476,11 @@ a.cabinet__iconBtn { text-decoration: none; }
   display: none;
 }
 
+/* Bigger than it was. 16px left the chips reading as labels on a toolbar when
+   they are the page's own navigation, and the strip has the room now that the
+   faces are gone. */
 .collections--compact .collection-card__name {
-  font-size: 16px;
+  font-size: 20px;
 }
 
 /* The lift belongs to a card in a grid, not to a pill in a strip that is

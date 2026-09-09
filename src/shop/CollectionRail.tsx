@@ -80,12 +80,25 @@ const faceFor = (category: Category | null, taken: Set<string>): Product => {
 export default function CollectionRail({
   active,
   onPick,
-  compact = false
+  compact = false,
+  showAll = true
 }: {
   active: Category | null;
   onPick: (next: Category | null) => void;
   /** The sticky homepage strip: one row, no heading, arrows on the edges. */
   compact?: boolean;
+  /**
+   * Whether to lead with the "Shop all" tab.
+   *
+   * On the catalogue it is the way back to the unfiltered grid and has to be
+   * there — the rail is the only control that clears the category. On the
+   * homepage it is not a category at all: nothing there is filtered, the tabs
+   * are jumps down the page, and "Shop all" was the one that left it. A tab
+   * that navigates away sitting first in a row of tabs that scroll is two
+   * different promises in one control, and the header already carries the
+   * link.
+   */
+  showAll?: boolean;
 }) {
   const rail = useRef<HTMLDivElement | null>(null);
   /* Which arrows to draw. A rail that fits its content needs neither, and an
@@ -137,10 +150,9 @@ export default function CollectionRail({
     };
   });
 
-  const cards = [
-    { id: null, label: 'Shop all', count: SHOP_PRODUCTS.length, face: faceFor(null, taken) },
-    ...counters
-  ];
+  const cards = showAll
+    ? [{ id: null, label: 'Shop all', count: SHOP_PRODUCTS.length, face: faceFor(null, taken) }, ...counters]
+    : counters;
 
   const arrows = (
     <div className="collections__arrows">
