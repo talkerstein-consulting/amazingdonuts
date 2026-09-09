@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 import { BOX_BUILDER_IDS, CATEGORIES, SHOP_PRODUCTS, type Category, type Product } from '../data/products';
 import CollectionRail from '../shop/CollectionRail';
@@ -339,6 +339,72 @@ export default function Catalog() {
     };
   }, []);
 
+  /* Whether the rail has reached the top and pinned.
+
+     A 1px sentinel immediately above it, watched against a root inset by the
+     chrome, rather than a scroll listener: the question is "has this element
+     reached the line", which is what an IntersectionObserver answers natively
+     and a scroll handler answers by recomputing geometry on every frame.
+
+     1px and not 0: a zero-height sentinel never intersects anything, so it can
+     report entering the viewport but never leaving it, and the rail would
+     compact once and never expand again.
+
+     `boundingClientRect.top < rootBounds.top` is what separates the two ways
+     of not intersecting — above the line is stuck, below it is simply further
+     down the page and not reached yet. */
+  const sentinel = useRef<HTMLDivElement | null>(null);
+  const [stuck, setStuck] = useState(false);
+
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) =>
+        setStuck(
+          !entry.isIntersecting && entry.boundingClientRect.top < (entry.rootBounds?.top ?? 0)
+        ),
+      { threshold: 0, rootMargin: `-${Math.round(chromeBottom)}px 0px 0px 0px` }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+    /* Re-armed when the chrome changes height, since that moves the line the
+       sentinel is being measured against. */
+  }, [chromeBottom]);
+
+  /* The height the rail occupies at rest, held as a floor on the wrapper.
+
+     A sticky element still takes its normal space in the flow, so shrinking it
+     on pin would pull everything below it upward — and the page is mid-scroll
+     at exactly that moment, so the whole catalogue would jump. The wrapper
+     keeps the resting height whatever the strip inside it is doing; only the
+     inner row shrinks. Measured while expanded, so it tracks the real cards
+     rather than a number written here that the design would drift away from. */
+  const inner = useRef<HTMLDivElement | null>(null);
+  const [restHeight, setRestHeight] = useState(0);
+
+  useEffect(() => {
+    const el = inner.current;
+    if (!el || stuck) return;
+    const measure = () => {
+      /* Checked against the DOM, not against `stuck`.
+
+         A ResizeObserver fires after layout, and the morph IS a resize — so
+         between the class landing and this effect's cleanup running, the
+         observer got one more callback carrying the compact height and wrote
+         77px in as the resting one. The floor then matched the strip it was
+         supposed to be taller than, and the anti-jump did nothing. The class
+         on the element is true at that moment even though the closure's
+         `stuck` is not. */
+      if (el.parentElement?.classList.contains('is-stuck')) return;
+      setRestHeight(el.getBoundingClientRect().height);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [stuck]);
+
   return (
     <section
       id="favorites"
@@ -365,7 +431,32 @@ export default function Catalog() {
         Everyone has a favourite
       </h2>
 
+      {/* The line the sentinel watches. Immediately above the rail, so "the
+          sentinel has passed the chrome" and "the rail is about to pin" are the
+          same moment. */}
+      <div ref={sentinel} style={{ height: 1, marginBottom: -1 }} aria-hidden="true" />
+
+      {/* Search and categories are one pinned unit.
+
+          They were two: a search box in the flow and a sticky rail under it, so
+          scrolling took the search away and left the categories. They are the
+          two ways into the same catalogue and belong together — and keeping
+          them in one element means the search is never remounted as the strip
+          morphs, which would drop focus mid-keystroke.
+
+          At rest it is a column: search over the full cards. Pinned it is a
+          row: compact strip on the left, search on the right, swapped by
+          `order` rather than by moving the node. */}
+      <div
+        className={`home-rail${stuck ? ' is-stuck' : ''}`}
+        style={{
+          ['--rail-top' as string]: `${chromeBottom}px`,
+          ['--rail-rest' as string]: restHeight ? `${Math.round(restHeight)}px` : 'auto'
+        }}
+      >
+        <div className="home-rail__inner" ref={inner}>
       <label
+        className="home-search"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -374,8 +465,7 @@ export default function Catalog() {
           padding: '0 18px',
           borderRadius: 99,
           background: C.cream,
-          boxShadow: 'inset 0 0 0 2px rgba(14,62,105,.12)',
-          marginBottom: 'clamp(16px,2vw,24px)'
+          boxShadow: 'inset 0 0 0 2px rgba(14,62,105,.12)'
         }}
       >
         <Search size={18} strokeWidth={2.25} style={{ flex: 'none', color: C.mute }} />
@@ -413,19 +503,17 @@ export default function Catalog() {
           of jumps. Shop all is the exception and stays a link — it means the
           whole catalogue, which is a different page and 62 products this band
           only teases. */}
-      {/* Sticky, so the way between counters travels with the reader.
+      {/* Full cards at rest, a compact strip once pinned.
 
-          The rail is how you get from Donuts to Breads without scrolling past
-          everything in between — and it scrolled away with the top of the
-          section, so the moment it was useful it was gone and the only way
-          back to it was up. Parked under the header it stays the whole length
-          of the band it indexes.
-
-          `--rail-top` is measured, not a constant: it has to clear the navbar
-          AND the fulfillment band, and the band is only there once a choice has
-          been made. */}
-      <div className="home-rail" style={{ ['--rail-top' as string]: `${chromeBottom}px` }}>
-        <CollectionRail active={null} onPick={jumpTo} compact />
+          The cards earn their size while the section is being read — a face, a
+          name and a count is what answers "what is there" for someone who has
+          just arrived. Pinned under the navbar for the length of the whole
+          catalogue they cannot stay that size: at 120px tall they would take a
+          fifth of a phone screen permanently, to keep answering a question
+          already answered. So the same rail, one row and half the height,
+          while it is doing the other job. */}
+      <CollectionRail active={null} onPick={jumpTo} compact={stuck} />
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

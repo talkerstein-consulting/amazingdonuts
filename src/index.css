@@ -333,7 +333,13 @@ nav a,
 @media (min-width: 700px) {
   .product-grid {
     gap: clamp(16px, 1.6vw, 24px) !important;
-    padding: 8px clamp(12px, 1.4vw, 20px) clamp(16px, 1.8vw, 24px) !important;
+    /* No horizontal padding. It inset the tiles by 20px from the line every
+       other block on the page starts and ends on — the hero's copy, the box
+       cards, the heading, the counter dividers and the pinned rail all run
+       382 to 1542 at this width, and the products alone ran 402 to 1522. The
+       vertical padding stays: that one is real, giving the tiles' hover lift
+       somewhere to go. */
+    padding: 8px 0 clamp(16px, 1.8vw, 24px) !important;
   }
 }
 
@@ -1057,15 +1063,21 @@ nav a,
   }
 }
 
-/* The rail parks under the site's own sticky furniture.
+/* Search and categories, as one unit that parks under the site's own sticky
+   furniture and changes shape when it gets there.
 
    `--rail-top` comes from the component, which measures the navbar and the
    fulfillment band together — see `chromeBottom` in Catalog.tsx.
 
-   The negative margins and matching padding are what stop the tiles' shadows
-   being sliced: a sticky element needs a background to travel over the content
-   behind it, and a background that stops at the tiles' edges would cut them.
-   The band's own Canvas, so nothing changes colour when it detaches.
+   `--rail-rest` is the height it stands at when expanded, and the wrapper
+   holds it whatever the strip inside is doing. A sticky element still takes
+   its normal space in the flow, so letting the wrapper shrink on pin would
+   pull the whole catalogue up by the difference at exactly the moment the page
+   is scrolling past it. The wrapper keeps the space; only the inner row moves.
+
+   The wrapper itself is transparent and inert — the background belongs to the
+   inner row, so the reserved space it leaves behind while pinned shows the
+   page scrolling underneath rather than a band of Canvas travelling down it.
 
    z-index 40 sits under the navbar (60) and the fulfillment band (59), so both
    stay over it, and above the grid it scrolls across. */
@@ -1073,9 +1085,67 @@ nav a,
   position: sticky;
   top: var(--rail-top, 64px);
   z-index: 40;
-  margin: 0 calc(-1 * clamp(18px, 4vw, 40px));
-  padding: 10px clamp(18px, 4vw, 40px);
+  min-height: var(--rail-rest, auto);
+  margin: 0 0 clamp(16px, 2vw, 24px);
+  pointer-events: none;
+}
+
+/* A rounded panel on the section's own measure, not a full-bleed band.
+
+   It used to run 40px past the content on both sides — the only thing on the
+   page that did. Every other block here starts and ends on the same two lines:
+   the hero's copy, the two box cards, the heading, the counter dividers and
+   the product tiles. A strip breaking that alignment reads as a mistake even
+   when nobody can say which edge is wrong, and square corners on a page of
+   rounded ones read the same way.
+
+   The padding is inside the panel now rather than compensating for a negative
+   margin, and it is generous enough that the tiles' hover lift and shadow are
+   not sliced by the panel's own edge. */
+.home-rail__inner {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 1.8vw, 20px);
+  padding: 14px clamp(14px, 1.6vw, 20px);
+  border-radius: var(--radius-panel, 28px);
   background: var(--cream);
+  transition: gap 220ms ease, padding 220ms ease, box-shadow 220ms ease;
+}
+
+/* Pinned: one row. The strip takes the space and the search takes a column of
+   its own on the trailing edge — `order` rather than moving the node, so the
+   input is never remounted and a half-typed query survives the morph. */
+.home-rail.is-stuck .home-rail__inner {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  /* Lifted off the page once it has detached, so it reads as a panel over the
+     grid rather than a gap in it. Only while pinned — at rest it is part of
+     the section and needs no shadow to say so. */
+  box-shadow: 0 10px 26px -14px rgba(14, 62, 105, 0.5);
+}
+
+.home-rail.is-stuck .collections {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.home-rail.is-stuck .home-search {
+  order: 2;
+  flex: 0 0 clamp(160px, 24%, 280px);
+  min-height: 44px !important;
+}
+
+/* No room for it beside the strip on a phone — the two together would leave
+   each about 160px. The strip wins: search is a tap on the bag-side icon in
+   the navbar, categories have nowhere else to be. */
+@media (max-width: 640px) {
+  .home-rail.is-stuck .home-search {
+    display: none !important;
+  }
 }
 
 /* ==========================================================================
