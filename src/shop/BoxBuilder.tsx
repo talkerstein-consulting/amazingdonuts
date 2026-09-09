@@ -133,13 +133,23 @@ function BoxSlot({
 }
 
 export default function BoxBuilder({ product }: { product: Product }) {
-  const { closeProduct, add, customize } = useShop();
+  const { closeProduct, add, customize, lines } = useShop();
   const counts = BOX_PRODUCTS.get(product.id) ?? [6, 12];
   const max = boxMaxFor(product.id);
   /* One id per donut, in the order they were added — the order IS the
      placement, so removing the third donut shuffles the rest forward and the
-     box repacks itself the way a real one would. */
-  const [chosen, setChosen] = useState<string[]>([]);
+     box repacks itself the way a real one would.
+
+     Seeded from the bag when this box is already in it. The drawer's Edit
+     opens this screen, and opening it empty made Edit mean "start again": six
+     flavours already chosen were thrown away by the act of going to look at
+     them. Read once, in the initialiser — later changes to the line are this
+     screen's own doing and must not reset what is being edited under the
+     visitor's hands. */
+  const [chosen, setChosen] = useState<string[]>(() => {
+    const line = lines.find((l) => l.product.id === product.id);
+    return line?.customization?.kind === 'box' ? [...line.customization.donuts] : [];
+  });
 
   /* How far down the page furniture reaches. Measured rather than assumed: the
      navbar's height is a clamp and the pickup band is only there for a visitor

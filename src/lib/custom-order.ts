@@ -39,21 +39,29 @@ export const LAB_PRODUCTS = new Set(['donut-lab-donut']);
 export const BULK_PACK_SIZES = new Map([['petite-size-donut-bulk-order-only', 75]]);
 
 /**
- * What a petite tray can be finished as. Mirrors the bakery's own order form.
+ * Products finished to order: pick an icing, pick sprinkles.
  *
- * `asks` names both the question and which of the Donut Lab's palettes answers
- * it — the sprinkle mixes for Sprinkle, the icing colours for Coloured icing.
- * Reusing the lab's lists rather than writing new ones means the colours on
- * offer here are the colours the bakery actually stocks, and there is one place
- * to add a new one.
+ * Two questions, not one. The tray used to ask a single "Donut type" —
+ * Sprinkle, Glazed, or Coloured icing — which pushed three answers of two
+ * different kinds through one control: two of them are icings, the third is a
+ * topping. The combination people actually want, a coloured icing WITH
+ * sprinkles on it, could not be ordered at all, and "glazed with sprinkles"
+ * was equally unsayable.
+ *
+ * Asked separately they compose: eleven icings including plain glaze, times
+ * the sprinkle mixes including none. Both answers come from the Donut Lab's
+ * own palettes, so the colours on offer are the colours the kitchen stocks and
+ * there is one place to add a new one.
+ *
+ * The Customizable Donut is in here for the same reason the petite tray is:
+ * its whole product is "tell us how to finish it", and it had no way to say
+ * so — it went into the bag as a bare line and the bakery received a donut
+ * order with no instructions.
  */
-export const PETITE_TYPES = [
-  { id: 'sprinkle', label: 'Sprinkle', asks: 'sprinkle colours', palette: 'sprinkle' },
-  { id: 'glazed', label: 'Glazed', asks: null, palette: null },
-  { id: 'icing', label: 'Coloured icing', asks: 'icing colours', palette: 'icing' }
-] as const;
-
-export type PetiteType = (typeof PETITE_TYPES)[number]['id'];
+export const FINISH_PRODUCTS = new Set([
+  'petite-size-donut-bulk-order-only',
+  'customizable-donut'
+]);
 
 /**
  * What one chosen element adds to a lab donut.
@@ -134,14 +142,12 @@ export type Customization =
       The labels are the builder's own step names, so the bag reads back the
       journey rather than a product code. */
   | { kind: 'lab'; elements: { label: string; value: string; price: number }[] }
-  /** A petite tray's finish. `colours` is free text because the answer is
-      whatever the customer's colours are — school, team, brand — and a swatch
-      list would refuse most of them. Empty for Glazed, which asks nothing. */
-  /** A petite tray's finish. `colours` is the chosen swatch's own name, which
-      is what the counter reads; `colourId` is how the panel and the bag line
-      find it again in the palette to draw its dots. Both empty for Glazed,
-      which asks nothing. */
-  | { kind: 'petite'; type: PetiteType; colourId: string; colours: string };
+  /** How a made-to-order donut is finished: one icing, one sprinkle answer.
+      The `*Name` fields are what the counter reads — "Vanilla · Light Blue",
+      "No sprinkles" — and the ids are how the panel and the bag line find each
+      answer again in the palette to draw its dots. `kind` stays 'petite' so a
+      bag saved before the Customizable Donut joined still reads back. */
+  | { kind: 'petite'; icingId: string; icingName: string; sprinkleId: string; sprinkleName: string };
 
 export const customizationFor = (productId: string): Customization | undefined =>
   PRINT_PRODUCTS.has(productId)
@@ -150,8 +156,8 @@ export const customizationFor = (productId: string): Customization | undefined =
       ? { kind: 'glyph', glyph: '' }
       : BOX_PRODUCTS.has(productId)
         ? { kind: 'box', donuts: [] }
-        : BULK_PACK_SIZES.has(productId)
-          ? { kind: 'petite', type: 'sprinkle', colourId: '', colours: '' }
+        : FINISH_PRODUCTS.has(productId)
+          ? { kind: 'petite', icingId: '', icingName: '', sprinkleId: '', sprinkleName: '' }
           : undefined;
 
 export const customizationComplete = (productId: string, qty: number, customization?: Customization) => {
@@ -164,12 +170,15 @@ export const customizationComplete = (productId: string, qty: number, customizat
      box the bakery has nowhere to put. `qty` here is how many boxes. */
   const counts = BOX_PRODUCTS.get(productId);
   if (counts) return customization?.kind === 'box' && counts.includes(customization.donuts.length);
-  /* Sprinkle and Coloured icing both need to know which colours; Glazed does
-     not, and asking would be a required field with no answer. */
-  if (BULK_PACK_SIZES.has(productId)) {
-    if (customization?.kind !== 'petite') return false;
-    const asks = PETITE_TYPES.find((t) => t.id === customization.type)?.asks;
-    return !asks || customization.colours.trim().length > 0;
+  /* Both answers are required, and "none" is an answer. An unanswered sprinkle
+     question is not the same as "no sprinkles": one leaves the kitchen to
+     guess, the other tells it. */
+  if (FINISH_PRODUCTS.has(productId)) {
+    return (
+      customization?.kind === 'petite' &&
+      customization.icingId.length > 0 &&
+      customization.sprinkleId.length > 0
+    );
   }
   /* A lab line is complete by construction — it cannot be added until the
      builder's last step — so it never blocks checkout. Listed here so the next

@@ -20,18 +20,18 @@ import { SHOP_PRODUCTS, type Product } from '../data/products';
 import { tagFor } from '../data/product-tags';
 import { C, F, BadgeRow, BrandButton } from '../components/brand';
 import { useShop, money, priceOf } from '../lib/shop';
-import { PRINT_SPRINKLE_SWATCHES, swatchesFor } from '../lib/petite-palette';
+import { PRINT_SPRINKLE_SWATCHES } from '../lib/petite-palette';
 import {
   BOX_PRODUCTS,
   BULK_PACK_SIZES,
   GLYPH_PRODUCTS,
   imageDataUrl,
   minimumQuantityFor,
-  PETITE_TYPES,
+  FINISH_PRODUCTS,
   PRINT_PRODUCTS,
-  type Artwork,
-  type PetiteType
+  type Artwork
 } from '../lib/custom-order';
+import FinishPicker, { EMPTY_FINISH, type Finish } from './FinishPicker';
 import BoxBuilder from './BoxBuilder';
 import { flyManyToCart, flyToCart } from '../lib/fly-to-cart';
 
@@ -86,8 +86,8 @@ function Cabinet({ product }: { product: Product }) {
   const [glyph, setGlyph] = useState('1');
   /* The petite tray's finish, and the colours it asks for. Only meaningful for
      a bulk-only product - see `bulkMinimum`. */
-  const [petiteType, setPetiteType] = useState<PetiteType>('sprinkle');
-  const [petiteColour, setPetiteColour] = useState('');
+  /* The finish, as the two answers it now is — see `FinishPicker`. */
+  const [finish, setFinish] = useState<Finish>(EMPTY_FINISH);
   /* The printed dozen's spec: what the print is laid onto, what goes over it,
      and the artwork itself. Only meaningful for a print product — see
      `isPrint`. It lives here rather than on the cart line, like every other
@@ -162,13 +162,11 @@ function Cabinet({ product }: { product: Product }) {
      there — see `BULK_PACK_SIZES`. How many donuts are in one pack, or
      undefined for everything that is not sold in packs. */
   const packSize = BULK_PACK_SIZES.get(product.id);
-  const petiteSpec = PETITE_TYPES.find((t) => t.id === petiteType);
-  const petiteAsks = petiteSpec?.asks ?? null;
-  const petiteSwatches = swatchesFor(petiteSpec?.palette ?? null);
-  const petiteChoice = petiteSwatches.find((sw) => sw.id === petiteColour);
-  /* Glazed asks nothing, so it is always ready; the other two need a swatch
-     picked before the knob will do anything. */
-  const petiteReady = !packSize || !petiteAsks || Boolean(petiteChoice);
+  /* Finished to order — the petite tray and the Customizable Donut ask the
+     same two questions. Neither has a default: "no sprinkles" is a real answer
+     the kitchen needs told, and an unanswered question is not the same thing. */
+  const isFinish = FINISH_PRODUCTS.has(product.id);
+  const petiteReady = !isFinish || (Boolean(finish.icingId) && Boolean(finish.sprinkleId));
 
   /* The printed dozen, and whether it is answered.
 
@@ -233,18 +231,7 @@ function Cabinet({ product }: { product: Product }) {
       });
     }
     if (isGlyph) customize(product.id, { kind: 'glyph', glyph });
-    if (packSize) {
-      /* Colours are cleared for Glazed rather than carried over from a previous
-         choice - the bakery would read a stale answer as an instruction. */
-      customize(product.id, {
-        kind: 'petite',
-        type: petiteType,
-        /* Cleared for Glazed rather than carried over from a previous choice —
-           the bakery would read a stale answer as an instruction. */
-        colourId: petiteAsks ? petiteColour : '',
-        colours: petiteAsks ? petiteChoice?.name ?? '' : ''
-      });
-    }
+    if (isFinish) customize(product.id, finish);
     setAdded(true);
   };
   const minimumQuantity = minimumQuantityFor(product.id);
@@ -542,71 +529,17 @@ function Cabinet({ product }: { product: Product }) {
                 the box size uses, and a select. It sits above Box size because
                 on this product there is no box size — the cake is a single
                 item — so it is the first choice to make. */}
-            {/* The petite tray's finish. Three types, and two of them have to
-                ask which colours - the bakery's own order form pairs the same
-                question with the same three choices, and Glazed is the one that
-                needs no answer. */}
-            {packSize && (
+            {/* How this donut is finished: one icing, one sprinkle answer.
+
+                It used to be a single "Donut type" — Sprinkle, Glazed, or
+                Coloured icing — which forced two icings and a topping through
+                one control, so a coloured icing WITH sprinkles could not be
+                ordered at all. Asked separately they compose. Same component
+                as the bag drawer's editor and the checkout page's rescue, so
+                the three cannot drift. */}
+            {isFinish && (
               <div style={{ marginBottom: 20 }}>
-                <span className="cabinet__label">Donut type</span>
-                <div className="cabinet__packs" role="radiogroup" aria-label="Donut type">
-                  {PETITE_TYPES.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={petiteType === option.id}
-                      onClick={() => {
-                        setPetiteType(option.id);
-                        /* A sprinkle mix is not an icing colour: switching type
-                           has to drop the previous pick, or the tray would go
-                           to the counter finished in something off the other
-                           list. */
-                        setPetiteColour('');
-                      }}
-                      className={`cabinet__pack${petiteType === option.id ? ' is-on' : ''}`}
-                    >
-                      <strong>{option.label}</strong>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Only when the type asks — a colour question under Glazed is
-                    a required field with no answer, which is what the bakery's
-                    single combined field amounted to.
-
-                    Swatches from the Donut Lab's own palettes rather than a
-                    text box: free text is honest about the range but puts the
-                    whole burden on the customer to describe something, and lets
-                    them describe something the kitchen does not stock. */}
-                {petiteAsks && (
-                  <div className="cabinet__swatches">
-                    <span className="cabinet__label">Which {petiteAsks}?</span>
-                    <div role="radiogroup" aria-label={`Which ${petiteAsks}`}>
-                      {petiteSwatches.map((sw) => (
-                        <button
-                          key={sw.id}
-                          type="button"
-                          role="radio"
-                          aria-checked={petiteColour === sw.id}
-                          title={sw.name}
-                          onClick={() => setPetiteColour(sw.id)}
-                          className={`cabinet__swatch${petiteColour === sw.id ? ' is-on' : ''}`}
-                        >
-                          {/* One dot for an icing, several for a sprinkle mix —
-                              the palette says how many, so the same swatch
-                              draws both. */}
-                          <span aria-hidden="true">
-                            {sw.dots.map((dot, i) => (
-                              <i key={i} style={{ background: dot }} />
-                            ))}
-                          </span>
-                          {sw.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <FinishPicker value={finish} onChange={setFinish} units={packSize ? packSize * qty : undefined} />
               </div>
             )}
 
