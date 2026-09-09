@@ -2577,18 +2577,23 @@ a.cabinet__iconBtn { text-decoration: none; }
   pointer-events: none;
 }
 
-/* A gutter at each end, the width of an arrow.
+/* Flush left, always.
 
-   The arrows sit ON the rail rather than above it, so without this the chips
-   scrolled underneath them and the first and last of the row were always
-   half-covered by a button. The padding is the arrow's own width plus a
-   margin, so a chip parked at either end clears it — and `scroll-padding`
-   makes the browser's own snapping stop at the same line rather than tucking
-   a chip under the button it just scrolled past. */
+   This used to hold `--rail-gutter` open at BOTH ends: the arrows sit ON the
+   rail rather than above it, so without room the first and last chip of the
+   row were half-covered by a button. That reasoning still holds on the right,
+   where the arrow is — see the override below — but never on the left, where
+   the arrow was moved out into the bar's own padding and, under 1000px, does
+   not exist at all. Left as it was, the pinned rail began 42px inside the
+   margin every other row on the page starts on, for a button that was either
+   somewhere else or nowhere.
+
+   The right gutter is added back, on its own, only at the width the right
+   arrow appears at. */
 .collections--compact .collections__rail {
-  padding: 2px var(--rail-gutter) 2px;
+  padding: 2px 0;
   gap: 6px;
-  scroll-padding-inline: var(--rail-gutter);
+  scroll-padding-inline: 0;
 }
 
 /* No arrows on a touch rail, and no gutter held open for them.
