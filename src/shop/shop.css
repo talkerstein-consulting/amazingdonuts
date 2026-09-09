@@ -2552,6 +2552,30 @@ a.cabinet__iconBtn { text-decoration: none; }
   scroll-padding-inline: var(--rail-gutter);
 }
 
+/* No arrows on a touch rail, and no gutter held open for them.
+
+   The heading's arrow pair is already desktop-only, on the reasoning that a
+   touch rail is swiped and two buttons beside it are two things to mis-tap.
+   The inline pair — the one that sits ON the pinned strip — never got the same
+   treatment, so a phone carried two 30px buttons over a row it scrolls with a
+   finger, plus 42px of gutter at each end holding room for them. 84px of a
+   335px strip, spent on controls that duplicate the swipe.
+
+   They were also the smallest targets on the page at 30px, which is under the
+   44 the filter button beside them is held to.
+
+   Gone below 640, and `--rail-gutter` with them, so the pinned chips start on
+   the same margin as the resting ones rather than 42px inside it. */
+@media (max-width: 640px) {
+  .collections--compact {
+    --rail-gutter: 0px;
+  }
+
+  .collections__arrows--inline {
+    display: none;
+  }
+}
+
 /* A word in a pill, and nothing else.
 
    The face goes with the count. Both earn their place on the resting cards,
@@ -3433,8 +3457,42 @@ a.cabinet__iconBtn { text-decoration: none; }
 }
 .shop-head__filter:hover { box-shadow: inset 0 0 0 2px var(--navy); }
 .shop-head__filter .filter-pin__badge { font-size: 12px; }
+/* On a phone the word goes and the pill shrinks to its glyph — but the thing
+   you press does not.
+
+   44x44 is the floor (Apple's HIG, and WCAG 2.5.5), and the button was sitting
+   exactly on it: 44 wide, 44 tall, on a row where every pixel it takes is one
+   the category chips do not get. Shrinking it to 36 to buy that space would
+   have put it under the floor.
+
+   So the two are separated. The pill is 36x36 — what you see, and what the
+   layout reserves — and `::after` extends the hit area back out to 44x44,
+   centred on it, overhanging into the gap either side. The overhang is inert
+   space: the rail beside it scrolls rather than being tapped, and the bar's
+   own gap is what it grows into. Pressable at 44, drawn at 36. */
 @media (max-width: 640px) {
-  .shop-head__filter { padding: 0 13px; }
+  .shop-head__filter {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    min-height: 0;
+    padding: 0;
+    display: grid;
+    place-items: center;
+  }
+
+  .shop-head__filter::after {
+    content: '';
+    position: absolute;
+    /* (44 - 36) / 2 */
+    inset: -4px;
+    /* Square, not `inherit`. Inheriting the pill's radius makes the target a
+       44px circle, which loses its corners — press slightly off-diagonal and
+       you land on the bar behind it. The box is what gets measured; only the
+       36px pill inside it is visible, so there is nothing to round. */
+    border-radius: 0;
+  }
+
   .shop-head__filter-label { display: none; }
 }
 

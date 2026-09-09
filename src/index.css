@@ -1134,7 +1134,29 @@ nav a,
     box-shadow 180ms ease;
 }
 .category-bar.is-stuck .shop-head__filter { margin-bottom: 0; }
+/* On a phone the catalogue's rail runs edge to edge, at rest as well as pinned.
+
+   It was a card inset by the page gutter with 8px of its own padding, so the
+   first chip started 28px in on a 375px screen — 8px to the right of the line
+   the banner, the headings and the grid all start on, and 8px that the row of
+   chips could not use. Two insets for one edge.
+
+   Full-bleed with the page gutter as the card's own padding gives back both:
+   "Shop all" now begins exactly where everything else on the page does, and
+   the rail is wider by the padding it stopped spending twice. It also matches
+   what the bar becomes when it pins, so the transition is a change of height
+   rather than a change of shape. */
 @media (max-width: 640px) {
+  .shop-category-bar {
+    width: 100%;
+    max-width: none;
+  }
+
+  .shop-category-bar > .category-bar__inner {
+    padding-inline: var(--shop-gutter);
+    border-radius: 0;
+  }
+
   .category-bar__inner {
     padding-inline: 8px;
     /* 8px put the Filter button hard against the tab the rail was cut off at,
