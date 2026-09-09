@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PRODUCTS, type Product } from '../data/products';
 import { customizationFor, minimumQuantityFor, PRINT_PRODUCTS, type Customization } from './custom-order';
+import { recordProductView } from './recently-viewed';
 
 /**
  * The storefront's client state: which view is showing, which product is open,
@@ -193,11 +194,16 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     [route.productId, products]
   );
 
-  /* The last thing they opened, kept for `ReturnPrompt`.
-     `localStorage`, not state: the point of it is to survive the visitor
+  /* The last thing they opened, kept for `ReturnPrompt`, and the running
+     history the product page's "Recently viewed" row reads.
+     `localStorage`, not state: the point of both is to survive the visitor
      leaving, and the prompt that reads it may well be on a different page of
      the site by the time it does — the shop, the Lab and the homepage are three
-     separate documents here. */
+     separate documents here.
+
+     Recorded here rather than in the panel because this is the one place that
+     knows a product was opened, however it was opened — a tile, a deep link, a
+     back button, or one recommendation leading to the next. */
   useEffect(() => {
     if (!product) return;
     try {
@@ -205,6 +211,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     } catch {
       /* Private mode, or storage full. The prompt simply never fires. */
     }
+    recordProductView(product.id);
   }, [product]);
 
   const add = useCallback((p: Product, qty = 1, { openCart = true, customization }: { openCart?: boolean; customization?: Customization } = {}) => {

@@ -33,6 +33,7 @@ import {
 import FinishPicker, { EMPTY_FINISH, type Finish } from './FinishPicker';
 import BoxBuilder from './BoxBuilder';
 import { flyManyToCart, flyToCart } from '../lib/fly-to-cart';
+import { readRecentlyViewed } from '../lib/recently-viewed';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -328,6 +329,36 @@ function Cabinet({ product }: { product: Product }) {
       .sort((a, b) => rank(a) - rank(b))
       .slice(0, 2);
   }, [product]);
+
+  /**
+   * What this visitor looked at before this, most recent first.
+   *
+   * Snapshotted once per product rather than read live. The shop context
+   * records a view the moment the panel opens (see `recordProductView`), so a
+   * live read would put the product you are looking at at the top of its own
+   * "recently viewed" and reshuffle the row underneath you as you moved from
+   * one recommendation to the next. Keyed on `product.id`, the row is the
+   * history as it stood when you arrived — which is what the words mean.
+   *
+   * The current product is filtered out regardless of that ordering, so it
+   * does not matter whether the write lands before or after this read.
+   *
+   * Resolved against `SHOP_PRODUCTS` at render: an id whose product has since
+   * left the catalogue drops out rather than rendering a hole. Four, to match
+   * the row above it.
+   */
+  const recentlyViewed = useMemo(() => {
+    const byId = new Map(SHOP_PRODUCTS.map((p) => [p.id, p]));
+    return readRecentlyViewed()
+      .filter((id) => id !== product.id)
+      .map((id) => byId.get(id))
+      .filter((p): p is Product => Boolean(p))
+      .slice(0, 4);
+    /* `product.id`, not `product`: a re-priced catalogue replaces the object
+       every time Square answers, and re-snapshotting on that would undo the
+       whole point of taking a snapshot. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
 
   // Something from a different counter, and never one of the two already shown
   // in the bundle directly above it.
@@ -963,6 +994,35 @@ function Cabinet({ product }: { product: Product }) {
             <BrandButton variant="outline" className="cabinet__bundleAdd" onClick={addBundle}>
               Add all three
             </BrandButton>
+          </div>
+        </section>
+      )}
+
+      {/* --- recently viewed ---
+
+          Last of the three rows, and last on purpose. "Goes well with" and the
+          bundle are the bakery making a case for something new; this is the
+          visitor's own trail back to what they were already considering. It
+          belongs after the pitch, as the way out of the page rather than
+          another thing to look at on it — someone who has opened four donuts
+          deciding between them should not have to use the back button four
+          times to compare them.
+
+          Absent on a first visit, which is correct: a "recently viewed" row
+          with nothing in it is a heading apologising for itself. */}
+      {recentlyViewed.length > 0 && (
+        <section className="cabinet__pairs">
+          <h3 className="cabinet__pairsTitle">Recently viewed</h3>
+          <div className="cabinet__pairsGrid">
+            {recentlyViewed.map((p) => (
+              <button key={p.id} type="button" onClick={() => openProduct(p.id)} className="cabinet__pairCard">
+                <span className="cabinet__pairBed">
+                  <img src={p.img} alt="" loading="lazy" />
+                </span>
+                <strong>{p.name}</strong>
+                <span className="cabinet__pairPrice">{p.price}</span>
+              </button>
+            ))}
           </div>
         </section>
       )}
