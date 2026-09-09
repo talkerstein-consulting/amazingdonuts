@@ -425,7 +425,7 @@ export default function Catalog() {
           AND the fulfillment band, and the band is only there once a choice has
           been made. */}
       <div className="home-rail" style={{ ['--rail-top' as string]: `${chromeBottom}px` }}>
-        <CollectionRail active={null} onPick={jumpTo} />
+        <CollectionRail active={null} onPick={jumpTo} compact />
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

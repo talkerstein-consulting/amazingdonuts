@@ -79,10 +79,13 @@ const faceFor = (category: Category | null, taken: Set<string>): Product => {
 
 export default function CollectionRail({
   active,
-  onPick
+  onPick,
+  compact = false
 }: {
   active: Category | null;
   onPick: (next: Category | null) => void;
+  /** The sticky homepage strip: one row, no heading, arrows on the edges. */
+  compact?: boolean;
 }) {
   const rail = useRef<HTMLDivElement | null>(null);
   /* Which arrows to draw. A rail that fits its content needs neither, and an
@@ -139,38 +142,54 @@ export default function CollectionRail({
     ...counters
   ];
 
+  const arrows = (
+    <div className="collections__arrows">
+      <button
+        type="button"
+        onClick={() => nudge(-1)}
+        disabled={!edges.start}
+        aria-label="Previous categories"
+      >
+        <ChevronLeft size={18} strokeWidth={2.6} />
+      </button>
+      <button
+        type="button"
+        onClick={() => nudge(1)}
+        disabled={!edges.end}
+        aria-label="Next categories"
+      >
+        <ChevronRight size={18} strokeWidth={2.6} />
+      </button>
+    </div>
+  );
+
   return (
-    <section className="collections" aria-label="Categories">
+    <section
+      className={`collections${compact ? ' collections--compact' : ''}`}
+      aria-label="Categories"
+    >
+      {/* The compact rail has no heading and no head row at all: it is a strip
+          that sticks under the navbar while the page scrolls past, and a
+          section title repeated down the whole page is a title that has
+          stopped titling anything. The arrows move onto the rail's own edges
+          instead of sitting above it. */}
+      {!compact && (
       <div className="collections__head">
         <h2 className="collections__title">Categories</h2>
         {/* Desktop affordance only — a touch rail is swiped, and two buttons
             beside it are two things to mis-tap. Hidden by CSS, not by a width
             check here, so there is no breakpoint kept in two places. */}
-        <div className="collections__arrows">
-          <button
-            type="button"
-            onClick={() => nudge(-1)}
-            disabled={!edges.start}
-            aria-label="Previous categories"
-          >
-            <ChevronLeft size={18} strokeWidth={2.6} />
-          </button>
-          <button
-            type="button"
-            onClick={() => nudge(1)}
-            disabled={!edges.end}
-            aria-label="Next categories"
-          >
-            <ChevronRight size={18} strokeWidth={2.6} />
-          </button>
-        </div>
+        {arrows}
       </div>
+      )}
 
       {/* The fades are on the wrapper, not the scrollport: a scrolling element
           cannot paint anything that stays still over its own content. Each one
           is only drawn when there is something past that edge — a permanent
           gradient on a rail that fits reads as a rendering fault. */}
       <div className={`collections__scroller${edges.start ? ' has-start' : ''}${edges.end ? ' has-end' : ''}`}>
+      {/* Over the rail rather than above it, so the strip is one row tall. */}
+      {compact && arrows}
       <div className="collections__rail" ref={rail}>
         {cards.map((card) => {
           const on = active === card.id;
