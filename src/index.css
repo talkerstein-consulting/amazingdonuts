@@ -350,6 +350,57 @@ nav a,
   text-decoration-color: currentColor;
 }
 
+/* The two studio lockups, as the ends of one line: Handcrafted on the left,
+   RescueMyWebsite across from it on the right.
+
+   Sized by HEIGHT here. The artwork is 1981x148 and 2612x148 - the same cap
+   height, different lengths, because one name is longer than the other - so a
+   shared height sets both names at one size, and matching their widths instead
+   would set the same words at two. */
+.footer-credits {
+  /* Room above it. The credits are a separate register from the link columns -
+     whose site this is, not what is on it - and with the copyright line gone
+     they sat right under the last link as if they were one more of them. */
+  margin-top: clamp(44px, 6vw, 92px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(20px, 4vw, 56px);
+}
+
+.footer-credits__mark {
+  display: block;
+}
+
+.footer-credits__mark img {
+  display: block;
+  width: auto;
+  height: 18pt;
+}
+
+/* Stacked, the row's logic inverts. Two marks in a column are read as a list,
+   and a list of two different lengths is ragged where the row was two ends of
+   one line - so on a phone they share a WIDTH and centre on it. */
+@media (max-width: 700px) {
+  .footer-credits {
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  /* Full width of the column, both of them: the wider mark sets the measure
+     and the narrower one matches it, so the stack has one left edge and one
+     right edge rather than two ragged ones. */
+  .footer-credits__mark {
+    width: 100%;
+  }
+
+  .footer-credits__mark img {
+    width: 100%;
+    height: auto;
+  }
+}
+
 /* Wordmark drawn as a mask so it inherits whatever colour the nav bar is wearing. */
 .nav-logo {
   display: block;
@@ -1121,7 +1172,13 @@ nav a,
   padding: 14px 16px;
   border-radius: 24px;
   background: var(--cream);
-  transition: padding var(--category-morph-duration) var(--category-morph-ease),
+  /* padding-BLOCK only. The horizontal padding is what places the row on the
+     page's own margin, and pinning changes the box it is measured from in one
+     frame while a transition would take 360ms to catch up - so the chips slid
+     in from the far left on every pin, which read as the rail shifting left
+     and then shrinking rather than the bar changing height. Horizontally it
+     lands where it belongs immediately; the height is what animates. */
+  transition: padding-block var(--category-morph-duration) var(--category-morph-ease),
     border-radius var(--category-morph-duration) var(--category-morph-ease),
     box-shadow var(--category-morph-duration) var(--category-morph-ease);
 }
@@ -1161,9 +1218,32 @@ nav a,
   margin-inline: 0;
 }
 
+/* At rest the homepage's rail is a card, and a card has an inset: its edge sat
+   on the page's margin and its first chip 16px inside that - the same "two
+   insets for one edge" the catalogue's bar was fixed for, and the 16px the
+   chips snapped away the moment it pinned.
+
+   The card keeps its padding and gives back the same amount in margin, so the
+   CHIPS line up with the box cards above and the pin becomes a change of
+   height with no sideways movement at all. 16px is inside the band's own
+   padding (18px at its narrowest), so the card never escapes the band. */
+.home-rail:not(.is-stuck) > .category-bar__inner {
+  margin-inline: -16px;
+}
+
+/* The homepage's rail is a card inside `.section-band` - a 1240px column with
+   its own padding - and pinning takes it out to 100vw. Without this the chips
+   jumped from the band's edge to 40px off the bezel the moment it stuck: the
+   same row of categories in two different places. Same measure as the
+   catalogue's, read off the band it belongs to. */
+.home-rail.is-stuck .category-bar__inner {
+  --home-band-pad: clamp(18px, 4vw, 40px);
+  --category-edge: max(var(--home-band-pad), calc(50% - 620px + var(--home-band-pad)));
+}
+
 .category-bar.is-stuck .category-bar__inner {
   padding-block: 5px;
-  padding-inline: var(--shop-gutter, clamp(18px, 4vw, 40px));
+  padding-inline: var(--category-edge, var(--shop-gutter, clamp(18px, 4vw, 40px)));
   border-radius: 0;
   box-shadow: inset 0 -1px 0 rgba(14, 62, 105, 0.12);
 }
@@ -1171,6 +1251,24 @@ nav a,
   width: calc(100% - 2 * var(--shop-gutter));
   max-width: calc(1400px - 2 * var(--shop-gutter));
   margin-inline: auto;
+}
+
+/* The page's own left and right edge, as one number.
+
+   The band runs edge to edge in both states - it is the navbar's second row,
+   and a centred strip with page either side of it reads as a floating pill.
+   Its CONTENTS must not: the box cards, the section headings and the tiles all
+   sit in a 1400px column with the gutter inside it, so past 1400px the gutter
+   alone is no longer the page's margin. It was still the bar's, which is why
+   at 1600px the chips began 40px from the bezel while The Sweet Six began at
+   135 - the one row on the page that did not line up with the rest of it.
+
+   Padding rather than a max-width, because the background has to stay full
+   width. Under 1400px the second term goes negative and this is the plain
+   gutter it always was. */
+.shop-category-bar > .category-bar__inner {
+  --category-edge: max(var(--shop-gutter), calc(50% - 700px + var(--shop-gutter)));
+  padding-inline: var(--category-edge);
 }
 .category-bar__inner > .shop-head__filter {
   margin-bottom: 26px;
@@ -1200,7 +1298,6 @@ nav a,
 }
 
 .shop-category-bar > .category-bar__inner {
-  padding-inline: var(--shop-gutter);
   border-radius: 0;
 }
 

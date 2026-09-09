@@ -382,45 +382,38 @@ export default function Footer({ ready }: { ready: boolean }) {
           )}
         </motion.div>
 
-        <motion.div
-          variants={item}
-          style={{
-            marginTop: 32,
-            paddingTop: 20,
-            borderTop: '1px solid rgba(14,62,105,.12)',
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16
-          }}
-        >
-          {/* The credit sits with the copyright, not in the link columns: it
-              is a signature on the work, and the columns are for things a
-              customer came here to find. Quiet by design — same size and
-              muted navy as the copyright beside it, with only the name taking
-              full weight on hover. */}
-          <p style={{ margin: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 10px', fontSize: 14, color: 'rgba(14,62,105,.5)' }}>
-            <span>© 2026 Amazing Donuts</span>
-            <span aria-hidden="true" style={{ color: 'rgba(14,62,105,.28)' }}>·</span>
-            <span>
-              Designed and built by{' '}
-              <a
-                href="https://talkerstein.ca"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="footer-credit"
-              >
-                Talkerstein Consulting
-              </a>
-            </span>
-          </p>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <a href="https://www.facebook.com/amazingdonuts/" target="_blank" rel="noopener noreferrer" aria-label="Amazing Donuts on Facebook" className="footer-icon-btn" style={{ color: 'var(--navy)' }}>
-              <Facebook size={20} strokeWidth={2.2} />
+        {/* Was a `space-between` row holding the copyright and the socials.
+            The socials have gone up beside the logo and the copyright line has
+            gone too, so what is left is the credit block, centred on its own. */}
+        <motion.div variants={item} className="footer-baseline">
+          {/* Two lockups rather than a line of type.
+
+              The credit was "Designed and built by Talkerstein Consulting" set
+              in the copyright's own size and colour. These say the same thing
+              in the two studios' own marks — and a supplied lockup is not
+              something to re-typeset, so they are the artwork as given.
+
+              Handcrafted leads, on the left; RescueMyWebsite answers it across
+              the row. On a phone the row becomes a stack and the two are set
+              to one WIDTH instead: a column of two marks is read as a list, and
+              a list whose items are different lengths reads as ragged where the
+              row read as two ends of one line. */}
+          <div className="footer-credits">
+            <a
+              href="https://talkerstein.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="footer-credits__mark"
+            >
+              <img src="/img/credit-talkerstein.png" alt="Handcrafted by Talkerstein Consulting" loading="lazy" />
             </a>
-            <a href="https://www.instagram.com/amazingdonutsto/" target="_blank" rel="noopener noreferrer" aria-label="Amazing Donuts on Instagram" className="footer-icon-btn" style={{ color: 'var(--navy)' }}>
-              <Instagram size={20} strokeWidth={2.2} />
+            <a
+              href="https://rescuemywebsite.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="footer-credits__mark"
+            >
+              <img src="/img/credit-rescuemywebsite.png" alt="Powered by RescueMyWebsite.ai" loading="lazy" />
             </a>
           </div>
         </motion.div>

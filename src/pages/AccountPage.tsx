@@ -1,13 +1,22 @@
 import { useEffect, useRef, useState, type InputHTMLAttributes } from "react";
 import { ArrowLeft, Building2, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, ReceiptText, Truck, UserRound, X } from "lucide-react";
-import { PRODUCTS } from "../data/products";
+import { BOX_BUILDER_IDS, PRODUCTS } from "../data/products";
+import { GLYPH_PRODUCTS, PRINT_PRODUCTS } from "../lib/custom-order";
 import AuthModal from "../shop/AuthModal";
-import CommerceLogo from "./CommerceLogo";
 import "../index.css";
 import "../components/brand/brand.css";
 import "../shop/shop.css";
 import "./commerce.css";
 import AddressAutocomplete, { type Address, type SavedAddress } from "../components/AddressAutocomplete";
+import ProductTile from "../components/ProductTile";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
+import PickupBanner from "../components/PickupBanner";
+import { NavThemeProvider } from "../lib/nav-theme";
+import SquircleDefs from "../components/brand/SquircleDefs";
+import CartDrawer from "../shop/CartDrawer";
+import ProductPanel from "../shop/ProductPanel";
+import { ShopProvider, useBoxQty, useShop } from "../lib/shop";
 import { formatNorthAmericanPhone } from "../lib/phone";
 
 const cash = (n: number, c = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency: c }).format(Number(n || 0) / 100);
@@ -94,7 +103,46 @@ async function api(path: string, options?: RequestInit) {
 
 type View = "orders" | "wishlist" | "profile" | "house";
 
+/**
+ * The account screens run inside the shop's store.
+ *
+ * The wishlist draws real product tiles, and a tile is a live control: it can
+ * be opened and it can be added to the bag. Both need `ShopProvider`, and the
+ * panel and the drawer have to be on the page for the two actions to land
+ * somewhere — the same three pieces the search results page wraps itself in
+ * for exactly the same reason.
+ */
 export default function AccountPage() {
+  const [authOpen, setAuthOpen] = useState(false);
+  return (
+    <NavThemeProvider>
+      <ShopProvider>
+        <SquircleDefs />
+        {/* The site's own navbar and footer, not a stripped commerce bar of
+            this page's own. The account is a page of the site: it needs the
+            menu, the search, and above all the bag - a wishlist that can add
+            to the cart with no bag on screen was an add going nowhere the
+            visitor could see. */}
+        <Header onSignIn={() => setAuthOpen(true)} />
+        <PickupBanner />
+        <AccountShell />
+        <Footer ready />
+        <ProductPanelHost />
+        <CartDrawer />
+        <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      </ShopProvider>
+    </NavThemeProvider>
+  );
+}
+
+/* The panel renders only for the product that is open, and reads that from the
+   store rather than being handed it. */
+function ProductPanelHost() {
+  const { product } = useShop();
+  return product ? <ProductPanel key={product.id} product={product} /> : null;
+}
+
+function AccountShell() {
   const resetToken = new URLSearchParams(location.search).get("reset");
   const statementToken = new URLSearchParams(location.search).get("statement");
   const [session, setSession] = useState<any>();
@@ -146,20 +194,6 @@ export default function AccountPage() {
     );
   return (
     <main className="commerce-shell">
-      <header className="commerce-top">
-        <a href="/shop/">
-          <ArrowLeft /> Shop
-        </a>
-        <CommerceLogo />
-        <button
-          onClick={async () => {
-            await api("/auth/logout", { method: "POST" });
-            location.assign("/shop/");
-          }}
-        >
-          <LogOut /> Sign out
-        </button>
-      </header>
       <div className="account-layout">
         <aside className="account-nav">
           <div className="account-person">
@@ -172,17 +206,37 @@ export default function AccountPage() {
             </strong>
             <small>{session.user.email}</small>
           </div>
-          <button className={view === "orders" ? "active" : ""} onClick={() => setView("orders")}>
-            <Package /> Orders
+          <button className={view === "orders" ? "active" : ""} onClick={() => setView("orders")} aria-label="Orders" title="Orders">
+            <Package />
+            <span>Orders</span>
           </button>
-          <button className={view === "wishlist" ? "active" : ""} onClick={() => setView("wishlist")}>
-            <Heart /> Wishlist
+          <button className={view === "wishlist" ? "active" : ""} onClick={() => setView("wishlist")} aria-label="Wishlist" title="Wishlist">
+            <Heart />
+            <span>Wishlist</span>
           </button>
-          <button className={view === "profile" ? "active" : ""} onClick={() => setView("profile")}>
-            <UserRound /> Profile
+          <button className={view === "profile" ? "active" : ""} onClick={() => setView("profile")} aria-label="Profile" title="Profile">
+            <UserRound />
+            <span>Profile</span>
           </button>
-          <button className={view === "house" ? "active" : ""} onClick={() => setView("house")}>
-            <Building2 /> Institutional account
+          <button className={view === "house" ? "active" : ""} onClick={() => setView("house")} aria-label="Institutional account" title="Institutional account">
+            <Building2 />
+            <span data-short="Institutional">Institutional account</span>
+          </button>
+          {/* Sign out lived in the page's own top bar. The site navbar replaced
+              that bar, and this is the one control on it with nowhere else to
+              go - so it joins the account's own list, set apart from the four
+              views because it is not one of them. */}
+          <button
+            className="account-nav__signout"
+            onClick={async () => {
+              await api("/auth/logout", { method: "POST" });
+              location.assign("/shop/");
+            }}
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut />
+            <span>Sign out</span>
           </button>
           {session.houseAccount && (
             <div className="house-credit">
@@ -230,9 +284,38 @@ export default function AccountPage() {
   );
 }
 
+/**
+ * The saved products, drawn by the catalogue's own tile.
+ *
+ * This used to be a card of its own — a plain square photo, a name, a price,
+ * and a heart. Four properties of the same object as `ProductTile`, already
+ * drifted from it: no squircle bed, no tag, no add knob, a different type
+ * scale. A visitor's favourites are the last place a product should look less
+ * like itself than it does in the grid they saved it from, so the wishlist
+ * renders the same component the catalogue, the search results and the nav
+ * drawer render.
+ *
+ * The heart moves to the top-LEFT of the bed. Top-right is where the add knob
+ * lives on every tile on the site, and two controls cannot share that corner.
+ */
+/* A saved product that cannot simply be dropped in the bag: a print, a letter
+   cake and a build-your-own box are all configured on their own page before
+   they mean anything, and adding one with a blank spec makes a line checkout
+   will refuse. "Add all" takes the rest and says how many it took. */
+const needsConfiguring = (id: string) => PRINT_PRODUCTS.has(id) || GLYPH_PRODUCTS.has(id) || BOX_BUILDER_IDS.has(id);
+
 function Wishlist({productIds,onRemoved}:{productIds:string[];onRemoved:(id:string)=>void}) {
+  const {openProduct,add,openCart}=useShop();
+  const boxQty=useBoxQty();
   const products=productIds.flatMap(id=>{const product=PRODUCTS.find(item=>item.id===id);return product?[product]:[]});
-  return <><div className="commerce-heading"><p>Saved for later</p><h1>Your wishlist</h1></div>{products.length?<div className="wishlist-grid">{products.map(product=><article key={product.id}><a href={`/shop/#product/${product.id}`}><img src={product.img} alt=""/><span><strong>{product.name}</strong><small>{product.price}</small></span></a><button type="button" onClick={async()=>{await api(`/storefront/wishlist/${product.id}`,{method:"DELETE"});onRemoved(product.id);}} aria-label={`Remove ${product.name} from wishlist`}><Heart fill="currentColor"/></button></article>)}</div>:<div className="no-orders"><Heart/><h2>No saved favourites yet</h2><p>Tap the heart on any product to keep it here.</p><a href="/shop/">Browse products</a></div>}</>;
+  const addable=products.filter(product=>!needsConfiguring(product.id));
+  const skipped=products.length-addable.length;
+  return <><div className="commerce-heading"><p>Saved for later</p><h1>Your wishlist</h1></div>{products.length?<>{addable.length>0&&<div className="wishlist-actions"><button type="button" className="wishlist-actions__add" onClick={()=>{
+    /* One drawer at the end, not one per product: the adds are silent and the
+       bag opening once is the confirmation for all of them. */
+    addable.forEach(product=>add(product,1,{openCart:false}));
+    openCart();
+  }}>Add all to bag{addable.length===products.length?"":` (${addable.length})`}</button>{skipped>0&&<small>{skipped===1?"One saved product is made to order":`${skipped} saved products are made to order`} — open {skipped===1?"it":"them"} to choose the details.</small>}</div>}<div className="shop-grid wishlist-grid">{products.map(product=><article key={product.id} className="wishlist-tile"><ProductTile product={product} onOpen={item=>openProduct(item.id)} inBox={Boolean(boxQty[product.id])} bedCorner={<button type="button" className="wishlist-tile__remove" onClick={async()=>{await api(`/storefront/wishlist/${product.id}`,{method:"DELETE"});onRemoved(product.id);}} aria-label={`Remove ${product.name} from wishlist`} title="Remove from wishlist"><Heart fill="currentColor"/></button>}/></article>)}</div></>:<div className="no-orders"><Heart/><h2>No saved favourites yet</h2><p>Tap the heart on any product to keep it here.</p><a href="/shop/">Browse products</a></div>}</>;
 }
 
 function PasswordReset({token}:{token:string}){

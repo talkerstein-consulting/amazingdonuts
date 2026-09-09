@@ -257,9 +257,17 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       return;
     }
     const removing = wishlist.includes(id);
-    const response = await fetch(`/api/house/storefront/wishlist/${encodeURIComponent(id)}`, { method: removing ? 'DELETE' : 'PUT' });
-    if (!response.ok) throw new Error('Wishlist could not be updated.');
+    /* Paint first, then confirm. The heart is the whole feedback for this
+       control, so it has to answer the tap - but it must not keep a filled
+       state the server never stored, which is how a save looks taken and is
+       gone on the next load. A rejected write puts it back. */
     setWishlist((current) => removing ? current.filter((item) => item !== id) : [id, ...current.filter((item) => item !== id)]);
+    try {
+      const response = await fetch(`/api/house/storefront/wishlist/${encodeURIComponent(id)}`, { method: removing ? 'DELETE' : 'PUT' });
+      if (!response.ok) throw new Error('Wishlist could not be updated.');
+    } catch {
+      setWishlist((current) => removing ? [id, ...current.filter((item) => item !== id)] : current.filter((item) => item !== id));
+    }
   }, [signedIn, wishlist]);
 
   const value = useMemo<Store>(() => {

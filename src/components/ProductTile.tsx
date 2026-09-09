@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Badge, C, F, SQUIRCLE } from './brand';
 import { tagFor } from '../data/product-tags';
 import type { Product } from '../data/products';
@@ -17,15 +18,22 @@ import AddControl from './AddControl';
  * Only the card. Whatever renders it decides whether it animates in: the
  * catalogue wraps it in a `motion.article` because the entry animation and the
  * layout projection belong to the grid, not to the tile.
+ *
+ * `bedCorner` is for a control that belongs to the photo rather than to the
+ * product — the wishlist's remove heart. It goes inside the bed's own
+ * positioning context, so a caller can put it against the picture instead of
+ * against the whole tile, name and price included.
  */
 export default function ProductTile({
   product,
   onOpen,
-  inBox
+  inBox,
+  bedCorner
 }: {
   product: Product;
   onOpen: (product: Product) => void;
   inBox: boolean;
+  bedCorner?: ReactNode;
 }) {
   return (
     <>
@@ -70,6 +78,7 @@ export default function ProductTile({
         </button>
 
         <AddControl product={product} />
+        {bedCorner}
       </div>
 
       <button
