@@ -395,7 +395,26 @@ export default function Footer({ ready }: { ready: boolean }) {
             gap: 16
           }}
         >
-          <p style={{ margin: 0, fontSize: 14, color: 'rgba(14,62,105,.5)' }}>© 2026 Amazing Donuts</p>
+          {/* The credit sits with the copyright, not in the link columns: it
+              is a signature on the work, and the columns are for things a
+              customer came here to find. Quiet by design — same size and
+              muted navy as the copyright beside it, with only the name taking
+              full weight on hover. */}
+          <p style={{ margin: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 10px', fontSize: 14, color: 'rgba(14,62,105,.5)' }}>
+            <span>© 2026 Amazing Donuts</span>
+            <span aria-hidden="true" style={{ color: 'rgba(14,62,105,.28)' }}>·</span>
+            <span>
+              Designed and built by{' '}
+              <a
+                href="https://talkerstein.ca"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="footer-credit"
+              >
+                Talkerstein Consulting
+              </a>
+            </span>
+          </p>
           <div style={{ display: 'flex', gap: 4 }}>
             <a href="https://www.facebook.com/amazingdonuts/" target="_blank" rel="noopener noreferrer" aria-label="Amazing Donuts on Facebook" className="footer-icon-btn" style={{ color: 'var(--navy)' }}>
               <Facebook size={20} strokeWidth={2.2} />

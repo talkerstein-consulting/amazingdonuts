@@ -1397,6 +1397,37 @@ a.cabinet__iconBtn { text-decoration: none; }
   color: var(--navy);
 }
 
+/* The dead-end rescue: the apology, then what to buy instead.
+
+   Set apart from the grid above it with a rule rather than just space, because
+   these tiles are NOT results — they are the bakery's own bestsellers standing
+   in for a search that found nothing, and a row of products directly under a
+   query line would otherwise read as matches for it. */
+.shop-empty {
+  margin-top: clamp(8px, 1.4vw, 16px);
+}
+
+.shop-empty__title {
+  margin: clamp(22px, 2.6vw, 34px) 0 clamp(14px, 1.6vw, 20px);
+  padding-top: clamp(20px, 2.4vw, 30px);
+  border-top: 1px solid rgba(14, 62, 105, 0.14);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(22px, 3.4vw, 30px);
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* The catalogue grid's own columns, so a suggested tile is the same object at
+   the same size as a result — but it never runs past one row, because four
+   consolation products should not out-scroll the thing they are consoling.
+   `.shop-grid` gives it 2/3/4 columns; the cap keeps the count matched to
+   whichever it is. */
+.shop-empty__grid {
+  align-content: start;
+}
+
 .shop-query__clear {
   padding: 0;
   border: none;
@@ -1836,6 +1867,24 @@ a.cabinet__iconBtn { text-decoration: none; }
   .cabinet__buybar .cabinet__buybarButton {
     flex: 1;
     justify-content: space-between;
+    /* The knob gets the same inset as the label.
+
+       `--bbtn-pad-r` is 8px against a 30px left, which is right for an inline
+       button sized by its own content — the knob is the trailing ornament and
+       tucking it in keeps the pill tight. Stretched to fill a phone's bar it
+       is not that button any more: the knob ends up 6px from the pill's edge
+       and 18px from the screen's, so the one round object in the row looks
+       pushed off the side while the label sits comfortably indented. Matching
+       the two puts the arrow back inside the button. */
+    --bbtn-pad-l: 20px;
+    --bbtn-pad-r: 20px;
+  }
+
+  /* The knob is `--bbtn-knob` wide and the padding above now sits outside it,
+     so the pill would grow by the difference. It has a row to fill, not a
+     width to keep. */
+  .cabinet__buybar .cabinet__buybarButton .bbtn__knob {
+    flex: none;
   }
 }
 
@@ -2276,7 +2325,24 @@ a.cabinet__iconBtn { text-decoration: none; }
     gap: 10px;
   }
 
-  .cabinet__bundle .cabinet__bundleAdd { width: 100%; }
+  /* Full width, and laid out like one.
+
+     It was only `width: 100%`. The pill is not `.bbtn--block`, so it kept the
+     inline button's packing: label and knob bunched against the left edge with
+     a stretch of empty outline to the right of them, which is what made the
+     row look broken rather than wide. Every other full-width button on the
+     site puts its label at the start and its knob at the end, and this is the
+     rule that does it.
+
+     Even padding for the same reason as the sticky buy bar: `--bbtn-pad-r` is
+     8px because an inline button tucks its knob in, and a stretched one has no
+     reason to. */
+  .cabinet__bundle .cabinet__bundleAdd {
+    width: 100%;
+    justify-content: space-between;
+    --bbtn-pad-l: 20px;
+    --bbtn-pad-r: 20px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2373,6 +2439,12 @@ a.cabinet__iconBtn { text-decoration: none; }
   min-width: 0;
 }
 
+/* One number for the fade's width and the rail's snap padding, so a tab can
+   never come to rest underneath its own fade. */
+.collections {
+  --collection-fade: clamp(36px, 5vw, 56px);
+}
+
 .collections__scroller::before,
 .collections__scroller::after {
   content: '';
@@ -2380,7 +2452,7 @@ a.cabinet__iconBtn { text-decoration: none; }
   z-index: 2;
   top: 0;
   bottom: 0;
-  width: clamp(28px, 5vw, 56px);
+  width: var(--collection-fade);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s ease;
@@ -2527,7 +2599,20 @@ a.cabinet__iconBtn { text-decoration: none; }
   gap: clamp(10px, 1.4vw, 16px);
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
+  /* Mandatory, not proximity.
+
+     Proximity lets the rail come to rest wherever the finger left it, which on
+     a phone means a tab parked half under the fade — and on the catalogue,
+     where the Filter button takes 44px off an already narrow scrollport, half
+     a tab sitting against that button does not read as a row that continues.
+     It reads as the button covering the word. Mandatory means the rail always
+     settles on a tab boundary: what is on screen is whole.
+
+     `scroll-padding-inline` is the other half of it. Without it "the start of
+     the scrollport" is behind the fade, so the snapped tab is aligned to a
+     position where its first letters are still being faded out. */
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--collection-fade, 28px);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   /* Room for the hover lift, which the scrollport's own overflow would
@@ -2535,6 +2620,18 @@ a.cabinet__iconBtn { text-decoration: none; }
   padding: 4px 0 6px;
   transition: padding var(--category-morph-duration) var(--category-morph-ease),
     gap var(--category-morph-duration) var(--category-morph-ease);
+}
+
+/* The last tab snaps to the trailing edge instead of the leading one.
+
+   Every tab aligned `start`, the final one can only satisfy its snap position
+   by scrolling until its left edge is at the scrollport's start — which is
+   past the end of the content, so the rail rests showing the last tab and a
+   band of empty Shortbread beside it. Aligning the end of the row to the end
+   of the port is the same rule read from the other side, and there is nothing
+   after it to leave a gap. */
+.collections__rail > :last-child {
+  scroll-snap-align: end;
 }
 
 .collections__rail::-webkit-scrollbar { display: none; }

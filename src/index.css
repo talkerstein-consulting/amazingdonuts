@@ -297,6 +297,25 @@ nav a,
   color: var(--cream) !important;
 }
 
+/* The build credit. Underlined on its own so it reads as a link at the size
+   and opacity the copyright line sets, and takes full navy on hover rather
+   than growing or changing colour — the row it sits in is the quietest on the
+   page and should stay that way. */
+.footer-credit {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(14, 62, 105, 0.28);
+  text-underline-offset: 3px;
+  transition: color 0.18s ease, text-decoration-color 0.18s ease;
+}
+
+.footer-credit:hover,
+.footer-credit:focus-visible {
+  color: var(--navy);
+  text-decoration-color: currentColor;
+}
+
 /* Wordmark drawn as a mask so it inherits whatever colour the nav bar is wearing. */
 .nav-logo {
   display: block;
@@ -621,8 +640,11 @@ nav a,
   }
 }
 
+/* Between the lede and the buttons now — see `Hero`. The margin above it is
+   the lede's paragraph spacing; the one below opens the gap the CTAs need so
+   the rating does not read as a label on them. */
 .hero__proof {
-  margin-top: clamp(10px, 1.4vw, 16px);
+  margin-top: clamp(14px, 1.8vw, 22px);
 }
 
 /* The hero's rating stays on a phone, unlike the trust band's.
@@ -635,6 +657,12 @@ nav a,
   .hero__proof .review-score {
     display: inline-flex;
   }
+}
+
+/* The rating no longer ends the stack, so the buttons take their own top
+   margin from it rather than from the lede. */
+.hero__proof + .hero__actions {
+  margin-top: clamp(14px, 1.8vw, 22px);
 }
 
 .review-score__count {
@@ -1089,8 +1117,27 @@ nav a,
 @media (max-width: 640px) {
   .category-bar__inner {
     padding-inline: 8px;
-    gap: 8px;
+    /* 8px put the Filter button hard against the tab the rail was cut off at,
+       close enough that the pair read as one overlapping the other. The rule
+       and the wider gap say the button is a separate control beside the row,
+       not something sitting on top of it — and the rail's fade now runs out
+       into that gap rather than ending under the button. */
+    gap: 12px;
     border-radius: 20px;
+  }
+  /* A rule between the two, drawn in the gap rather than on the button — the
+     button keeps its own pill, and the line is what says the row ends here. */
+  .category-bar__inner > .shop-head__filter {
+    position: relative;
+  }
+  .category-bar__inner > .shop-head__filter::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    top: 4px;
+    bottom: 4px;
+    width: 1px;
+    background: rgba(14, 62, 105, 0.14);
   }
   .category-bar__inner .collections__title { font-size: 28px; }
 }
@@ -1629,6 +1676,36 @@ nav a,
   .regulars-cols {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* The phone's "there are more" control. Deliberately not a brand button: it
+   reveals what is already on the page rather than taking you anywhere, and the
+   one filled action in this region should stay the product card inside each
+   review. An outlined row, full width, sized like the cards it follows. */
+.regulars-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 20px;
+  border: none;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.22);
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--navy);
+  transition: box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.regulars-more:hover,
+.regulars-more:focus-visible {
+  background: rgba(14, 62, 105, 0.04);
+  box-shadow: inset 0 0 0 2px var(--navy);
 }
 
 .regulars-card {
@@ -2230,6 +2307,7 @@ html.lenis,
 .home-category {
   scroll-margin-top: var(--home-category-offset, calc(var(--nav-h) + 104px));
 }
+
 @media (max-width: 640px) {
   .home-categories { gap: 48px; }
 }

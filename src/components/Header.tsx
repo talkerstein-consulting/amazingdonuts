@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
-import { Menu, Plus, Search, ShoppingBag, User, X } from 'lucide-react';
+import { Heart, Menu, Plus, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useNavTheme } from '../lib/nav-theme';
 import { useShop } from '../lib/shop';
+import { flyToCart } from '../lib/fly-to-cart';
 import { CATEGORIES, PRODUCTS, SHOP_PRODUCTS } from '../data/products';
 import { BEST_SELLERS } from '../data/product-tags';
 import { LAB_HREF } from '../lib/lab-href';
@@ -97,7 +98,7 @@ const BESTSELLERS = [...BEST_SELLERS]
 export default function Header({ onSignIn }: { onSignIn: () => void }) {
   const isDesktop = useIsDesktop();
   const { theme } = useNavTheme();
-  const { openCart, count } = useShop();
+  const { openCart, count, add } = useShop();
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -107,6 +108,10 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
   const [signedIn, setSignedIn] = useState(false);
   const searchFormRef = useRef<HTMLFormElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
+  /* The drawer has its own field. One ref could not serve both: only one of
+     the two is mounted at a time, and an empty submit from the drawer was
+     focusing a desktop input that did not exist. */
+  const drawerSearchRef = useRef<HTMLInputElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
 
   /* The active state, straight off the pathname. */
@@ -132,7 +137,7 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
        read the field.
        Empty now means stay put and keep the cursor where it is. */
     if (!q) {
-      searchRef.current?.focus();
+      (searchRef.current ?? drawerSearchRef.current)?.focus();
       return;
     }
 
@@ -195,6 +200,22 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
   const drawerItem: Variants = {
     hidden: { opacity: 0, x: shouldReduceMotion ? 0 : 24 },
     visible: { opacity: 1, x: 0, transition: { duration: 0.4, ease: EASE } }
+  };
+  /* The nav rows below are a link or a button depending on who is looking, and
+     the two have to be the same row. */
+  const drawerRow: CSSProperties = {
+    minHeight: 56,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: 0,
+    borderBottom: '1px solid rgba(251,247,239,.12)',
+    fontFamily: 'var(--font-cta)',
+    fontWeight: 700,
+    fontSize: 22,
+    letterSpacing: '.04em',
+    textTransform: 'uppercase',
+    color: 'var(--cream)'
   };
 
   return (
@@ -489,11 +510,28 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                   border: '1px solid rgba(251,247,239,.22)'
                 }}
               >
-                <Search size={18} strokeWidth={2.25} style={{ flex: 'none', color: 'rgba(251,247,239,.7)' }} />
+                {/* A real submit, not the decoration it was. The drawer's
+                    keyboard shows a search key, but the magnifier beside the
+                    field is the thing people press. */}
+                <button
+                  type="submit"
+                  aria-label="Search"
+                  style={{ flex: 'none', display: 'grid', placeItems: 'center', width: 24, height: 24, padding: 0, border: 'none', background: 'transparent', color: 'rgba(251,247,239,.7)', cursor: 'pointer' }}
+                >
+                  <Search size={18} strokeWidth={2.25} />
+                </button>
+                {/* Controlled, like the bar's field. It was not, so everything
+                    typed here went nowhere: `submitSearch` reads `query`, which
+                    stayed empty, took the empty-submit branch and returned. A
+                    phone's only search box did nothing at all. */}
                 <input
+                  ref={drawerSearchRef}
                   type="search"
+                  enterKeyHint="search"
                   placeholder="What are you craving?"
                   aria-label="Search the menu"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
                   style={{
                     flex: 1,
                     minWidth: 0,
@@ -553,33 +591,51 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                   <OpenStatus color="var(--cream)" />
                 </motion.div>
 
-                <motion.button
-                  variants={drawerItem}
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    onSignIn();
-                  }}
-                  style={{
-                    minHeight: 56,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    borderBottom: '1px solid rgba(251,247,239,.12)',
-                    fontFamily: 'var(--font-cta)',
-                    fontWeight: 700,
-                    fontSize: 22,
-                    letterSpacing: '.04em',
-                    textTransform: 'uppercase',
-                    color: 'var(--cream)'
-                  }}
-                >
-                  <User size={20} strokeWidth={2.4} />
-                  Log in
-                </motion.button>
+                {/* Signed in, this said "Log in" — so it did. The bar swaps
+                    the same control for a link to the account, but the bar is
+                    desktop-only, and the drawer is a phone's entire navigation.
+                    The account page, the order history and the saved hearts
+                    were all reachable only from a window wide enough to show
+                    the icon cluster: signing in on a phone appeared to fail,
+                    because nothing on screen ever changed.
+
+                    Favourites gets its own row rather than leaving the heart on
+                    a product page pointing at a page with no way in. */}
+                {signedIn ? (
+                  <Fragment>
+                    <motion.a
+                      variants={drawerItem}
+                      href="/account/"
+                      onClick={() => setOpen(false)}
+                      style={drawerRow}
+                    >
+                      <User size={20} strokeWidth={2.4} />
+                      My account
+                    </motion.a>
+                    <motion.a
+                      variants={drawerItem}
+                      href="/account/#wishlist"
+                      onClick={() => setOpen(false)}
+                      style={drawerRow}
+                    >
+                      <Heart size={20} strokeWidth={2.4} />
+                      Favourites
+                    </motion.a>
+                  </Fragment>
+                ) : (
+                  <motion.button
+                    variants={drawerItem}
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      onSignIn();
+                    }}
+                    style={{ ...drawerRow, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                  >
+                    <User size={20} strokeWidth={2.4} />
+                    Log in
+                  </motion.button>
+                )}
               </motion.nav>
 
               <div style={{ marginTop: 28 }}>
@@ -598,11 +654,17 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                 </span>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
                   {BESTSELLERS.map((product) => (
+                    /* `position: relative`, because the plus is now a control
+                       of its own sitting inside the tile rather than a shape
+                       drawn on it — see below. And the tile opens the product
+                       it shows: it pointed at the bare catalogue, so a
+                       bestseller tile and the "Products" link went to the same
+                       place. */
                     <a
                       key={product.id}
-                      href={SHOP_HREF}
+                      href={`${SHOP_HREF}#product/${product.id}`}
                       onClick={() => setOpen(false)}
-                      style={{ display: 'flex', flexDirection: 'column', gap: 8, color: 'var(--cream)' }}
+                      style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, color: 'var(--cream)' }}
                     >
                       <span
                         style={{
@@ -641,19 +703,39 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                             {product.price}
                           </span>
                         </span>
-                        <span
+                        {/* It adds. It was a `<span>` — a drawn circle inside
+                            the tile's link — so pressing the one control on the
+                            row that looks like "add this" navigated away
+                            instead, and nothing reached the bag. A button, and
+                            the click stops before the link around it sees it.
+                            The drawer stays open: the donut flies to the bag
+                            knob behind it, and closing the menu on someone
+                            adding a second thing takes the decision away. */}
+                        <button
+                          type="button"
+                          aria-label={`Add ${product.name} to the bag`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            add(product, 1, { openCart: false });
+                            flyToCart(event.currentTarget, product.img);
+                          }}
                           style={{
                             flex: 'none',
                             width: 28,
                             height: 28,
+                            padding: 0,
                             borderRadius: 99,
                             border: '2px solid rgba(251,247,239,.6)',
+                            background: 'transparent',
+                            color: 'var(--cream)',
+                            cursor: 'pointer',
                             display: 'grid',
                             placeItems: 'center'
                           }}
                         >
                           <Plus size={14} strokeWidth={2.6} />
-                        </span>
+                        </button>
                       </span>
                     </a>
                   ))}

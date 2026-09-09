@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import { motion, type Variants } from 'motion/react';
-import { Star } from 'lucide-react';
+import { ChevronDown, Star } from 'lucide-react';
 import { C, F } from './brand';
 import { PRODUCTS, type Product } from '../data/products';
 import { RATING } from '../data/reviews';
 import ProductLine from './ProductLine';
 import GoogleG from './GoogleG';
 import { useShop } from '../lib/shop';
+import { useIsDesktop } from '../hooks/useIsDesktop';
 
 /**
  * "Loved by our regulars", on the social-proof-14 frame: a sticky rail of
@@ -58,6 +60,19 @@ const QUOTES: {
 const BY_ID = new Map(PRODUCTS.map((p) => [p.id, p]));
 
 const COLUMNS = [QUOTES.filter((_, i) => i % 2 === 0), QUOTES.filter((_, i) => i % 2 === 1)];
+
+/* How many reviews a phone shows before it asks.
+
+   Six of these is a long way to scroll past on one column. Each card is a
+   quote, an attribution and the product it names — comfortably 300px — so the
+   section ran the better part of three screens on a phone, between the
+   homepage's catalogue and everything under it. Three is enough to establish
+   that the reviews are real and varied; the rest are a tap away for anyone who
+   wants them, and nobody who does not want them has to scroll through them.
+
+   Two columns can afford all six, which is why this only applies below the
+   width where the second column appears — see `.regulars-cols`. */
+const PHONE_PREVIEW = 3;
 
 const rail: Variants = {
   hidden: { opacity: 0, y: 18 },
@@ -155,6 +170,11 @@ function QuoteCard({ q, featured }: { q: (typeof QUOTES)[number]; featured: bool
 }
 
 export default function Testimonials() {
+  /* 640px is where the second column appears — see `.regulars-cols`. Below it
+     the section is one stack, which is the case the cap exists for. */
+  const twoUp = useIsDesktop(640);
+  const [expanded, setExpanded] = useState(false);
+
   return (
     /* Named, because the trust band's rating links down to the quotes it
        summarises. */
@@ -212,22 +232,63 @@ export default function Testimonials() {
               signal instead of three unrelated marks. */}
         </motion.div>
 
-        <div className="regulars-cols">
-          {COLUMNS.map((col, ci) => (
+        {/* One column on a phone, and only the first few of it.
+
+            Two columns is the design; below 640px they stack, and stacked they
+            are six full-height cards in a row. So the narrow layout is its own
+            branch rather than the wide one squeezed: a single flat list in
+            editorial order — which the interleaved columns lose once they
+            stack — capped at `PHONE_PREVIEW`, with the rest behind a button.
+
+            Not a carousel. A swipe rail hides how many there are and makes the
+            sixth review as much work as the second; a count on a button says
+            exactly what pressing it gets you. */}
+        {twoUp ? (
+          <div className="regulars-cols">
+            {COLUMNS.map((col, ci) => (
+              <motion.div
+                key={ci}
+                variants={column}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-60px' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(14px,1.6vw,22px)' }}
+              >
+                {col.map((q, i) => (
+                  <QuoteCard key={q.name} q={q} featured={ci === 0 && i === 0} />
+                ))}
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="regulars-cols">
             <motion.div
-              key={ci}
               variants={column}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: '-60px' }}
               style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(14px,1.6vw,22px)' }}
             >
-              {col.map((q, i) => (
-                <QuoteCard key={q.name} q={q} featured={ci === 0 && i === 0} />
+              {(expanded ? QUOTES : QUOTES.slice(0, PHONE_PREVIEW)).map((q, i) => (
+                <QuoteCard key={q.name} q={q} featured={i === 0} />
               ))}
+
+              {!expanded && QUOTES.length > PHONE_PREVIEW && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(true)}
+                  className="regulars-more brand-press"
+                >
+                  {/* The number, not "Show more": it is the difference between
+                      a control whose cost is known and one that might go on
+                      forever. */}
+                  Read {QUOTES.length - PHONE_PREVIEW} more reviews
+                  <ChevronDown size={17} strokeWidth={2.6} aria-hidden="true" />
+                </button>
+              )}
             </motion.div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     </section>
   );

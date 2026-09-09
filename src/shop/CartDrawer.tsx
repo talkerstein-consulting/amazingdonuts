@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import { C, F, SQUIRCLE } from '../components/brand';
-import { useShop, money } from '../lib/shop';
+import { useShop, money, lineKeyOf } from '../lib/shop';
 import { SHOP_HREF } from '../lib/shop-href';
 import { customizationComplete, minimumQuantityFor, PRINT_PRODUCTS } from '../lib/custom-order';
 import ProductLine from '../components/ProductLine';
@@ -92,7 +92,13 @@ export default function CartDrawer() {
                 </div>
               ) : (
                 <ul className="cart__lines">
-                  {lines.map(({ product, qty, customization }) => {
+                  {lines.map((line) => {
+                  const { product, qty, customization } = line;
+                  /* Not the product id. One product can be several rows — the
+                     letter cake is one per character — and every control below
+                     has to name THIS row rather than the first one sharing its
+                     product. See `lineKeyOf`. */
+                  const key = lineKeyOf(line);
                   /* The line that is stopping checkout, marked where the
                      customer already is. The footer button knew one of these
                      existed and said "Finish custom items" — which named
@@ -107,7 +113,7 @@ export default function CartDrawer() {
                      between the customer and the order. */
                   const blocked=!customizationComplete(product.id,qty,customization);
                   return (
-                    <li key={product.id} className={`cart__line${blocked?' cart__line--attention':''}`}>
+                    <li key={key} className={`cart__line${blocked?' cart__line--attention':''}`}>
                       <ProductLine product={product}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                           {/* A printed line has no stepper. The artwork covers a
@@ -121,18 +127,18 @@ export default function CartDrawer() {
                             <span className="cart__fixedQty">{qty} dozen</span>
                           ) : (
                           <div className="cart__stepper">
-                            <button type="button" disabled={qty<=minimumQuantityFor(product.id)} onClick={() => setQty(product.id, qty - 1)} aria-label={`One fewer ${product.name}`}>
+                            <button type="button" disabled={qty<=minimumQuantityFor(product.id)} onClick={() => setQty(key, qty - 1)} aria-label={`One fewer ${product.name}`}>
                               <Minus size={14} strokeWidth={2.6} />
                             </button>
                             <span>{qty}</span>
-                            <button type="button" onClick={() => setQty(product.id, qty + 1)} aria-label={`One more ${product.name}`}>
+                            <button type="button" onClick={() => setQty(key, qty + 1)} aria-label={`One more ${product.name}`}>
                               <Plus size={14} strokeWidth={2.6} />
                             </button>
                           </div>
                           )}
                           <button
                             type="button"
-                            onClick={() => remove(product.id)}
+                            onClick={() => remove(key)}
                             aria-label={`Remove ${product.name}`}
                             className="cart__remove"
                           >
@@ -140,8 +146,8 @@ export default function CartDrawer() {
                           </button>
                         </div>
                       </ProductLine>
-                      <CartCustomization productId={product.id} qty={qty} value={customization} onChange={next=>customize(product.id,next)}/>
-                      {blocked&&<CheckoutFix productId={product.id} qty={qty} value={customization} onChange={next=>customize(product.id,next)}/>}
+                      <CartCustomization productId={product.id} qty={qty} value={customization} onChange={next=>customize(key,next)}/>
+                      {blocked&&<CheckoutFix productId={product.id} qty={qty} value={customization} onChange={next=>customize(key,next)}/>}
                     </li>
                   );
                   })}

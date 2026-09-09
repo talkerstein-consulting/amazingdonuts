@@ -104,11 +104,30 @@ export default function Hero({ ready }: { ready: boolean }) {
           the box.
         </motion.p>
 
+        {/* Above the buttons, not below them.
+
+            It sat under the pair, on the reasoning that evidence reads better
+            after the claim it supports. True of a paragraph; wrong here. The
+            buttons are the only thing on this screen anyone is meant to press,
+            and anything underneath them is one more row the eye travels to
+            after it has already arrived at the thing to do. Between the lede
+            and the CTAs the rating is read on the way past — still evidence,
+            still before the decision, and the last thing on the screen is the
+            action. */}
+        <motion.div
+          className="hero__proof"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.18, ease: EASE }}
+        >
+          <ReviewScore count />
+        </motion.div>
+
         <motion.div
           className="hero__actions"
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.18, ease: EASE }}
+          transition={{ duration: 0.6, delay: 0.26, ease: EASE }}
         >
           {/* Delivery leads on fill, pickup follows on outline. Two filled
               buttons side by side is two primary actions, which is none — the
@@ -133,17 +152,6 @@ export default function Hero({ ready }: { ready: boolean }) {
           </BrandButton>
         </motion.div>
 
-        {/* Under the buttons, not above them: it is evidence for the choice
-            rather than a third thing to press, and evidence reads better after
-            the thing it supports than in front of it. */}
-        <motion.div
-          className="hero__proof"
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.26, ease: EASE }}
-        >
-          <ReviewScore count />
-        </motion.div>
       </div>
 
       {/* Two donuts, overlapped, with the seal over the pair.

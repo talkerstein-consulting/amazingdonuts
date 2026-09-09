@@ -103,7 +103,14 @@ export default function AccountPage() {
   const [application, setApplication] = useState<any>();
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [authOpen, setAuthOpen] = useState(false);
-  const [view, setView] = useState<View>(new URLSearchParams(location.search).has("statement") ? "house" : "orders");
+  /* `#wishlist` opens on the saved hearts. The header's Favourites row points
+     here, and without this it landed on the order list — a link named for one
+     thing showing another. Any other hash falls through to orders. */
+  const [view, setView] = useState<View>(() => {
+    if (new URLSearchParams(location.search).has("statement")) return "house";
+    const hash = location.hash.slice(1);
+    return hash === "wishlist" || hash === "profile" || hash === "house" ? hash : "orders";
+  });
   const [message, setMessage] = useState("");
   const load = () =>
     api("/storefront/session")

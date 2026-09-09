@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PRODUCTS, type Product } from '../data/products';
 import { customizationFor, minimumQuantityFor, PRINT_PRODUCTS, type Customization } from './custom-order';
-import { CART_LANDED } from './fly-to-cart';
 
 /**
  * The storefront's client state: which view is showing, which product is open,
@@ -17,6 +16,25 @@ import { CART_LANDED } from './fly-to-cart';
  * gone — anything still calling them was setting a hash that matched nothing.
  */
 export type CartLine = { product: Product; qty: number; customization?: Customization };
+
+/**
+ * What makes a bag row its own row.
+ *
+ * The bag was keyed on the product id alone, which is right for everything the
+ * bakery sells off a shelf and wrong for the letter cake: spelling "OMG" is
+ * three adds of one product, and one row per product collapsed them into a
+ * single line whose glyph was whichever letter went in last. The customer saw
+ * one cake, was charged for one cake, and the bakery was told to cut a "G".
+ *
+ * So a glyph line is identified by its character too. Every other line keys on
+ * the product id exactly as before, which is why `setQty`, `remove` and
+ * `customize` still take an id from every call site that has only ever had
+ * one.
+ */
+export const lineKeyOf = (line: { product: Product; customization?: Customization }) =>
+  line.customization?.kind === 'glyph' && line.customization.glyph
+    ? `${line.product.id}::${line.customization.glyph}`
+    : line.product.id;
 
 type Store = {
   products: Product[];
@@ -36,7 +54,11 @@ type Store = {
      landed in the box; a grid tile confirms it in place, by turning its plus
      into a stepper, and covering that with the drawer is what stopped anyone
      from seeing it happen. */
-  add: (product: Product, qty?: number, opts?: { openCart?: boolean }) => void;
+  /* `customization` is set as the line is created rather than written over it
+     by a following `customize` call. Two steps could not tell a new glyph line
+     from an existing one — `add` had already merged into the wrong row by the
+     time the character arrived. */
+  add: (product: Product, qty?: number, opts?: { openCart?: boolean; customization?: Customization }) => void;
   setQty: (id: string, qty: number) => void;
   customize: (id: string, customization: Customization) => void;
   remove: (id: string) => void;
@@ -139,22 +161,16 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('amazing:auth-changed', changed);
   }, [loadWishlist]);
 
-  /* The bag opens when the flying donut lands in it.
+  /* The bag does NOT open when the flying donut lands in it.
 
-     Every add already animated a donut into the bag button, and the bag then
-     did nothing — the flight said where the thing went and stopped there, so
-     the next step was always the visitor finding and pressing the bag
-     themselves. Opening it on arrival makes the animation the transition into
-     the drawer rather than a flourish beside it.
+     It used to. A `CART_LANDED` listener here opened the drawer after every
+     flight, which quietly overrode `add`'s own `openCart: false` — the flag
+     six call sites pass precisely to keep the drawer shut. The letter cake is
+     where that showed: spelling a word is one add per letter, and the drawer
+     came over the picker on every single one.
 
-     Driven by an event because `flyToCart` is a plain module with no access to
-     this context and is called from six places — see `CART_LANDED`, which
-     fires once, after the LAST donut of a batch. */
-  useEffect(() => {
-    const open = () => setCartOpen(true);
-    window.addEventListener(CART_LANDED, open);
-    return () => window.removeEventListener(CART_LANDED, open);
-  }, []);
+     The flight is the confirmation. Where an add needs the drawer as well, the
+     caller says so by leaving `openCart` at its default. */
 
   useEffect(() => {
     const sync = () => setRoute(readHash());
@@ -191,11 +207,13 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     }
   }, [product]);
 
-  const add = useCallback((p: Product, qty = 1, { openCart = true }: { openCart?: boolean } = {}) => {
+  const add = useCallback((p: Product, qty = 1, { openCart = true, customization }: { openCart?: boolean; customization?: Customization } = {}) => {
     setLines((prev) => {
       qty=Math.max(qty,minimumQuantityFor(p.id));
-      const at = prev.findIndex((l) => l.product.id === p.id);
-      if (at === -1) return [...prev, { product: p, qty, customization:customizationFor(p.id) }];
+      const spec = customization ?? customizationFor(p.id);
+      const key = lineKeyOf({ product: p, customization: spec });
+      const at = prev.findIndex((l) => lineKeyOf(l) === key);
+      if (at === -1) return [...prev, { product: p, qty, customization: spec }];
       const next = [...prev];
       /* A printed line REPLACES rather than accumulates. The artwork covers a
          stated number of dozens, and it is chosen on the product page against
@@ -212,14 +230,20 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     if (openCart) setCartOpen(true);
   }, []);
 
-  const setQty = useCallback((id: string, qty: number) => {
+  /* These three take either a line key or a bare product id. A product that
+     can only ever be one row is both, so the call sites that predate keys are
+     untouched; the bag drawer and the checkout pass `lineKeyOf(line)`, which
+     is the only way to name one letter of a spelled word. */
+  const hits = (line: CartLine, key: string) => lineKeyOf(line) === key || line.product.id === key;
+
+  const setQty = useCallback((key: string, qty: number) => {
     setLines((prev) =>
-      qty <= 0 ? prev.filter((l) => l.product.id !== id) : prev.map((l) => (l.product.id === id ? { ...l, qty:Math.max(qty,minimumQuantityFor(id)) } : l))
+      qty <= 0 ? prev.filter((l) => !hits(l, key)) : prev.map((l) => (hits(l, key) ? { ...l, qty:Math.max(qty,minimumQuantityFor(l.product.id)) } : l))
     );
   }, []);
 
-  const remove = useCallback((id: string) => setLines((prev) => prev.filter((l) => l.product.id !== id)), []);
-  const customize = useCallback((id: string, customization: Customization) => setLines(prev=>prev.map(line=>line.product.id===id?{...line,customization}:line)), []);
+  const remove = useCallback((key: string) => setLines((prev) => prev.filter((l) => !hits(l, key))), []);
+  const customize = useCallback((key: string, customization: Customization) => setLines(prev=>prev.map(line=>hits(line,key)?{...line,customization}:line)), []);
   const toggleWishlist = useCallback(async (id: string) => {
     if (!signedIn) {
       window.dispatchEvent(new CustomEvent('amazing:sign-in-requested'));
