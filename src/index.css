@@ -2256,7 +2256,15 @@ html.lenis,
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
-  min-width: 0;
+  /* Never narrower than the widest thing it has to hold, which is the button.
+
+     It was `min-width: 0`, so the column gave way to the photograph and the
+     button was handed a width its own label did not fit in: "Build a half
+     dozen" needs 188px of text and got a 146px box, so 42px of it ran under
+     the knob and the card read "BUILD A HALF DOZE". `min-content` is the
+     floor that cannot happen below — the button's own label plus its chrome,
+     measured by the browser rather than guessed at here. */
+  min-width: min-content;
 }
 
 .box-card__title {
@@ -2282,7 +2290,18 @@ html.lenis,
 .box-card__cta {
   margin-top: 4px;
   max-width: 100%;
-  white-space: nowrap;
+  /* Free to wrap at every width, where it used to be `nowrap`.
+
+     Wrapping is what keeps `min-width: min-content` on the copy column
+     affordable. With `nowrap` the column's floor was the whole label in one
+     line — 286px — and between 641 and about 950px, where two of these cards
+     share a row, that floor was wider than the card had to give: the
+     photograph collapsed to nothing and the card overflowed by 94px.
+
+     Allowed to wrap, the floor is one word, so the column asks for almost
+     nothing and the button is simply as wide as the room allows: one line
+     wherever it fits, two where it does not, and clipped nowhere. */
+  white-space: normal;
 }
 
 
@@ -2307,9 +2326,16 @@ html.lenis,
 @media (min-width: 641px) {
   .box-card__copy { flex: 1 1 0; }
 
+  /* As wide as its label and no wider.
+
+     Stretching it to the copy column tied the button's width to whatever the
+     photograph left over, which is how it came to be narrower than its own
+     text. Sized by its content it cannot be too small for it, and the pill
+     ends where the words do — next to a heading and a price that both start
+     at the same left edge and end where THEIR content does. */
   .box-card__cta {
-    align-self: stretch;
-    justify-content: space-between;
+    align-self: flex-start;
+    width: auto;
   }
 }
 
@@ -2334,11 +2360,24 @@ html.lenis,
    edge read as a leak in the colour. Framed, it reads as a picture of the box,
    which is what it is. */
 .box-card__photo {
-  flex: none;
-  /* Wider again now that the card carries a heading, a price and a button
-     rather than a paragraph — the copy column needs only the button's width,
-     and the photograph is what the card is actually selling. */
-  width: min(46%, 260px);
+  /* Shrinkable, where it used to be `flex: none`. Something in the row has to
+     give when the copy needs more than the leftovers, and it should be the
+     picture rather than the words — a photograph 40px narrower still sells the
+     box; a clipped button does not. It keeps its preferred width whenever
+     there is room, which is most widths. */
+  flex: 0 1 auto;
+  min-width: 0;
+  /* Narrow enough that BOTH cards' buttons fit without the photograph having
+     to give anything up.
+
+     At 46% only the six's card was squeezed — its label is the longer of the
+     two — so its photograph shrank to 186px while the twelve's stayed at 228,
+     and two cards that are otherwise twins ended up with visibly different
+     boxes in them. Sized so the longest button fits at the preferred width,
+     both photographs are the same and the shrinking above never has to
+     happen at ordinary widths. It is still there as the safety valve for
+     narrow ones. */
+  width: min(34%, 200px);
   height: auto;
   border-radius: 20px;
   pointer-events: none;
@@ -2352,20 +2391,19 @@ html.lenis,
     align-items: stretch;
   }
 
-  /* Full width, and free to wrap: the phone card is a single column, so the
-     label has the whole measure and nothing is squeezing it.
+  /* Content-width here too, so the button behaves the same at both sizes.
 
-     `space-between` because the button is stretched. Its content is laid out
-     from the start edge by default, so a full-width button left the label and
-     its knob bunched at the left with dead space after them — 40px on the six
-     and 90px on the twelve, whose label is shorter, which is why the two cards
-     looked inconsistent as well as unfinished. The knob goes to the trailing
-     edge instead, the same way the product panel's and the box builder's own
-     full-width Add buttons place theirs. */
+     It was stretched across the whole card, which left 50px of dead space
+     after the six's label and 94px after the twelve's — the knob was pushed to
+     the trailing edge to hide that, but the two cards still read as different
+     widths of empty pill. On a card whose heading and price both end where
+     their own text ends, so should the button.
+
+     `white-space: normal` stays as the backstop: at the very narrowest widths
+     the label wraps and the pill grows to hold it, rather than being clipped. */
   .box-card__cta {
-    align-self: stretch;
-    white-space: normal;
-    justify-content: space-between;
+    align-self: flex-start;
+    width: auto;
   }
 
   .box-card__photo {
