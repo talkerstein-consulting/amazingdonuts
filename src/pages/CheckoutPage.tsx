@@ -324,7 +324,8 @@ function Checkout() {
     api("/storefront/session")
       .then(async (body) => {
         setSession(body);
-        setPhone(formatNorthAmericanPhone(body.profile?.default_phone || ""));
+        // A delayed session response must not erase contact details already typed.
+        setPhone((current) => current || formatNorthAmericanPhone(body.profile?.default_phone || ""));
         if (body.user) {
           const saved = await api("/storefront/addresses");
           setSavedAddresses(saved.addresses || []);
