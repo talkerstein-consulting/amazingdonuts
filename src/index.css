@@ -293,6 +293,40 @@ nav a,
   background: rgba(251, 247, 239, 0.12);
 }
 
+/* The bestsellers in the mobile menu.
+
+   Two up, and the catalogue's own `ProductTile` inside each cell — see
+   `Header`. The only thing that changes is the palette: the tile is built for
+   a Canvas page and sets Harbour text, and this drawer is Harbour, so the
+   name, the price and the photo bed are re-toned here rather than the tile
+   growing a variant. The orange add knob is left alone; it is the one thing
+   that should look the same everywhere. */
+.nav-bestsellers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.nav-bestsellers__tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* The photo bed, on the drawer's own ground rather than Canvas. */
+.nav-bestsellers__tile button[aria-label^='View'] {
+  background: rgba(251, 247, 239, 0.08) !important;
+}
+
+.nav-bestsellers__tile h4 {
+  color: var(--cream) !important;
+}
+
+.nav-bestsellers__tile span {
+  color: var(--pink) !important;
+}
+
 .footer-link:hover {
   color: var(--cream) !important;
 }
@@ -1117,6 +1151,16 @@ nav a,
   margin-inline: calc(50% - 50vw);
 }
 
+/* The catalogue's bar is already edge to edge, so it needs no escape — and
+   applying one anyway overshot it. `100vw` counts the scrollbar and the
+   container does not, so the band hung 5px past each side; harmless in itself
+   (the body clips) but the padding is measured from that edge, so the pinned
+   chips landed 5px left of the resting ones. */
+.shop-category-bar.is-stuck {
+  width: 100%;
+  margin-inline: 0;
+}
+
 .category-bar.is-stuck .category-bar__inner {
   padding-block: 5px;
   padding-inline: var(--shop-gutter, clamp(18px, 4vw, 40px));
@@ -1134,29 +1178,33 @@ nav a,
     box-shadow 180ms ease;
 }
 .category-bar.is-stuck .shop-head__filter { margin-bottom: 0; }
-/* On a phone the catalogue's rail runs edge to edge, at rest as well as pinned.
+/* The catalogue's rail runs edge to edge, at every width, at rest as well as
+   pinned.
 
-   It was a card inset by the page gutter with 8px of its own padding, so the
-   first chip started 28px in on a 375px screen — 8px to the right of the line
-   the banner, the headings and the grid all start on, and 8px that the row of
-   chips could not use. Two insets for one edge.
+   It was a card inset by the page gutter with 16px of its own padding, so the
+   first chip started 16px right of the line the banner, the headings and the
+   grid all start on — the one row on the page that did not line up with the
+   rest of it, and 16px the chips could not use. Two insets for one edge.
 
    Full-bleed with the page gutter as the card's own padding gives back both:
-   "Shop all" now begins exactly where everything else on the page does, and
-   the rail is wider by the padding it stopped spending twice. It also matches
-   what the bar becomes when it pins, so the transition is a change of height
-   rather than a change of shape. */
+   "Shop all" begins exactly where the tiles below it do. It also matches what
+   the bar becomes when it pins, so pinning is a change of height rather than
+   of shape — the card that used to shrink into a bar is a bar throughout.
+
+   Scoped to the catalogue. The homepage's copy sits inside a narrower
+   max-width section with a different left edge, and it is a card there among
+   other cards. */
+.shop-category-bar {
+  width: 100%;
+  max-width: none;
+}
+
+.shop-category-bar > .category-bar__inner {
+  padding-inline: var(--shop-gutter);
+  border-radius: 0;
+}
+
 @media (max-width: 640px) {
-  .shop-category-bar {
-    width: 100%;
-    max-width: none;
-  }
-
-  .shop-category-bar > .category-bar__inner {
-    padding-inline: var(--shop-gutter);
-    border-radius: 0;
-  }
-
   .category-bar__inner {
     padding-inline: 8px;
     /* 8px put the Filter button hard against the tab the rail was cut off at,
@@ -1260,14 +1308,15 @@ nav a,
   z-index: 3;
   /* Measured, not guessed: at 8% it cleared the pink donut's right edge by
      22px and read as a logo parked in the margin. 16% puts it onto the icing. */
-  /* Significantly larger than the 26% it was, and pulled up and out so the
-     extra size lands on the composition rather than on the copy beside it. A
-     mark of origin that has to be looked for is doing nothing; at this size it
-     is the second thing seen after the donuts. */
+  /* Larger than the 26% it was, and pulled up and out so the extra size lands
+     on the composition rather than on the copy beside it — a mark of origin
+     that has to be looked for is doing nothing. Back off 40%, though: at that
+     size it was reading as a third element in the hero rather than as a stamp
+     on the donuts, and competing with the headline for the eye. */
   top: -4%;
   right: 6%;
-  width: 40%;
-  max-width: 210px;
+  width: 34%;
+  max-width: 178px;
   height: auto;
   pointer-events: none;
   /* Its own shadow, so it reads as sitting ON the donut rather than printed
@@ -1301,16 +1350,17 @@ nav a,
      right; the pink one is behind and high to the left, so a mark on that side
      lands on icing rather than on the composition's focal point.
 
-     `top: 9%` is measured, not chosen: the art box begins 10px above the
-     bottom of the CTA row, so anything at 0 clips the buttons. 9% of the box
-     clears them with room to spare and still reads as the upper half.
+     `top` is measured, not chosen: the art box begins 10px above the bottom of
+     the CTA row, so anything at 0 clips the buttons. 15% clears them by 27px
+     and sits the seal over the pink donut's body rather than off its top edge,
+     while still reading as the upper half of the art.
 
      46% wide — bigger than the 40% it takes on desktop, in a box that is
      itself narrower. A mark of origin at 30% was legible and forgettable; a
      phone screen has one thing on it at a time, and this is the second thing
      seen after the donuts. */
   .hero-duo__seal {
-    top: 9%;
+    top: 15%;
     right: auto;
     bottom: auto;
     left: -7%;

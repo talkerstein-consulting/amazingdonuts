@@ -3494,6 +3494,21 @@ a.cabinet__iconBtn { text-decoration: none; }
   }
 
   .shop-head__filter-label { display: none; }
+
+  /* No count on the phone's button.
+
+     The badge is a 21px pill, and it was being laid into a 36x36 button next
+     to an 18px icon — two children in a grid cell with room for one, so the
+     glyph shifted off centre and the pill spilled over the ring. It was
+     already tight at 44px; at 36 it is broken.
+
+     Dropped rather than shrunk. A number that small is not read at arm's
+     length, the drawer it opens lists every active filter by name at the top,
+     and the grid underneath is visibly shorter — the state is not a secret
+     without it. */
+  .shop-head__filter .filter-pin__badge {
+    display: none;
+  }
 }
 
 /* The Donut Lab's build, read back on the bag line. Label, value, price — one
@@ -3932,9 +3947,16 @@ a.cabinet__iconBtn { text-decoration: none; }
   padding-top: clamp(20px, 3vw, 40px);
 }
 
-.search-head {
-  width: min(1400px, calc(100% - 2 * var(--shop-gutter)));
+/* The catalogue's own measure: `max-width` plus the gutter as padding, not a
+   `width: min()` of its own. Both compute to the same box on their own, but
+   `.shop-page .shop-grid` already applies the padding — so a width override on
+   top of it inset the results by two gutters and the grid no longer lined up
+   with the heading above it, or with the tiles on the shop. */
+.search-head,
+.search-empty {
+  max-width: 1400px;
   margin-inline: auto;
+  padding-inline: var(--shop-gutter);
 }
 
 /* The field, at the top and at the size of the thing the page is about.
@@ -4039,15 +4061,13 @@ a.cabinet__iconBtn { text-decoration: none; }
   color: var(--navy);
 }
 
-/* The query itself, in the body face and in quotes: it is the visitor's words
-   quoted back, not the bakery's own heading, and setting it in the display
-   face would dress up whatever anyone happened to type. */
+/* One heading, one face. The query was set in the body face on the reasoning
+   that it is the visitor's words rather than the bakery's — true, and the
+   quotes already say so. Two typefaces in a six-word heading just read as two
+   headings that collided. It keeps its own case, because a query is typed and
+   should be shown as typed. */
 .search-title span {
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 0.72em;
   text-transform: none;
-  color: rgba(14, 62, 105, 0.72);
 }
 
 .search-count {
@@ -4088,9 +4108,12 @@ a.cabinet__iconBtn { text-decoration: none; }
   box-shadow: inset 0 0 0 2px var(--navy);
 }
 
-.search-grid {
-  width: min(1400px, calc(100% - 2 * var(--shop-gutter)));
-  margin: clamp(22px, 2.8vw, 34px) auto 0;
+/* Nothing but the space above it. Everything else — max-width, gutter,
+   centring, columns — comes from `.shop-page .shop-grid`, so a result is laid
+   out by the same rule as a product on the catalogue rather than by a copy of
+   it that can drift. */
+.search-grid.search-grid {
+  margin-top: clamp(22px, 2.8vw, 34px);
 }
 
 .search-tile {
@@ -4104,8 +4127,7 @@ a.cabinet__iconBtn { text-decoration: none; }
    tiles are the bakery's bestsellers standing in for an answer — a row of
    products under a query line would otherwise read as matches for it. */
 .search-empty {
-  width: min(1400px, calc(100% - 2 * var(--shop-gutter)));
-  margin: clamp(26px, 3.2vw, 40px) auto 0;
+  margin-top: clamp(26px, 3.2vw, 40px);
 }
 
 .search-empty__title {
@@ -4120,8 +4142,9 @@ a.cabinet__iconBtn { text-decoration: none; }
   color: var(--navy);
 }
 
-.search-empty .search-grid {
-  width: 100%;
+/* Already inside `.search-empty`'s gutter, so it does not take another. */
+.search-page .search-empty .shop-grid {
+  padding-inline: 0;
 }
 
 .search-empty__all {

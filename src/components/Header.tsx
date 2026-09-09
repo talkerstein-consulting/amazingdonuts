@@ -1,11 +1,11 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
-import { Heart, Menu, Plus, Search, ShoppingBag, User, X } from 'lucide-react';
+import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useNavTheme } from '../lib/nav-theme';
-import { useShop } from '../lib/shop';
-import { flyToCart } from '../lib/fly-to-cart';
-import { PRODUCTS, SHOP_PRODUCTS } from '../data/products';
+import { useShop, useBoxQty } from '../lib/shop';
+import ProductTile from './ProductTile';
+import { PRODUCTS, SHOP_PRODUCTS, type Product } from '../data/products';
 import { BEST_SELLERS } from '../data/product-tags';
 import { LAB_HREF } from '../lib/lab-href';
 import { HOME_HREF, onHomeClick } from '../lib/home-href';
@@ -99,7 +99,10 @@ const BESTSELLERS = [...BEST_SELLERS]
 export default function Header({ onSignIn }: { onSignIn: () => void }) {
   const isDesktop = useIsDesktop();
   const { theme } = useNavTheme();
-  const { openCart, count, add } = useShop();
+  const { openCart, count, openProduct } = useShop();
+  /* So the drawer's tiles show a stepper for anything already in the bag,
+     exactly as the grid's do. */
+  const boxQty = useBoxQty();
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -661,92 +664,37 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                 >
                   Bestsellers
                 </span>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
+                {/* The catalogue's own tile, not a version of it.
+
+                    This was a hand-built copy: its own squircle bed, its own
+                    two-line clamp, its own price line, and a plus drawn as a
+                    ring rather than the orange knob every other grid on the
+                    site uses. Four near-identical properties, already drifted
+                    from the original — the bed was translucent white instead
+                    of Canvas, the knob outlined instead of filled, and the
+                    add was a shape inside a link rather than a control.
+
+                    `ProductTile` is the same component the shop grid and the
+                    results page render, so the drawer promotes a product the
+                    way the rest of the site presents one — including the knob
+                    that turns into a stepper once it is in the bag, which the
+                    copy could never do.
+
+                    Only the palette is scoped: the tile sets Harbour text for
+                    a Canvas page, and this drawer is Harbour. See
+                    `.nav-bestsellers`. */}
+                <div className="nav-bestsellers">
                   {BESTSELLERS.map((product) => (
-                    /* `position: relative`, because the plus is now a control
-                       of its own sitting inside the tile rather than a shape
-                       drawn on it — see below. And the tile opens the product
-                       it shows: it pointed at the bare catalogue, so a
-                       bestseller tile and the "Products" link went to the same
-                       place. */
-                    <a
-                      key={product.id}
-                      href={`${SHOP_HREF}#product/${product.id}`}
-                      onClick={() => setOpen(false)}
-                      style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, color: 'var(--cream)' }}
-                    >
-                      <span
-                        style={{
-                          aspectRatio: '1',
-                          background: 'rgba(251,247,239,.08)',
-                          clipPath: 'url(#squircle-clip)',
-                          display: 'grid',
-                          placeItems: 'center',
-                          overflow: 'hidden'
+                    <article key={product.id} className="nav-bestsellers__tile">
+                      <ProductTile
+                        product={product}
+                        onOpen={(p: Product) => {
+                          setOpen(false);
+                          openProduct(p.id);
                         }}
-                      >
-                        <img
-                          src={product.img}
-                          alt=""
-                          style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.16)' }}
-                        />
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
-                        <span style={{ minWidth: 0 }}>
-                          <span
-                            style={{
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                              fontFamily: 'var(--font-cta)',
-                              fontWeight: 700,
-                              fontSize: 13,
-                              lineHeight: 1.2,
-                              color: 'var(--cream)'
-                            }}
-                          >
-                            {product.name}
-                          </span>
-                          <span style={{ display: 'block', fontFamily: 'var(--font-cta)', fontWeight: 700, fontSize: 12, color: 'var(--pink)' }}>
-                            {product.price}
-                          </span>
-                        </span>
-                        {/* It adds. It was a `<span>` — a drawn circle inside
-                            the tile's link — so pressing the one control on the
-                            row that looks like "add this" navigated away
-                            instead, and nothing reached the bag. A button, and
-                            the click stops before the link around it sees it.
-                            The drawer stays open: the donut flies to the bag
-                            knob behind it, and closing the menu on someone
-                            adding a second thing takes the decision away. */}
-                        <button
-                          type="button"
-                          aria-label={`Add ${product.name} to the bag`}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            add(product, 1, { openCart: false });
-                            flyToCart(event.currentTarget, product.img);
-                          }}
-                          style={{
-                            flex: 'none',
-                            width: 28,
-                            height: 28,
-                            padding: 0,
-                            borderRadius: 99,
-                            border: '2px solid rgba(251,247,239,.6)',
-                            background: 'transparent',
-                            color: 'var(--cream)',
-                            cursor: 'pointer',
-                            display: 'grid',
-                            placeItems: 'center'
-                          }}
-                        >
-                          <Plus size={14} strokeWidth={2.6} />
-                        </button>
-                      </span>
-                    </a>
+                        inBox={Boolean(boxQty[product.id])}
+                      />
+                    </article>
                   ))}
                 </div>
               </div>
