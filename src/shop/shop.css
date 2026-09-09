@@ -3919,3 +3919,225 @@ a.cabinet__iconBtn { text-decoration: none; }
     width: 14px;
   }
 }
+
+/* ==========================================================================
+   The search results page.
+
+   Built on `.shop-page` so the gutter, the grid columns and the tiles are the
+   catalogue's — a result should be the same object as a product on the shop,
+   not a lookalike. Everything below is the part that differs: a page whose
+   subject is a question somebody asked.
+   ========================================================================== */
+.search-page {
+  padding-top: clamp(20px, 3vw, 40px);
+}
+
+.search-head {
+  width: min(1400px, calc(100% - 2 * var(--shop-gutter)));
+  margin-inline: auto;
+}
+
+/* The field, at the top and at the size of the thing the page is about.
+
+   The header keeps its own collapsed magnifier — that is a control on a bar.
+   This is the page's subject, so it is a real field: full width, 56px tall,
+   and already holding the query so refining a search is editing a word rather
+   than retyping the phrase. */
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 0 8px 0 18px;
+  border-radius: var(--radius-pill, 99px);
+  background: var(--cream);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.18);
+}
+
+.search-field:focus-within {
+  box-shadow: inset 0 0 0 2px var(--navy);
+}
+
+.search-field__icon {
+  flex: none;
+  color: rgba(14, 62, 105, 0.55);
+}
+
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-body);
+  /* 16px is the floor that stops iOS zooming the page on focus. */
+  font-size: 16px;
+  color: var(--navy);
+}
+
+/* The browser's own clear affordance is Chrome-only and vanishes on blur, so
+   the field draws its own and this hides the duplicate where both exist. */
+.search-field input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-field__clear {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 99px;
+  background: transparent;
+  color: rgba(14, 62, 105, 0.6);
+  cursor: pointer;
+}
+
+.search-field__clear:hover {
+  background: rgba(14, 62, 105, 0.08);
+  color: var(--navy);
+}
+
+.search-field__go {
+  flex: none;
+  min-height: 44px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 99px;
+  background: var(--navy);
+  color: var(--cream);
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.search-field__go:hover {
+  background: var(--orange);
+}
+
+/* On a phone the word goes and the field takes the width back. The keyboard's
+   own return key says Search — see `enterKeyHint` — and the magnifier at the
+   other end is not a second submit to explain. */
+@media (max-width: 560px) {
+  .search-field__go {
+    display: none;
+  }
+}
+
+.search-title {
+  margin: clamp(20px, 2.6vw, 32px) 0 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--type-section);
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* The query itself, in the body face and in quotes: it is the visitor's words
+   quoted back, not the bakery's own heading, and setting it in the display
+   face would dress up whatever anyone happened to type. */
+.search-title span {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.72em;
+  text-transform: none;
+  color: rgba(14, 62, 105, 0.72);
+}
+
+.search-count {
+  margin: 10px 0 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+/* Counters whose name matched, above the products. */
+.search-counters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: clamp(16px, 2vw, 22px);
+}
+
+.search-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 99px;
+  background: var(--cream);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.18);
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--navy);
+}
+
+.search-counter strong {
+  font-family: var(--font-cta);
+  font-weight: 700;
+}
+
+.search-counter:hover {
+  box-shadow: inset 0 0 0 2px var(--navy);
+}
+
+.search-grid {
+  width: min(1400px, calc(100% - 2 * var(--shop-gutter)));
+  margin: clamp(22px, 2.8vw, 34px) auto 0;
+}
+
+.search-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Nothing matched. Separated from the results above by a rule, because these
+   tiles are the bakery's bestsellers standing in for an answer — a row of
+   products under a query line would otherwise read as matches for it. */
+.search-empty {
+  width: min(1400px, calc(100% - 2 * var(--shop-gutter)));
+  margin: clamp(26px, 3.2vw, 40px) auto 0;
+}
+
+.search-empty__title {
+  margin: 0;
+  padding-top: clamp(22px, 2.6vw, 32px);
+  border-top: 1px solid rgba(14, 62, 105, 0.14);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(22px, 3.4vw, 30px);
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.search-empty .search-grid {
+  width: 100%;
+}
+
+.search-empty__all {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: clamp(18px, 2.2vw, 26px);
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--navy);
+  text-decoration: underline;
+  text-decoration-color: rgba(14, 62, 105, 0.3);
+  text-underline-offset: 4px;
+}
+
+.search-empty__all:hover {
+  text-decoration-color: currentColor;
+}

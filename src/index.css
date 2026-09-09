@@ -1289,30 +1289,33 @@ nav a,
     margin-right: auto;
   }
 
-  /* Bottom left, not top right.
+  /* Left, high, and big.
 
      `top: -4%` lifts the seal out of the art box on purpose: on a wide screen
      the art sits beside the copy and the overhang lands in empty space above
      the donuts. Stacked, the art is a row UNDER the copy, so the same overhang
-     lands on the two CTAs — the one decision this screen exists to get — and
-     the seal was sitting across the pickup button.
+     landed on the two CTAs — the one decision this screen exists to get — and
+     the seal sat across the pickup button.
 
-     The opposite corner is the only one free. The blue donut is front and low
-     to the right, the pink one behind and high to the left, so the lower-left
-     is where the composition already thins out: the seal still overlaps the
-     pink donut's bottom edge, which is what keeps it a stamp on the product
-     rather than a logo in a margin, and nothing above it is clickable.
+     The left is the side that is free. The blue donut is front and low to the
+     right; the pink one is behind and high to the left, so a mark on that side
+     lands on icing rather than on the composition's focal point.
 
-     Smaller too. 40% of an 80%-wide art block is a big mark to hang off the
-     corner of a phone; 30% keeps it legible without it competing with the
-     donuts it is stamped on. */
+     `top: 9%` is measured, not chosen: the art box begins 10px above the
+     bottom of the CTA row, so anything at 0 clips the buttons. 9% of the box
+     clears them with room to spare and still reads as the upper half.
+
+     46% wide — bigger than the 40% it takes on desktop, in a box that is
+     itself narrower. A mark of origin at 30% was legible and forgettable; a
+     phone screen has one thing on it at a time, and this is the second thing
+     seen after the donuts. */
   .hero-duo__seal {
-    top: auto;
+    top: 9%;
     right: auto;
-    bottom: -2%;
-    left: -4%;
-    width: 30%;
-    max-width: 116px;
+    bottom: auto;
+    left: -7%;
+    width: 46%;
+    max-width: 168px;
   }
 }
 

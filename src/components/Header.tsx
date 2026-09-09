@@ -5,11 +5,12 @@ import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useNavTheme } from '../lib/nav-theme';
 import { useShop } from '../lib/shop';
 import { flyToCart } from '../lib/fly-to-cart';
-import { CATEGORIES, PRODUCTS, SHOP_PRODUCTS } from '../data/products';
+import { PRODUCTS, SHOP_PRODUCTS } from '../data/products';
 import { BEST_SELLERS } from '../data/product-tags';
 import { LAB_HREF } from '../lib/lab-href';
 import { HOME_HREF, onHomeClick } from '../lib/home-href';
 import { SHOP_HREF, shopHref } from '../lib/shop-href';
+import { matchesQuery, matchingCategories, searchHref } from '../lib/search';
 import { CONTACT_HREF } from '../lib/routes';
 import { openState } from '../lib/pickup';
 
@@ -120,9 +121,16 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
      the active section the moment it leaves. One shared `layoutId` means it
      slides between the two rather than blinking out and in. */
   const marked = hovered ?? activeLabel;
-  const searchTerm = query.trim().toLowerCase();
-  const productSuggestions = searchTerm ? SHOP_PRODUCTS.filter((product) => `${product.name} ${product.category}`.toLowerCase().includes(searchTerm)).slice(0, 4) : [];
-  const categorySuggestions = searchTerm ? CATEGORIES.filter((category) => category.toLowerCase().includes(searchTerm)).slice(0, 2) : [];
+  const searchTerm = query.trim();
+  /* The same matcher the results page runs, rather than the raw substring test
+     this used to do. They disagreed: the dropdown matched "blue sprinkle" as
+     one string and found nothing, while the page matched it word by word and
+     found the donut — so the suggestions could be empty for a query that had
+     results, and could offer a product the results page would not return. */
+  const productSuggestions = searchTerm
+    ? SHOP_PRODUCTS.filter((product) => matchesQuery(product, searchTerm)).slice(0, 4)
+    : [];
+  const categorySuggestions = searchTerm ? matchingCategories(searchTerm).slice(0, 2) : [];
 
   const closeSearch = () => setSearchOpen(false);
 
@@ -143,8 +151,9 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
 
     setSearchOpen(false);
     setOpen(false);
-    // `?q=` is read back by the catalogue, so the results are a shareable URL.
-    window.location.href = shopHref({ q });
+    /* The results page, not the catalogue with a filter on it. `?q=` there is
+       a shareable, linkable URL for the search itself — see `SearchPage`. */
+    window.location.href = searchHref(q);
   };
 
   // Focus follows the expansion, or the field is open and nobody can type in it.

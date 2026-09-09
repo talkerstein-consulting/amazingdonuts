@@ -21,11 +21,12 @@ import BoxCard from '../components/BoxCard';
 import { LAB_HREF } from '../lib/lab-href';
 import { useGridColumns } from '../hooks/useGridColumns';
 import { readShopParams } from '../lib/shop-href';
+import { searchProducts, fallbackProducts } from '../lib/search';
 import { useStickyCategoryBar } from '../hooks/useStickyCategoryBar';
-import { Badge, C, F, SQUIRCLE, BadgeRow } from '../components/brand';
+import { C, F, BadgeRow } from '../components/brand';
 import { tagFor } from '../data/product-tags';
 import { useShop, useBoxQty } from '../lib/shop';
-import AddControl from '../components/AddControl';
+import ProductTile from '../components/ProductTile';
 import CollectionRail from './CollectionRail';
 import FilterDrawer, {
   type FilterOption,
@@ -293,116 +294,6 @@ const COLLECTION_COPY: Record<'all' | Category, { title: string; seo: string }> 
 };
 
 
-/**
- * One product, as the catalogue draws it: photo bed, add knob, tag, name,
- * price.
- *
- * Lifted out of the grid so the "nothing matched" suggestions can show real
- * catalogue tiles rather than a smaller, flatter imitation of one. A visitor
- * whose search failed is the last person who should be handed a second-class
- * version of the thing they were looking for — and two copies of this markup
- * would have drifted the first time either was touched.
- *
- * The grid keeps its own `motion.article` wrapper around this, because the
- * entry animation and the layout projection belong to the grid, not to the
- * card.
- */
-function ProductTileBody({
-  product,
-  onOpen,
-  inBox
-}: {
-  product: Product;
-  onOpen: (product: Product) => void;
-  inBox: boolean;
-}) {
-  return (
-    <>
-      <div style={{ position: 'relative' }}>
-        <button
-          type="button"
-          onClick={() => onOpen(product)}
-          aria-label={`View ${product.name}`}
-          style={{
-            display: 'block',
-            width: '100%',
-            aspectRatio: '1',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-            /* See the homepage grid: the bed carries the state,
-               because a ring on a squircle-clipped element is clipped
-               away with it. */
-            background: inBox ? C.navy : C.canvas,
-            clipPath: SQUIRCLE,
-            overflow: 'hidden',
-            transition: 'background .2s ease'
-          }}
-        >
-          <img
-            src={product.img}
-            alt={product.name}
-            loading="lazy"
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              /* One scale for every product. The heart and the Star of
-                 David used to be shrunk to 0.82 here and nowhere else,
-                 so the same two donuts were a different size in this
-                 grid than on the homepage, the panel, the bag line and
-                 the search results — which reads as the products being
-                 smaller rather than as the tiles being different. */
-              transform: 'scale(1.18)'
-            }}
-          />
-        </button>
-
-        <AddControl product={product} />
-      </div>
-
-      <button
-        type="button"
-        onClick={() => onOpen(product)}
-        style={{ border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer' }}
-      >
-        {/* Markup-wise the tag belongs to the text, not to the photo,
-            and `.product-tag` is what decides where it is drawn: over
-            the picture's top-left corner on a wide grid, and in the
-            flow above the name on a phone — see the rule. It cannot be
-            two elements, because a duplicated badge is read twice. */}
-        {tagFor(product.id) && (
-          <span className="product-tag">
-            <Badge badge={tagFor(product.id)!} compact />
-          </span>
-        )}
-        <h4
-          style={{
-            margin: 0,
-            fontFamily: F.display,
-            /* Up a tier from 14/400. Karla at 800 made every name shout
-               and left the grid with no hierarchy in it, but 14 at
-               Regular put the product's own name below its price in
-               weight — the one thing on a tile that has to be read
-               first was the quietest thing on it. */
-            fontWeight: 700,
-            fontSize: 16,
-            lineHeight: 1.2,
-            color: C.navy,
-            textTransform: 'none',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden'
-          }}
-        >
-          {product.name}
-        </h4>
-        <span style={{ fontFamily: F.text, fontWeight: 500, fontSize: 14, color: C.price }}>{product.price}</span>
-      </button>
-    </>
-  );
-}
 
 export default function ShopAll() {
   const { openProduct, products: catalogProducts } = useShop();
@@ -450,31 +341,18 @@ export default function ShopAll() {
    * narrowest. This is a consolation offer; it should not out-length the
    * result it is standing in for.
    */
-  const suggestions = useMemo(() => {
-    const rank = (p: Product) => {
-      const tag = tagFor(p.id);
-      return tag === 'seller' ? 0 : tag === 'popular' ? 1 : 2;
-    };
-    return products
-      .filter((p) => !BOX_BUILDER_IDS.has(p.id) && rank(p) < 2)
-      .sort((a, b) => rank(a) - rank(b))
-      .slice(0, 4);
-  }, [products]);
+  const suggestions = useMemo(
+    () => fallbackProducts(products.filter((p) => !BOX_BUILDER_IDS.has(p.id))),
+    [products]
+  );
 
   const shown = useMemo(() => {
     const inCategory = active ? products.filter((p) => p.category === active) : products;
     const inTier = tier ? inCategory.filter(TIERS.find((t) => t.id === tier)!.test) : inCategory;
     const inFlavour = flavour ? inTier.filter(tasteOf(flavour)) : inTier;
-    if (!query) return inFlavour;
-    /* Matched against the name and the category, case-insensitively, on every
-       whitespace-separated word: "blue sprinkle" should find the blue sprinkle
-       donut, and searching "bread" should find the Breads counter's items even
-       though no product is literally called bread. */
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    return inFlavour.filter((p) => {
-      const hay = `${p.name} ${p.category}`.toLowerCase();
-      return words.every((w) => hay.includes(w));
-    });
+    /* The same matcher the results page and the header's suggestions use, so
+       a query cannot mean one thing here and another there — see `lib/search`. */
+    return searchProducts(inFlavour, query);
   }, [active, tier, flavour, query, products]);
 
   /* Sorted separately from the filtering above so a re-sort does not re-run
@@ -761,7 +639,7 @@ export default function ShopAll() {
                     key={product.id}
                     style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}
                   >
-                    <ProductTileBody
+                    <ProductTile
                       product={product}
                       onOpen={openCatalogProduct}
                       inBox={Boolean(boxQty[product.id])}
@@ -870,7 +748,7 @@ export default function ShopAll() {
               {...slide(i)}
               style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}
             >
-              <ProductTileBody
+              <ProductTile
                 product={tile.product}
                 onOpen={openCatalogProduct}
                 inBox={Boolean(boxQty[tile.product.id])}
