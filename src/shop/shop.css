@@ -410,6 +410,45 @@ a.cabinet__iconBtn { text-decoration: none; }
 
 .cabinet__crumbs span[aria-hidden] { opacity: 0.5; }
 
+/* The choices a made-to-order product cannot be bought without.
+
+   On an ordinary product the panel is a description and a button: read it,
+   press Add. On the letter cake, the printed dozen and the petite tray it is
+   not — the shape has to be cut, the artwork chosen, the colours picked, and
+   `addToBag` refuses until they are. Those questions were set in the same
+   quiet grey-on-cream as the box size and the allergen list beside them, so
+   the one part of the page that is not optional looked exactly like the parts
+   that are, and the Add button appeared to do nothing.
+
+   Dare Devil outline, because the brand's orange is what it uses for the thing
+   to act on, and this IS the action on these products — the button at the
+   bottom is only the confirmation of it. A ring rather than a fill: three
+   filled orange panels would out-shout the one orange button they lead to.
+
+   `inset` box-shadow, not `border`, so the ring costs no layout and the
+   controls inside keep the widths they were designed at. */
+.cabinet__spec {
+  margin-bottom: 20px;
+  padding: clamp(14px, 1.6vw, 18px);
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 2px var(--orange);
+  /* A wash of the same orange at 4%, which lifts the group off the card
+     without competing with the swatches and thumbnails inside it. */
+  background: rgba(255, 104, 50, 0.04);
+}
+
+/* The last of them sits directly above the quantity row and its Add button;
+   the card's own spacing takes it from there. */
+.cabinet__spec:last-of-type {
+  margin-bottom: 24px;
+}
+
+/* The group's heading takes the orange too, so the ring reads as one labelled
+   object rather than a box that happens to be drawn around some text. */
+.cabinet__spec > .cabinet__label {
+  color: var(--orange);
+}
+
 .cabinet__label {
   display: block;
   margin-bottom: 10px;
@@ -2566,11 +2605,38 @@ a.cabinet__iconBtn { text-decoration: none; }
 
    Gone below 640, and `--rail-gutter` with them, so the pinned chips start on
    the same margin as the resting ones rather than 42px inside it. */
-@media (max-width: 640px) {
-  .collections--compact {
-    --rail-gutter: 0px;
+/* The left gutter goes; the right one stays.
+
+   `--rail-gutter` held 42px open at BOTH ends of the pinned rail so the chips
+   did not scroll under the arrows laid over them. It worked, at the cost of
+   the one row you navigate with being the only row on the page that did not
+   begin on the page's margin — flush at rest, 42px in the moment it pinned.
+
+   The two sides are not the same problem. The bar is full-bleed now and its
+   padding IS the page gutter, so on the left there is 40px of empty ground the
+   arrow can sit in without covering anything: pulled out into it, the chips
+   start on the margin in both states. On the right that ground belongs to the
+   Filter button, so an arrow pulled the same distance lands on top of it —
+   there the rail keeps its inset and the arrow keeps overlaying the row's end,
+   which is the edge nobody is aligning to. */
+@media (min-width: 1000px) {
+  .collections--compact .collections__rail {
+    padding-inline: 0 var(--rail-gutter);
+    scroll-padding-inline: 0 var(--rail-gutter);
   }
 
+  .collections--compact .collections__arrows--inline {
+    /* 5px clear of the bar's edge, which leaves the 30px button inside the
+       40px gutter with room either side. */
+    inset: 0 0 0 calc(-1 * (var(--shop-gutter, 40px) - 5px));
+  }
+}
+
+/* Below 1000 the gutter is `4vw` and narrower than the button, so there is
+   nowhere to put the arrows that is not on top of a chip. They go, as they
+   already had to on a phone: the rail is scrollable by trackpad and by swipe,
+   and the resting rail's own arrow pair is still there above it. */
+@media (max-width: 999px) {
   .collections__arrows--inline {
     display: none;
   }

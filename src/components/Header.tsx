@@ -501,9 +501,40 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                 >
                   <img src="/img/logo-amazing-donuts.svg" alt="Amazing Donuts" style={{ height: 22, width: 'auto' }} />
                 </a>
-                <button type="button" aria-label="Close menu" onClick={() => setOpen(false)} className="icon-btn" style={{ color: 'var(--cream)' }}>
-                  <X size={24} />
-                </button>
+                {/* The bag comes with you into the drawer.
+
+                    The menu is a full-screen sheet, so opening it covers the
+                    bar — and with it the only way to reach the basket. Someone
+                    who added two donuts and then opened the menu to find a
+                    third had to close the menu again to check what was in it,
+                    and the count they were tracking vanished behind the sheet
+                    while they browsed.
+
+                    Same control as the bar's, same count, same flight target,
+                    so a donut added from the bestsellers below still lands
+                    somewhere the visitor can see. Closes the menu on the way,
+                    because the bag drawer is where they asked to go. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      openCart();
+                    }}
+                    aria-label={`Bag, ${count} ${count === 1 ? 'item' : 'items'}`}
+                    className="icon-btn"
+                    /* Outranks the bar's, which this sheet is covering — see
+                       `cartTarget`. */
+                    data-cart-target="priority"
+                    style={{ color: 'var(--cream)', position: 'relative' }}
+                  >
+                    <ShoppingBag size={24} strokeWidth={2} />
+                    {count > 0 && <span className="shop-badge">{count}</span>}
+                  </button>
+                  <button type="button" aria-label="Close menu" onClick={() => setOpen(false)} className="icon-btn" style={{ color: 'var(--cream)' }}>
+                    <X size={24} />
+                  </button>
+                </div>
               </div>
               {/* A phone searches from here, so the field is open on arrival
                   rather than hiding behind a press - there is nothing to save

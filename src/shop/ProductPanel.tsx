@@ -583,7 +583,7 @@ function Cabinet({ product }: { product: Product }) {
                 as the bag drawer's editor and the checkout page's rescue, so
                 the three cannot drift. */}
             {isFinish && (
-              <div style={{ marginBottom: 20 }}>
+              <div className="cabinet__spec">
                 <FinishPicker value={finish} onChange={setFinish} units={packSize ? packSize * qty : undefined} />
               </div>
             )}
@@ -602,7 +602,7 @@ function Cabinet({ product }: { product: Product }) {
                 icings the bakery prints onto as a segmented pair, and the lab's
                 own sprinkle mixes as swatches. */}
             {isPrint && (
-              <div style={{ marginBottom: 20 }}>
+              <div className="cabinet__spec">
                 <span className="cabinet__label">Icing</span>
                 <div className="cabinet__packs" role="radiogroup" aria-label="Icing">
                   {(['Chocolate', 'Vanilla'] as const).map((flavour) => (
@@ -717,7 +717,7 @@ function Cabinet({ product }: { product: Product }) {
             )}
 
             {isGlyph && (
-              <div style={{ marginBottom: 20 }}>
+              <div className="cabinet__spec">
                 <span className="cabinet__label">Cut as</span>
                 <div className="cabinet__packs" role="radiogroup" aria-label="Letter or number">
                   {(['number', 'letter'] as GlyphMode[]).map((option) => (
