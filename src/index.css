@@ -2326,16 +2326,17 @@ html.lenis,
 @media (min-width: 641px) {
   .box-card__copy { flex: 1 1 0; }
 
-  /* As wide as its label and no wider.
+  /* Filling the column, which is what makes the pair match — see the note
+     above `flex: 1 1 0`.
 
-     Stretching it to the copy column tied the button's width to whatever the
-     photograph left over, which is how it came to be narrower than its own
-     text. Sized by its content it cannot be too small for it, and the pill
-     ends where the words do — next to a heading and a price that both start
-     at the same left edge and end where THEIR content does. */
+     Stretching is only safe now that the column has a floor: it carries
+     `min-width: min-content`, so it can no longer be squeezed below the
+     button's own label the way it was when the button rendered as
+     "BUILD A HALF DOZE". Stretch without that floor is what caused the
+     clipping; stretch with it is what the pair wanted all along. */
   .box-card__cta {
-    align-self: flex-start;
-    width: auto;
+    align-self: stretch;
+    justify-content: space-between;
   }
 }
 
@@ -2391,19 +2392,20 @@ html.lenis,
     align-items: stretch;
   }
 
-  /* Content-width here too, so the button behaves the same at both sizes.
+  /* Full span, because nothing is beside it.
 
-     It was stretched across the whole card, which left 50px of dead space
-     after the six's label and 94px after the twelve's — the knob was pushed to
-     the trailing edge to hide that, but the two cards still read as different
-     widths of empty pill. On a card whose heading and price both end where
-     their own text ends, so should the button.
+     On a desktop the button shares its row with the photograph, so its width
+     is part of a composition. Here the card is a single column and the button
+     has the row to itself — a pill stopping two thirds of the way across
+     leaves a ragged edge under a photograph that runs the full width.
 
-     `white-space: normal` stays as the backstop: at the very narrowest widths
-     the label wraps and the pill grows to hold it, rather than being clipped. */
+     `space-between` is what makes the stretch read as deliberate rather than
+     as a short label rattling around a long box: the label holds the leading
+     edge, the knob takes the trailing one, the same as the product panel's and
+     the box builder's own full-width Add buttons. */
   .box-card__cta {
-    align-self: flex-start;
-    width: auto;
+    align-self: stretch;
+    justify-content: space-between;
   }
 
   .box-card__photo {
