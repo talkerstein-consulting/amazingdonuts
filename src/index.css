@@ -293,8 +293,112 @@ nav a,
   background: rgba(251, 247, 239, 0.12);
 }
 
+/* The bestsellers in the mobile menu.
+
+   Two up, and the catalogue's own `ProductTile` inside each cell — see
+   `Header`. The only thing that changes is the palette: the tile is built for
+   a Canvas page and sets Harbour text, and this drawer is Harbour, so the
+   name, the price and the photo bed are re-toned here rather than the tile
+   growing a variant. The orange add knob is left alone; it is the one thing
+   that should look the same everywhere. */
+.nav-bestsellers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.nav-bestsellers__tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* The photo bed, on the drawer's own ground rather than Canvas. */
+.nav-bestsellers__tile button[aria-label^='View'] {
+  background: rgba(251, 247, 239, 0.08) !important;
+}
+
+.nav-bestsellers__tile h4 {
+  color: var(--cream) !important;
+}
+
+.nav-bestsellers__tile span {
+  color: var(--pink) !important;
+}
+
 .footer-link:hover {
   color: var(--cream) !important;
+}
+
+/* The build credit. Underlined on its own so it reads as a link at the size
+   and opacity the copyright line sets, and takes full navy on hover rather
+   than growing or changing colour — the row it sits in is the quietest on the
+   page and should stay that way. */
+.footer-credit {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(14, 62, 105, 0.28);
+  text-underline-offset: 3px;
+  transition: color 0.18s ease, text-decoration-color 0.18s ease;
+}
+
+.footer-credit:hover,
+.footer-credit:focus-visible {
+  color: var(--navy);
+  text-decoration-color: currentColor;
+}
+
+/* The two studio lockups, as the ends of one line: Handcrafted on the left,
+   RescueMyWebsite across from it on the right.
+
+   Sized by HEIGHT here. The artwork is 1981x148 and 2612x148 - the same cap
+   height, different lengths, because one name is longer than the other - so a
+   shared height sets both names at one size, and matching their widths instead
+   would set the same words at two. */
+.footer-credits {
+  /* Room above it. The credits are a separate register from the link columns -
+     whose site this is, not what is on it - and with the copyright line gone
+     they sat right under the last link as if they were one more of them. */
+  margin-top: clamp(44px, 6vw, 92px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(20px, 4vw, 56px);
+}
+
+.footer-credits__mark {
+  display: block;
+}
+
+.footer-credits__mark img {
+  display: block;
+  width: auto;
+  height: 18pt;
+}
+
+/* Stacked, the row's logic inverts. Two marks in a column are read as a list,
+   and a list of two different lengths is ragged where the row was two ends of
+   one line - so on a phone they share a WIDTH and centre on it. */
+@media (max-width: 700px) {
+  .footer-credits {
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  /* Full width of the column, both of them: the wider mark sets the measure
+     and the narrower one matches it, so the stack has one left edge and one
+     right edge rather than two ragged ones. */
+  .footer-credits__mark {
+    width: 100%;
+  }
+
+  .footer-credits__mark img {
+    width: 100%;
+    height: auto;
+  }
 }
 
 /* Wordmark drawn as a mask so it inherits whatever colour the nav bar is wearing. */
@@ -621,8 +725,11 @@ nav a,
   }
 }
 
+/* Between the lede and the buttons now — see `Hero`. The margin above it is
+   the lede's paragraph spacing; the one below opens the gap the CTAs need so
+   the rating does not read as a label on them. */
 .hero__proof {
-  margin-top: clamp(10px, 1.4vw, 16px);
+  margin-top: clamp(14px, 1.8vw, 22px);
 }
 
 /* The hero's rating stays on a phone, unlike the trust band's.
@@ -635,6 +742,12 @@ nav a,
   .hero__proof .review-score {
     display: inline-flex;
   }
+}
+
+/* The rating no longer ends the stack, so the buttons take their own top
+   margin from it rather than from the lede. */
+.hero__proof + .hero__actions {
+  margin-top: clamp(14px, 1.8vw, 22px);
 }
 
 .review-score__count {
@@ -1059,7 +1172,13 @@ nav a,
   padding: 14px 16px;
   border-radius: 24px;
   background: var(--cream);
-  transition: padding var(--category-morph-duration) var(--category-morph-ease),
+  /* padding-BLOCK only. The horizontal padding is what places the row on the
+     page's own margin, and pinning changes the box it is measured from in one
+     frame while a transition would take 360ms to catch up - so the chips slid
+     in from the far left on every pin, which read as the rail shifting left
+     and then shrinking rather than the bar changing height. Horizontally it
+     lands where it belongs immediately; the height is what animates. */
+  transition: padding-block var(--category-morph-duration) var(--category-morph-ease),
     border-radius var(--category-morph-duration) var(--category-morph-ease),
     box-shadow var(--category-morph-duration) var(--category-morph-ease);
 }
@@ -1070,15 +1189,86 @@ nav a,
   padding: 0;
   margin: 0;
 }
+/* Pinned, the rail stops being a card and becomes a bar.
+
+   It used to keep its 24px corners and grow a drop shadow, which made it a
+   floating pill hovering under the navbar with the page visible either side of
+   it and a strip of Shortbread sliding through the gap above. Two bars, one of
+   them apparently detached from the site.
+
+   So when it sticks it goes flat and edge to edge — square corners, the page
+   gutter as its own padding, and a hairline under it instead of a shadow. It
+   is the navbar's second row, and it should look like it. The full-bleed is
+   `100vw` with the standard centring escape: both this and the homepage's copy
+   sit inside a max-width container, and `body` clips the horizontal axis, so
+   the half-scrollbar the unit overshoots by never becomes a scrollbar. */
+.category-bar.is-stuck {
+  width: 100vw;
+  max-width: none;
+  margin-inline: calc(50% - 50vw);
+}
+
+/* The catalogue's bar is already edge to edge, so it needs no escape — and
+   applying one anyway overshot it. `100vw` counts the scrollbar and the
+   container does not, so the band hung 5px past each side; harmless in itself
+   (the body clips) but the padding is measured from that edge, so the pinned
+   chips landed 5px left of the resting ones. */
+.shop-category-bar.is-stuck {
+  width: 100%;
+  margin-inline: 0;
+}
+
+/* At rest the homepage's rail is a card, and a card has an inset: its edge sat
+   on the page's margin and its first chip 16px inside that - the same "two
+   insets for one edge" the catalogue's bar was fixed for, and the 16px the
+   chips snapped away the moment it pinned.
+
+   The card keeps its padding and gives back the same amount in margin, so the
+   CHIPS line up with the box cards above and the pin becomes a change of
+   height with no sideways movement at all. 16px is inside the band's own
+   padding (18px at its narrowest), so the card never escapes the band. */
+.home-rail:not(.is-stuck) > .category-bar__inner {
+  margin-inline: -16px;
+}
+
+/* The homepage's rail is a card inside `.section-band` - a 1240px column with
+   its own padding - and pinning takes it out to 100vw. Without this the chips
+   jumped from the band's edge to 40px off the bezel the moment it stuck: the
+   same row of categories in two different places. Same measure as the
+   catalogue's, read off the band it belongs to. */
+.home-rail.is-stuck .category-bar__inner {
+  --home-band-pad: clamp(18px, 4vw, 40px);
+  --category-edge: max(var(--home-band-pad), calc(50% - 620px + var(--home-band-pad)));
+}
+
 .category-bar.is-stuck .category-bar__inner {
-  padding-block: 10px;
-  border-radius: 32px;
-  box-shadow: 0 10px 26px -14px rgba(14, 62, 105, 0.5);
+  padding-block: 5px;
+  padding-inline: var(--category-edge, var(--shop-gutter, clamp(18px, 4vw, 40px)));
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 rgba(14, 62, 105, 0.12);
 }
 .shop-category-bar {
   width: calc(100% - 2 * var(--shop-gutter));
   max-width: calc(1400px - 2 * var(--shop-gutter));
   margin-inline: auto;
+}
+
+/* The page's own left and right edge, as one number.
+
+   The band runs edge to edge in both states - it is the navbar's second row,
+   and a centred strip with page either side of it reads as a floating pill.
+   Its CONTENTS must not: the box cards, the section headings and the tiles all
+   sit in a 1400px column with the gutter inside it, so past 1400px the gutter
+   alone is no longer the page's margin. It was still the bar's, which is why
+   at 1600px the chips began 40px from the bezel while The Sweet Six began at
+   135 - the one row on the page that did not line up with the rest of it.
+
+   Padding rather than a max-width, because the background has to stay full
+   width. Under 1400px the second term goes negative and this is the plain
+   gutter it always was. */
+.shop-category-bar > .category-bar__inner {
+  --category-edge: max(var(--shop-gutter), calc(50% - 700px + var(--shop-gutter)));
+  padding-inline: var(--category-edge);
 }
 .category-bar__inner > .shop-head__filter {
   margin-bottom: 26px;
@@ -1086,11 +1276,55 @@ nav a,
     box-shadow 180ms ease;
 }
 .category-bar.is-stuck .shop-head__filter { margin-bottom: 0; }
+/* The catalogue's rail runs edge to edge, at every width, at rest as well as
+   pinned.
+
+   It was a card inset by the page gutter with 16px of its own padding, so the
+   first chip started 16px right of the line the banner, the headings and the
+   grid all start on — the one row on the page that did not line up with the
+   rest of it, and 16px the chips could not use. Two insets for one edge.
+
+   Full-bleed with the page gutter as the card's own padding gives back both:
+   "Shop all" begins exactly where the tiles below it do. It also matches what
+   the bar becomes when it pins, so pinning is a change of height rather than
+   of shape — the card that used to shrink into a bar is a bar throughout.
+
+   Scoped to the catalogue. The homepage's copy sits inside a narrower
+   max-width section with a different left edge, and it is a card there among
+   other cards. */
+.shop-category-bar {
+  width: 100%;
+  max-width: none;
+}
+
+.shop-category-bar > .category-bar__inner {
+  border-radius: 0;
+}
+
 @media (max-width: 640px) {
   .category-bar__inner {
     padding-inline: 8px;
-    gap: 8px;
+    /* 8px put the Filter button hard against the tab the rail was cut off at,
+       close enough that the pair read as one overlapping the other. The rule
+       and the wider gap say the button is a separate control beside the row,
+       not something sitting on top of it — and the rail's fade now runs out
+       into that gap rather than ending under the button. */
+    gap: 12px;
     border-radius: 20px;
+  }
+  /* A rule between the two, drawn in the gap rather than on the button — the
+     button keeps its own pill, and the line is what says the row ends here. */
+  .category-bar__inner > .shop-head__filter {
+    position: relative;
+  }
+  .category-bar__inner > .shop-head__filter::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    top: 4px;
+    bottom: 4px;
+    width: 1px;
+    background: rgba(14, 62, 105, 0.14);
   }
   .category-bar__inner .collections__title { font-size: 28px; }
 }
@@ -1171,14 +1405,15 @@ nav a,
   z-index: 3;
   /* Measured, not guessed: at 8% it cleared the pink donut's right edge by
      22px and read as a logo parked in the margin. 16% puts it onto the icing. */
-  /* Significantly larger than the 26% it was, and pulled up and out so the
-     extra size lands on the composition rather than on the copy beside it. A
-     mark of origin that has to be looked for is doing nothing; at this size it
-     is the second thing seen after the donuts. */
+  /* Larger than the 26% it was, and pulled up and out so the extra size lands
+     on the composition rather than on the copy beside it — a mark of origin
+     that has to be looked for is doing nothing. Back off 40%, though: at that
+     size it was reading as a third element in the hero rather than as a stamp
+     on the donuts, and competing with the headline for the eye. */
   top: -4%;
   right: 6%;
-  width: 40%;
-  max-width: 210px;
+  width: 34%;
+  max-width: 178px;
   height: auto;
   pointer-events: none;
   /* Its own shadow, so it reads as sitting ON the donut rather than printed
@@ -1198,6 +1433,36 @@ nav a,
     width: 80%;
     margin-left: auto;
     margin-right: auto;
+  }
+
+  /* Left, high, and big.
+
+     `top: -4%` lifts the seal out of the art box on purpose: on a wide screen
+     the art sits beside the copy and the overhang lands in empty space above
+     the donuts. Stacked, the art is a row UNDER the copy, so the same overhang
+     landed on the two CTAs — the one decision this screen exists to get — and
+     the seal sat across the pickup button.
+
+     The left is the side that is free. The blue donut is front and low to the
+     right; the pink one is behind and high to the left, so a mark on that side
+     lands on icing rather than on the composition's focal point.
+
+     `top` is measured, not chosen: the art box begins 10px above the bottom of
+     the CTA row, so anything at 0 clips the buttons. 15% clears them by 27px
+     and sits the seal over the pink donut's body rather than off its top edge,
+     while still reading as the upper half of the art.
+
+     46% wide — bigger than the 40% it takes on desktop, in a box that is
+     itself narrower. A mark of origin at 30% was legible and forgettable; a
+     phone screen has one thing on it at a time, and this is the second thing
+     seen after the donuts. */
+  .hero-duo__seal {
+    top: 15%;
+    right: auto;
+    bottom: auto;
+    left: -7%;
+    width: 46%;
+    max-width: 168px;
   }
 }
 
@@ -1629,6 +1894,36 @@ nav a,
   .regulars-cols {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* The phone's "there are more" control. Deliberately not a brand button: it
+   reveals what is already on the page rather than taking you anywhere, and the
+   one filled action in this region should stay the product card inside each
+   review. An outlined row, full width, sized like the cards it follows. */
+.regulars-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 20px;
+  border: none;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.22);
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--navy);
+  transition: box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.regulars-more:hover,
+.regulars-more:focus-visible {
+  background: rgba(14, 62, 105, 0.04);
+  box-shadow: inset 0 0 0 2px var(--navy);
 }
 
 .regulars-card {
@@ -2230,6 +2525,7 @@ html.lenis,
 .home-category {
   scroll-margin-top: var(--home-category-offset, calc(var(--nav-h) + 104px));
 }
+
 @media (max-width: 640px) {
   .home-categories { gap: 48px; }
 }

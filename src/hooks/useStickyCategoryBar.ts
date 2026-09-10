@@ -1,8 +1,22 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { FULFILLMENT_EVENT } from '../lib/fulfillment';
 
-export const CATEGORY_BAR_GAP = 16;
-export const COMPACT_CATEGORY_BAR_HEIGHT = 72;
+/**
+ * How far the pinned rail sits below the chrome above it.
+ *
+ * Zero, deliberately. It was 16, which floated the rail as a detached pill
+ * with a strip of the page scrolling through the gap between it and the
+ * navbar — two bars, one of them apparently unattached to anything. Flush, the
+ * rail reads as the second row of the site's own header.
+ *
+ * `chromeHeight` below already measures the pickup/delivery band when one is
+ * showing, so "flush" means flush to the navbar when no fulfilment is chosen
+ * and flush to the band when one is, without either case being special-cased.
+ */
+export const CATEGORY_BAR_GAP = 0;
+/* The pinned strip's height, used by the homepage to offset its scroll-to
+   anchors. Down from 72 with the chips — see `.collections--compact`. */
+export const COMPACT_CATEGORY_BAR_HEIGHT = 52;
 
 export function useStickyCategoryBar() {
   const sentinel = useRef<HTMLDivElement>(null);

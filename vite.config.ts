@@ -11,7 +11,7 @@ export default defineConfig({
     }
   },
   /**
-   * Six pages, six bundles. Neither the Donut Lab nor the catalogue is a
+   * A page per bundle. Neither the Donut Lab nor the catalogue is a
    * route: the site has no router, and a separate HTML entry keeps the build
    * fully static — the homepage does not pay for the builder's art and logic,
    * `/donut-lab/` does not pay for the homepage, and `/shop/` pays for
@@ -48,6 +48,7 @@ export default defineConfig({
         main: path.resolve(__dirname, 'index.html'),
         donutLab: path.resolve(__dirname, 'donut-lab/index.html'),
         shop: path.resolve(__dirname, 'shop/index.html'),
+        search: path.resolve(__dirname, 'search/index.html'),
         pickup: path.resolve(__dirname, 'pickup/index.html'),
         contact: path.resolve(__dirname, 'contact/index.html'),
         careers: path.resolve(__dirname, 'careers/index.html'),

@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import { motion, type Variants } from 'motion/react';
-import { Star } from 'lucide-react';
+import { ChevronDown, Star } from 'lucide-react';
 import { C, F } from './brand';
 import { PRODUCTS, type Product } from '../data/products';
 import { RATING } from '../data/reviews';
 import ProductLine from './ProductLine';
 import GoogleG from './GoogleG';
 import { useShop } from '../lib/shop';
+import { useIsDesktop } from '../hooks/useIsDesktop';
 
 /**
  * "Loved by our regulars", on the social-proof-14 frame: a sticky rail of
@@ -58,6 +60,19 @@ const QUOTES: {
 const BY_ID = new Map(PRODUCTS.map((p) => [p.id, p]));
 
 const COLUMNS = [QUOTES.filter((_, i) => i % 2 === 0), QUOTES.filter((_, i) => i % 2 === 1)];
+
+/* How many reviews a phone shows before it asks.
+
+   Six of these is a long way to scroll past on one column. Each card is a
+   quote, an attribution and the product it names — comfortably 300px — so the
+   section ran the better part of three screens on a phone, between the
+   homepage's catalogue and everything under it. Three is enough to establish
+   that the reviews are real and varied; the rest are a tap away for anyone who
+   wants them, and nobody who does not want them has to scroll through them.
+
+   Two columns can afford all six, which is why this only applies below the
+   width where the second column appears — see `.regulars-cols`. */
+const PHONE_PREVIEW = 3;
 
 const rail: Variants = {
   hidden: { opacity: 0, y: 18 },
@@ -123,11 +138,44 @@ function AttachedProduct({ product }: { product: Product }) {
   );
 }
 
-function QuoteCard({ q, featured }: { q: (typeof QUOTES)[number]; featured: boolean }) {
+/**
+ * A card the button revealed is a plain element. Only the ones already on the
+ * page when it scrolls into view are animated.
+ *
+ * The column staggers its children through `variants` and a one-shot
+ * `whileInView`. That covers the cards present when the section scrolls past,
+ * and nothing else: `once: true` takes the viewport listener away when it
+ * fires, leaving the container with no `animate` prop, so anything mounted
+ * afterwards resolves the `hidden` variant it inherits and sits at zero
+ * opacity. Pressing "Read 3 more reviews" added three cards to the DOM,
+ * invisible, and made the page taller.
+ *
+ * Giving those cards their own entrance animation fixes the symptom and keeps
+ * the cause: their visibility still depends on an animation actually running.
+ * It does not, everywhere — a throttled background tab, a device that drops
+ * the frame, a motion library that errors — and the failure mode is content
+ * that is present, styled, and unreadable. Reviews are the content; an
+ * entrance is decoration.
+ *
+ * So a revealed card carries no `initial` and no opacity to recover from. It
+ * is visible because it is in the DOM. The reader asked for these by pressing
+ * a button, which is its own transition — they do not need to be introduced.
+ */
+function QuoteCard({
+  q,
+  featured,
+  revealed = false
+}: {
+  q: (typeof QUOTES)[number];
+  featured: boolean;
+  revealed?: boolean;
+}) {
   const product = q.product ? BY_ID.get(q.product) : undefined;
 
+  const Card = revealed ? 'article' : motion.article;
+
   return (
-    <motion.article variants={card} className="regulars-card">
+    <Card {...(revealed ? {} : { variants: card })} className="regulars-card">
       <Stars n={q.stars} />
       <p
         style={{
@@ -150,11 +198,16 @@ function QuoteCard({ q, featured }: { q: (typeof QUOTES)[number]; featured: bool
           credited before the thing it reviews is offered, or the strip reads
           as an ad with a quote attached rather than the reverse. */}
       {product && <AttachedProduct product={product} />}
-    </motion.article>
+    </Card>
   );
 }
 
 export default function Testimonials() {
+  /* 640px is where the second column appears — see `.regulars-cols`. Below it
+     the section is one stack, which is the case the cap exists for. */
+  const twoUp = useIsDesktop(640);
+  const [expanded, setExpanded] = useState(false);
+
   return (
     /* Named, because the trust band's rating links down to the quotes it
        summarises. */
@@ -212,22 +265,68 @@ export default function Testimonials() {
               signal instead of three unrelated marks. */}
         </motion.div>
 
-        <div className="regulars-cols">
-          {COLUMNS.map((col, ci) => (
+        {/* One column on a phone, and only the first few of it.
+
+            Two columns is the design; below 640px they stack, and stacked they
+            are six full-height cards in a row. So the narrow layout is its own
+            branch rather than the wide one squeezed: a single flat list in
+            editorial order — which the interleaved columns lose once they
+            stack — capped at `PHONE_PREVIEW`, with the rest behind a button.
+
+            Not a carousel. A swipe rail hides how many there are and makes the
+            sixth review as much work as the second; a count on a button says
+            exactly what pressing it gets you. */}
+        {twoUp ? (
+          <div className="regulars-cols">
+            {COLUMNS.map((col, ci) => (
+              <motion.div
+                key={ci}
+                variants={column}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-60px' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(14px,1.6vw,22px)' }}
+              >
+                {col.map((q, i) => (
+                  <QuoteCard key={q.name} q={q} featured={ci === 0 && i === 0} />
+                ))}
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="regulars-cols">
             <motion.div
-              key={ci}
               variants={column}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: '-60px' }}
               style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(14px,1.6vw,22px)' }}
             >
-              {col.map((q, i) => (
-                <QuoteCard key={q.name} q={q} featured={ci === 0 && i === 0} />
+              {(expanded ? QUOTES : QUOTES.slice(0, PHONE_PREVIEW)).map((q, i) => (
+                <QuoteCard
+                  key={q.name}
+                  q={q}
+                  featured={i === 0}
+                  revealed={i >= PHONE_PREVIEW}
+                />
               ))}
+
+              {!expanded && QUOTES.length > PHONE_PREVIEW && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(true)}
+                  className="regulars-more brand-press"
+                >
+                  {/* The number, not "Show more": it is the difference between
+                      a control whose cost is known and one that might go on
+                      forever. */}
+                  Read {QUOTES.length - PHONE_PREVIEW} more reviews
+                  <ChevronDown size={17} strokeWidth={2.6} aria-hidden="true" />
+                </button>
+              )}
             </motion.div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     </section>
   );

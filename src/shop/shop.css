@@ -410,6 +410,45 @@ a.cabinet__iconBtn { text-decoration: none; }
 
 .cabinet__crumbs span[aria-hidden] { opacity: 0.5; }
 
+/* The choices a made-to-order product cannot be bought without.
+
+   On an ordinary product the panel is a description and a button: read it,
+   press Add. On the letter cake, the printed dozen and the petite tray it is
+   not — the shape has to be cut, the artwork chosen, the colours picked, and
+   `addToBag` refuses until they are. Those questions were set in the same
+   quiet grey-on-cream as the box size and the allergen list beside them, so
+   the one part of the page that is not optional looked exactly like the parts
+   that are, and the Add button appeared to do nothing.
+
+   Dare Devil outline, because the brand's orange is what it uses for the thing
+   to act on, and this IS the action on these products — the button at the
+   bottom is only the confirmation of it. A ring rather than a fill: three
+   filled orange panels would out-shout the one orange button they lead to.
+
+   `inset` box-shadow, not `border`, so the ring costs no layout and the
+   controls inside keep the widths they were designed at. */
+.cabinet__spec {
+  margin-bottom: 20px;
+  padding: clamp(14px, 1.6vw, 18px);
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 2px var(--orange);
+  /* A wash of the same orange at 4%, which lifts the group off the card
+     without competing with the swatches and thumbnails inside it. */
+  background: rgba(255, 104, 50, 0.04);
+}
+
+/* The last of them sits directly above the quantity row and its Add button;
+   the card's own spacing takes it from there. */
+.cabinet__spec:last-of-type {
+  margin-bottom: 24px;
+}
+
+/* The group's heading takes the orange too, so the ring reads as one labelled
+   object rather than a box that happens to be drawn around some text. */
+.cabinet__spec > .cabinet__label {
+  color: var(--orange);
+}
+
 .cabinet__label {
   display: block;
   margin-bottom: 10px;
@@ -1397,6 +1436,37 @@ a.cabinet__iconBtn { text-decoration: none; }
   color: var(--navy);
 }
 
+/* The dead-end rescue: the apology, then what to buy instead.
+
+   Set apart from the grid above it with a rule rather than just space, because
+   these tiles are NOT results — they are the bakery's own bestsellers standing
+   in for a search that found nothing, and a row of products directly under a
+   query line would otherwise read as matches for it. */
+.shop-empty {
+  margin-top: clamp(8px, 1.4vw, 16px);
+}
+
+.shop-empty__title {
+  margin: clamp(22px, 2.6vw, 34px) 0 clamp(14px, 1.6vw, 20px);
+  padding-top: clamp(20px, 2.4vw, 30px);
+  border-top: 1px solid rgba(14, 62, 105, 0.14);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(22px, 3.4vw, 30px);
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* The catalogue grid's own columns, so a suggested tile is the same object at
+   the same size as a result — but it never runs past one row, because four
+   consolation products should not out-scroll the thing they are consoling.
+   `.shop-grid` gives it 2/3/4 columns; the cap keeps the count matched to
+   whichever it is. */
+.shop-empty__grid {
+  align-content: start;
+}
+
 .shop-query__clear {
   padding: 0;
   border: none;
@@ -1836,6 +1906,24 @@ a.cabinet__iconBtn { text-decoration: none; }
   .cabinet__buybar .cabinet__buybarButton {
     flex: 1;
     justify-content: space-between;
+    /* The knob gets the same inset as the label.
+
+       `--bbtn-pad-r` is 8px against a 30px left, which is right for an inline
+       button sized by its own content — the knob is the trailing ornament and
+       tucking it in keeps the pill tight. Stretched to fill a phone's bar it
+       is not that button any more: the knob ends up 6px from the pill's edge
+       and 18px from the screen's, so the one round object in the row looks
+       pushed off the side while the label sits comfortably indented. Matching
+       the two puts the arrow back inside the button. */
+    --bbtn-pad-l: 20px;
+    --bbtn-pad-r: 20px;
+  }
+
+  /* The knob is `--bbtn-knob` wide and the padding above now sits outside it,
+     so the pill would grow by the difference. It has a row to fill, not a
+     width to keep. */
+  .cabinet__buybar .cabinet__buybarButton .bbtn__knob {
+    flex: none;
   }
 }
 
@@ -2276,7 +2364,24 @@ a.cabinet__iconBtn { text-decoration: none; }
     gap: 10px;
   }
 
-  .cabinet__bundle .cabinet__bundleAdd { width: 100%; }
+  /* Full width, and laid out like one.
+
+     It was only `width: 100%`. The pill is not `.bbtn--block`, so it kept the
+     inline button's packing: label and knob bunched against the left edge with
+     a stretch of empty outline to the right of them, which is what made the
+     row look broken rather than wide. Every other full-width button on the
+     site puts its label at the start and its knob at the end, and this is the
+     rule that does it.
+
+     Even padding for the same reason as the sticky buy bar: `--bbtn-pad-r` is
+     8px because an inline button tucks its knob in, and a stretched one has no
+     reason to. */
+  .cabinet__bundle .cabinet__bundleAdd {
+    width: 100%;
+    justify-content: space-between;
+    --bbtn-pad-l: 20px;
+    --bbtn-pad-r: 20px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2373,6 +2478,12 @@ a.cabinet__iconBtn { text-decoration: none; }
   min-width: 0;
 }
 
+/* One number for the fade's width and the rail's snap padding, so a tab can
+   never come to rest underneath its own fade. */
+.collections {
+  --collection-fade: clamp(36px, 5vw, 56px);
+}
+
 .collections__scroller::before,
 .collections__scroller::after {
   content: '';
@@ -2380,7 +2491,7 @@ a.cabinet__iconBtn { text-decoration: none; }
   z-index: 2;
   top: 0;
   bottom: 0;
-  width: clamp(28px, 5vw, 56px);
+  width: var(--collection-fade);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s ease;
@@ -2451,8 +2562,8 @@ a.cabinet__iconBtn { text-decoration: none; }
 }
 .collections__arrows--inline button {
   pointer-events: auto;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   /* Canvas with a ring, not the page's own ground: the button sits ON the
      scrolling cards, so it needs to read as a layer above them. */
   background: var(--cream);
@@ -2466,18 +2577,74 @@ a.cabinet__iconBtn { text-decoration: none; }
   pointer-events: none;
 }
 
-/* A gutter at each end, the width of an arrow.
+/* Flush left, always.
 
-   The arrows sit ON the rail rather than above it, so without this the chips
-   scrolled underneath them and the first and last of the row were always
-   half-covered by a button. The padding is the arrow's own width plus a
-   margin, so a chip parked at either end clears it — and `scroll-padding`
-   makes the browser's own snapping stop at the same line rather than tucking
-   a chip under the button it just scrolled past. */
+   This used to hold `--rail-gutter` open at BOTH ends: the arrows sit ON the
+   rail rather than above it, so without room the first and last chip of the
+   row were half-covered by a button. That reasoning still holds on the right,
+   where the arrow is — see the override below — but never on the left, where
+   the arrow was moved out into the bar's own padding and, under 1000px, does
+   not exist at all. Left as it was, the pinned rail began 42px inside the
+   margin every other row on the page starts on, for a button that was either
+   somewhere else or nowhere.
+
+   The right gutter is added back, on its own, only at the width the right
+   arrow appears at. */
 .collections--compact .collections__rail {
-  padding: 3px var(--rail-gutter) 4px;
-  gap: 8px;
-  scroll-padding-inline: var(--rail-gutter);
+  padding: 2px 0;
+  gap: 6px;
+  scroll-padding-inline: 0;
+}
+
+/* No arrows on a touch rail, and no gutter held open for them.
+
+   The heading's arrow pair is already desktop-only, on the reasoning that a
+   touch rail is swiped and two buttons beside it are two things to mis-tap.
+   The inline pair — the one that sits ON the pinned strip — never got the same
+   treatment, so a phone carried two 30px buttons over a row it scrolls with a
+   finger, plus 42px of gutter at each end holding room for them. 84px of a
+   335px strip, spent on controls that duplicate the swipe.
+
+   They were also the smallest targets on the page at 30px, which is under the
+   44 the filter button beside them is held to.
+
+   Gone below 640, and `--rail-gutter` with them, so the pinned chips start on
+   the same margin as the resting ones rather than 42px inside it. */
+/* The left gutter goes; the right one stays.
+
+   `--rail-gutter` held 42px open at BOTH ends of the pinned rail so the chips
+   did not scroll under the arrows laid over them. It worked, at the cost of
+   the one row you navigate with being the only row on the page that did not
+   begin on the page's margin — flush at rest, 42px in the moment it pinned.
+
+   The two sides are not the same problem. The bar is full-bleed now and its
+   padding IS the page gutter, so on the left there is 40px of empty ground the
+   arrow can sit in without covering anything: pulled out into it, the chips
+   start on the margin in both states. On the right that ground belongs to the
+   Filter button, so an arrow pulled the same distance lands on top of it —
+   there the rail keeps its inset and the arrow keeps overlaying the row's end,
+   which is the edge nobody is aligning to. */
+@media (min-width: 1000px) {
+  .collections--compact .collections__rail {
+    padding-inline: 0 var(--rail-gutter);
+    scroll-padding-inline: 0 var(--rail-gutter);
+  }
+
+  .collections--compact .collections__arrows--inline {
+    /* 5px clear of the bar's edge, which leaves the 30px button inside the
+       40px gutter with room either side. */
+    inset: 0 0 0 calc(-1 * (var(--shop-gutter, 40px) - 5px));
+  }
+}
+
+/* Below 1000 the gutter is `4vw` and narrower than the button, so there is
+   nowhere to put the arrows that is not on top of a chip. They go, as they
+   already had to on a phone: the rail is scrollable by trackpad and by swipe,
+   and the resting rail's own arrow pair is still there above it. */
+@media (max-width: 999px) {
+  .collections__arrows--inline {
+    display: none;
+  }
 }
 
 /* A word in a pill, and nothing else.
@@ -2490,7 +2657,11 @@ a.cabinet__iconBtn { text-decoration: none; }
    of a 375px screen spent illustrating words the reader is scanning past. */
 .collections--compact .collection-card {
   gap: 0;
-  padding: 8px 16px;
+  /* Slimmer. The pinned strip is a navigation row travelling down the page
+     under the navbar, and every pixel of it is taken off what the visitor can
+     see of the catalogue it is navigating. 8/16 made the whole bar 64px — as
+     tall as the navbar itself, which is a lot of chrome for six words. */
+  padding: 5px 14px;
   border-radius: 99px;
 }
 
@@ -2509,11 +2680,14 @@ a.cabinet__iconBtn { text-decoration: none; }
   gap: 0;
 }
 
-/* Bigger than it was. 16px left the chips reading as labels on a toolbar when
-   they are the page's own navigation, and the strip has the room now that the
-   faces are gone. */
+/* 17, between the 16 it started at and the 20 it grew to.
+
+   20 was right when the strip was a floating pill with its own padding and
+   corners. Flush under the navbar it is a bar, and a bar's labels should not
+   out-size the navbar's own links beside them — the chips were reading louder
+   than the site's navigation while being subordinate to it. */
 .collections--compact .collection-card__name {
-  font-size: 20px;
+  font-size: 17px;
 }
 
 /* The lift belongs to a card in a grid, not to a pill in a strip that is
@@ -2527,7 +2701,20 @@ a.cabinet__iconBtn { text-decoration: none; }
   gap: clamp(10px, 1.4vw, 16px);
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
+  /* Mandatory, not proximity.
+
+     Proximity lets the rail come to rest wherever the finger left it, which on
+     a phone means a tab parked half under the fade — and on the catalogue,
+     where the Filter button takes 44px off an already narrow scrollport, half
+     a tab sitting against that button does not read as a row that continues.
+     It reads as the button covering the word. Mandatory means the rail always
+     settles on a tab boundary: what is on screen is whole.
+
+     `scroll-padding-inline` is the other half of it. Without it "the start of
+     the scrollport" is behind the fade, so the snapped tab is aligned to a
+     position where its first letters are still being faded out. */
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--collection-fade, 28px);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   /* Room for the hover lift, which the scrollport's own overflow would
@@ -2535,6 +2722,18 @@ a.cabinet__iconBtn { text-decoration: none; }
   padding: 4px 0 6px;
   transition: padding var(--category-morph-duration) var(--category-morph-ease),
     gap var(--category-morph-duration) var(--category-morph-ease);
+}
+
+/* The last tab snaps to the trailing edge instead of the leading one.
+
+   Every tab aligned `start`, the final one can only satisfy its snap position
+   by scrolling until its left edge is at the scrollport's start — which is
+   past the end of the content, so the rail rests showing the last tab and a
+   band of empty Shortbread beside it. Aligning the end of the row to the end
+   of the port is the same rule read from the other side, and there is nothing
+   after it to leave a gap. */
+.collections__rail > :last-child {
+  scroll-snap-align: end;
 }
 
 .collections__rail::-webkit-scrollbar { display: none; }
@@ -3329,9 +3528,58 @@ a.cabinet__iconBtn { text-decoration: none; }
 }
 .shop-head__filter:hover { box-shadow: inset 0 0 0 2px var(--navy); }
 .shop-head__filter .filter-pin__badge { font-size: 12px; }
+/* On a phone the word goes and the pill shrinks to its glyph — but the thing
+   you press does not.
+
+   44x44 is the floor (Apple's HIG, and WCAG 2.5.5), and the button was sitting
+   exactly on it: 44 wide, 44 tall, on a row where every pixel it takes is one
+   the category chips do not get. Shrinking it to 36 to buy that space would
+   have put it under the floor.
+
+   So the two are separated. The pill is 36x36 — what you see, and what the
+   layout reserves — and `::after` extends the hit area back out to 44x44,
+   centred on it, overhanging into the gap either side. The overhang is inert
+   space: the rail beside it scrolls rather than being tapped, and the bar's
+   own gap is what it grows into. Pressable at 44, drawn at 36. */
 @media (max-width: 640px) {
-  .shop-head__filter { padding: 0 13px; }
+  .shop-head__filter {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    min-height: 0;
+    padding: 0;
+    display: grid;
+    place-items: center;
+  }
+
+  .shop-head__filter::after {
+    content: '';
+    position: absolute;
+    /* (44 - 36) / 2 */
+    inset: -4px;
+    /* Square, not `inherit`. Inheriting the pill's radius makes the target a
+       44px circle, which loses its corners — press slightly off-diagonal and
+       you land on the bar behind it. The box is what gets measured; only the
+       36px pill inside it is visible, so there is nothing to round. */
+    border-radius: 0;
+  }
+
   .shop-head__filter-label { display: none; }
+
+  /* No count on the phone's button.
+
+     The badge is a 21px pill, and it was being laid into a 36x36 button next
+     to an 18px icon — two children in a grid cell with room for one, so the
+     glyph shifted off centre and the pill spilled over the ring. It was
+     already tight at 44px; at 36 it is broken.
+
+     Dropped rather than shrunk. A number that small is not read at arm's
+     length, the drawer it opens lists every active filter by name at the top,
+     and the grid underneath is visibly shorter — the state is not a secret
+     without it. */
+  .shop-head__filter .filter-pin__badge {
+    display: none;
+  }
 }
 
 /* The Donut Lab's build, read back on the bag line. Label, value, price — one
@@ -3756,4 +4004,234 @@ a.cabinet__iconBtn { text-decoration: none; }
   .cabinet__bundlePlus {
     width: 14px;
   }
+}
+
+/* ==========================================================================
+   The search results page.
+
+   Built on `.shop-page` so the gutter, the grid columns and the tiles are the
+   catalogue's — a result should be the same object as a product on the shop,
+   not a lookalike. Everything below is the part that differs: a page whose
+   subject is a question somebody asked.
+   ========================================================================== */
+.search-page {
+  padding-top: clamp(20px, 3vw, 40px);
+}
+
+/* The catalogue's own measure: `max-width` plus the gutter as padding, not a
+   `width: min()` of its own. Both compute to the same box on their own, but
+   `.shop-page .shop-grid` already applies the padding — so a width override on
+   top of it inset the results by two gutters and the grid no longer lined up
+   with the heading above it, or with the tiles on the shop. */
+.search-head,
+.search-empty {
+  max-width: 1400px;
+  margin-inline: auto;
+  padding-inline: var(--shop-gutter);
+}
+
+/* The field, at the top and at the size of the thing the page is about.
+
+   The header keeps its own collapsed magnifier — that is a control on a bar.
+   This is the page's subject, so it is a real field: full width, 56px tall,
+   and already holding the query so refining a search is editing a word rather
+   than retyping the phrase. */
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 0 8px 0 18px;
+  border-radius: var(--radius-pill, 99px);
+  background: var(--cream);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.18);
+}
+
+.search-field:focus-within {
+  box-shadow: inset 0 0 0 2px var(--navy);
+}
+
+.search-field__icon {
+  flex: none;
+  color: rgba(14, 62, 105, 0.55);
+}
+
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-body);
+  /* 16px is the floor that stops iOS zooming the page on focus. */
+  font-size: 16px;
+  color: var(--navy);
+}
+
+/* The browser's own clear affordance is Chrome-only and vanishes on blur, so
+   the field draws its own and this hides the duplicate where both exist. */
+.search-field input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-field__clear {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 99px;
+  background: transparent;
+  color: rgba(14, 62, 105, 0.6);
+  cursor: pointer;
+}
+
+.search-field__clear:hover {
+  background: rgba(14, 62, 105, 0.08);
+  color: var(--navy);
+}
+
+.search-field__go {
+  flex: none;
+  min-height: 44px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 99px;
+  background: var(--navy);
+  color: var(--cream);
+  cursor: pointer;
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.search-field__go:hover {
+  background: var(--orange);
+}
+
+/* On a phone the word goes and the field takes the width back. The keyboard's
+   own return key says Search — see `enterKeyHint` — and the magnifier at the
+   other end is not a second submit to explain. */
+@media (max-width: 560px) {
+  .search-field__go {
+    display: none;
+  }
+}
+
+.search-title {
+  margin: clamp(20px, 2.6vw, 32px) 0 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--type-section);
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* One heading, one face. The query was set in the body face on the reasoning
+   that it is the visitor's words rather than the bakery's — true, and the
+   quotes already say so. Two typefaces in a six-word heading just read as two
+   headings that collided. It keeps its own case, because a query is typed and
+   should be shown as typed. */
+.search-title span {
+  text-transform: none;
+}
+
+.search-count {
+  margin: 10px 0 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+/* Counters whose name matched, above the products. */
+.search-counters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: clamp(16px, 2vw, 22px);
+}
+
+.search-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 99px;
+  background: var(--cream);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.18);
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--navy);
+}
+
+.search-counter strong {
+  font-family: var(--font-cta);
+  font-weight: 700;
+}
+
+.search-counter:hover {
+  box-shadow: inset 0 0 0 2px var(--navy);
+}
+
+/* Nothing but the space above it. Everything else — max-width, gutter,
+   centring, columns — comes from `.shop-page .shop-grid`, so a result is laid
+   out by the same rule as a product on the catalogue rather than by a copy of
+   it that can drift. */
+.search-grid.search-grid {
+  margin-top: clamp(22px, 2.8vw, 34px);
+}
+
+.search-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Nothing matched. Separated from the results above by a rule, because these
+   tiles are the bakery's bestsellers standing in for an answer — a row of
+   products under a query line would otherwise read as matches for it. */
+.search-empty {
+  margin-top: clamp(26px, 3.2vw, 40px);
+}
+
+.search-empty__title {
+  margin: 0;
+  padding-top: clamp(22px, 2.6vw, 32px);
+  border-top: 1px solid rgba(14, 62, 105, 0.14);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(22px, 3.4vw, 30px);
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* Already inside `.search-empty`'s gutter, so it does not take another. */
+.search-page .search-empty .shop-grid {
+  padding-inline: 0;
+}
+
+.search-empty__all {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: clamp(18px, 2.2vw, 26px);
+  font-family: var(--font-cta);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--navy);
+  text-decoration: underline;
+  text-decoration-color: rgba(14, 62, 105, 0.3);
+  text-underline-offset: 4px;
+}
+
+.search-empty__all:hover {
+  text-decoration-color: currentColor;
 }

@@ -140,7 +140,23 @@ function CategoryRow({
     <div
       id={`home-${category.toLowerCase()}`}
       className="home-category"
-      style={{ borderRadius: 24, background: C.cream, overflow: 'hidden' }}
+      /* `clip` with a margin, not `hidden`.
+
+         The panel clips so its 24px corners actually round the Canvas behind
+         the tiles. `hidden` clips at the border box exactly, and the add knob
+         deliberately straddles the top-right corner of its photo bed by 6px
+         (see `AddControl`) — so the last tile in every row had the right-hand
+         side of its plus sliced off against the panel wall. Every row, on
+         every counter.
+
+         The grid cannot simply be inset instead: it runs edge to edge on
+         purpose, so the tiles start and end on the same line as the heading
+         above them and every other block on the page.
+
+         8px of clip margin is the 6px overhang plus a little. Nothing here
+         animates its height — the rows are mounted and unmounted, not
+         collapsed — so a slightly generous clip box has nothing to leak. */
+      style={{ borderRadius: 24, background: C.cream, overflow: 'clip', overflowClipMargin: 8 }}
     >
       <button
         type="button"

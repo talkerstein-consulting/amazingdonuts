@@ -9,7 +9,7 @@ import {
   Truck,
   UserRound,
 } from "lucide-react";
-import { ShopProvider, money, useShop } from "../lib/shop";
+import { ShopProvider, money, useShop, lineKeyOf } from "../lib/shop";
 import AuthModal from "../shop/AuthModal";
 import CommerceLogo from "./CommerceLogo";
 import "../index.css";
@@ -575,7 +575,7 @@ function Checkout() {
           updated.push({ ...art, assetId });
         }
         const next: Customization = { ...custom, artworks: updated };
-        customize(line.product.id, next);
+        customize(lineKeyOf(line), next);
         output.push({
           productName: line.product.name,
           kind: "print",
@@ -1426,7 +1426,7 @@ function Checkout() {
               return (
                 <div
                   className={`summary-item${blocked ? " summary-item--attention" : ""}`}
-                  key={line.product.id}
+                  key={lineKeyOf(line)}
                 >
                   <div className="summary-line">
                     <img src={line.product.img} alt="" />
@@ -1446,7 +1446,7 @@ function Checkout() {
                       productId={line.product.id}
                       qty={line.qty}
                       value={line.customization}
-                      onChange={(next) => customize(line.product.id, next)}
+                      onChange={(next) => customize(lineKeyOf(line), next)}
                     />
                   )}
                 </div>

@@ -21,11 +21,12 @@ import BoxCard from '../components/BoxCard';
 import { LAB_HREF } from '../lib/lab-href';
 import { useGridColumns } from '../hooks/useGridColumns';
 import { readShopParams } from '../lib/shop-href';
+import { searchProducts, fallbackProducts } from '../lib/search';
 import { useStickyCategoryBar } from '../hooks/useStickyCategoryBar';
-import { Badge, C, F, SQUIRCLE, BadgeRow } from '../components/brand';
+import { C, F, BadgeRow } from '../components/brand';
 import { tagFor } from '../data/product-tags';
 import { useShop, useBoxQty } from '../lib/shop';
-import AddControl from '../components/AddControl';
+import ProductTile from '../components/ProductTile';
 import CollectionRail from './CollectionRail';
 import FilterDrawer, {
   type FilterOption,
@@ -292,6 +293,8 @@ const COLLECTION_COPY: Record<'all' | Category, { title: string; seo: string }> 
   }
 };
 
+
+
 export default function ShopAll() {
   const { openProduct, products: catalogProducts } = useShop();
   const products = useMemo(() => catalogProducts.filter((product) => !INTERNAL_PRODUCT_IDS.has(product.id)), [catalogProducts]);
@@ -315,20 +318,41 @@ export default function ShopAll() {
   const [tier, setTier] = useState<Tier | null>(() => readShopParams().tier);
   const [flavour, setFlavour] = useState<Flavour | null>(null);
 
+  /**
+   * What to offer when nothing matched.
+   *
+   * An empty result used to be one line of apology and a "shop all" link,
+   * which puts the visitor back at the top of sixty products having already
+   * told us what they wanted. The dead end is the problem: someone who
+   * searched "chocolate" on a day nothing is called chocolate should be
+   * looking at donuts, not at a sentence.
+   *
+   * The bakery's own ranking, not a guess. `BEST_SELLERS` is the short list it
+   * leads with everywhere else on the site — the header drawer promotes the
+   * same four — and `tagFor` puts the softer "Popular" tag behind it, so this
+   * strip agrees with the badges on the tiles rather than inventing a second
+   * opinion about what is worth buying.
+   *
+   * Filtered against the live catalogue, so a suggestion is never something
+   * Square has stopped selling, and against the box builders, whose cards are
+   * a different shape and would break the row.
+   *
+   * Four, because that is a full row on the widest grid and half a row on the
+   * narrowest. This is a consolation offer; it should not out-length the
+   * result it is standing in for.
+   */
+  const suggestions = useMemo(
+    () => fallbackProducts(products.filter((p) => !BOX_BUILDER_IDS.has(p.id))),
+    [products]
+  );
+
   const shown = useMemo(() => {
     const inCategory = active ? products.filter((p) => p.category === active) : products;
     const inTier = tier ? inCategory.filter(TIERS.find((t) => t.id === tier)!.test) : inCategory;
     const inFlavour = flavour ? inTier.filter(tasteOf(flavour)) : inTier;
-    if (!query) return inFlavour;
-    /* Matched against the name and the category, case-insensitively, on every
-       whitespace-separated word: "blue sprinkle" should find the blue sprinkle
-       donut, and searching "bread" should find the Breads counter's items even
-       though no product is literally called bread. */
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    return inFlavour.filter((p) => {
-      const hay = `${p.name} ${p.category}`.toLowerCase();
-      return words.every((w) => hay.includes(w));
-    });
+    /* The same matcher the results page and the header's suggestions use, so
+       a query cannot mean one thing here and another there — see `lib/search`. */
+    return searchProducts(inFlavour, query);
   }, [active, tier, flavour, query, products]);
 
   /* Sorted separately from the filtering above so a re-sort does not re-run
@@ -584,16 +608,48 @@ export default function ShopAll() {
         </p>
       )}
 
-      {/* A search that matches nothing has to say so. Without this the grid
-          just came up empty and read as a broken page. */}
+      {/* A search that matches nothing has to say so — and then has to offer
+          something. Without the first half the grid just came up empty and read
+          as a broken page; without the second it read as a polite dead end,
+          which on a catalogue is the same page with better manners.
+
+          So: the sentence, then the four things the bakery actually leads with,
+          drawn as real catalogue tiles with their real add knobs. Nobody has to
+          go back to the top and start again to buy a donut. */}
       {query && shown.length === 0 && (
-        <p className="shop-query shop-query--empty">
-          Nothing matches &ldquo;{query}&rdquo;. Try a flavour, or{' '}
-          <button type="button" onClick={() => setQuery('')} className="shop-query__clear">
-            shop all
-          </button>
-          .
-        </p>
+        <div className="shop-empty">
+          <p className="shop-query shop-query--empty">
+            Nothing matches &ldquo;{query}&rdquo;. Try a flavour, or{' '}
+            <button type="button" onClick={() => setQuery('')} className="shop-query__clear">
+              shop all
+            </button>
+            .
+          </p>
+
+          {suggestions.length > 0 && (
+            <>
+              {/* Says why these four and not four others. "You might also
+                  like" would be a guess dressed as a recommendation; this is
+                  the bakery's own list, and saying so is what makes it worth
+                  reading. */}
+              <h2 className="shop-empty__title">Most people order these</h2>
+              <div className="shop-grid shop-empty__grid">
+                {suggestions.map((product) => (
+                  <article
+                    key={product.id}
+                    style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}
+                  >
+                    <ProductTile
+                      product={product}
+                      onOpen={openCatalogProduct}
+                      inBox={Boolean(boxQty[product.id])}
+                    />
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {/* A combination that matches nothing has to say so and offer the way
@@ -692,88 +748,11 @@ export default function ShopAll() {
               {...slide(i)}
               style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}
             >
-              <div style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  onClick={() => openCatalogProduct(tile.product)}
-                  aria-label={`View ${tile.product.name}`}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    aspectRatio: '1',
-                    border: 'none',
-                    padding: 0,
-                    cursor: 'pointer',
-                    /* See the homepage grid: the bed carries the state,
-                       because a ring on a squircle-clipped element is clipped
-                       away with it. */
-                    background: boxQty[tile.product.id] ? C.navy : C.canvas,
-                    clipPath: SQUIRCLE,
-                    overflow: 'hidden',
-                    transition: 'background .2s ease'
-                  }}
-                >
-                  <img
-                    src={tile.product.img}
-                    alt={tile.product.name}
-                    loading="lazy"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                      /* One scale for every product. The heart and the Star of
-                         David used to be shrunk to 0.82 here and nowhere else,
-                         so the same two donuts were a different size in this
-                         grid than on the homepage, the panel, the bag line and
-                         the search results — which reads as the products being
-                         smaller rather than as the tiles being different. */
-                      transform: 'scale(1.18)'
-                    }}
-                  />
-                </button>
-
-                <AddControl product={tile.product} />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => openCatalogProduct(tile.product)}
-                style={{ border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer' }}
-              >
-                {/* Markup-wise the tag belongs to the text, not to the photo,
-                    and `.product-tag` is what decides where it is drawn: over
-                    the picture's top-left corner on a wide grid, and in the
-                    flow above the name on a phone — see the rule. It cannot be
-                    two elements, because a duplicated badge is read twice. */}
-                {tagFor(tile.product.id) && (
-                  <span className="product-tag">
-                    <Badge badge={tagFor(tile.product.id)!} compact />
-                  </span>
-                )}
-                <h4
-                  style={{
-                    margin: 0,
-                    fontFamily: F.display,
-                    /* Up a tier from 14/400. Karla at 800 made every name shout
-                       and left the grid with no hierarchy in it, but 14 at
-                       Regular put the product's own name below its price in
-                       weight — the one thing on a tile that has to be read
-                       first was the quietest thing on it. */
-                    fontWeight: 700,
-                    fontSize: 16,
-                    lineHeight: 1.2,
-                    color: C.navy,
-                    textTransform: 'none',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden'
-                  }}
-                >
-                  {tile.product.name}
-                </h4>
-                <span style={{ fontFamily: F.text, fontWeight: 500, fontSize: 14, color: C.price }}>{tile.product.price}</span>
-              </button>
+              <ProductTile
+                product={tile.product}
+                onOpen={openCatalogProduct}
+                inBox={Boolean(boxQty[tile.product.id])}
+              />
             </motion.article>
             )
             )

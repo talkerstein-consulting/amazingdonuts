@@ -28,8 +28,22 @@ const FLIGHT_MS = 700;
 const reduced = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** Where the flight lands. Tagged in `Header`; absent on pages with no navbar. */
-const cartTarget = () => document.querySelector<HTMLElement>('[data-cart-target]');
+/**
+ * Where the flight lands. Tagged in `Header`; absent on pages with no navbar.
+ *
+ * There can be two. The mobile menu is a full-screen sheet that covers the bar,
+ * so it carries a bag of its own — and while it is open, THAT is the one the
+ * visitor can see. A plain `querySelector` takes the first in document order,
+ * which is the bar's, so a donut added from the menu's bestsellers arced to a
+ * button hidden behind the sheet it was launched from.
+ *
+ * The sheet's copy claims priority explicitly rather than the resolver
+ * guessing from position or visibility: it only exists while the sheet is
+ * open, so its presence IS the condition.
+ */
+const cartTarget = () =>
+  document.querySelector<HTMLElement>('[data-cart-target="priority"]') ??
+  document.querySelector<HTMLElement>('[data-cart-target]');
 
 /**
  * A quadratic bezier, sampled.

@@ -3,19 +3,17 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   ArrowLeft,
   Check,
+  ChefHat,
   ChevronDown,
   Heart,
-  Instagram,
   Link2,
   FileImage,
   Minus,
   Plus,
-  Sunrise,
+  Share2,
   Truck,
   X
 } from 'lucide-react';
-import FacebookSolid from '../components/FacebookSolid';
-import WhatsAppSolid from '../components/WhatsAppSolid';
 import { SHOP_PRODUCTS, type Product } from '../data/products';
 import { tagFor } from '../data/product-tags';
 import { C, F, BadgeRow, BrandButton } from '../components/brand';
@@ -29,11 +27,13 @@ import {
   minimumQuantityFor,
   FINISH_PRODUCTS,
   PRINT_PRODUCTS,
-  type Artwork
+  type Artwork,
+  type Customization
 } from '../lib/custom-order';
 import FinishPicker, { EMPTY_FINISH, type Finish } from './FinishPicker';
 import BoxBuilder from './BoxBuilder';
 import { flyManyToCart, flyToCart } from '../lib/fly-to-cart';
+import { readRecentlyViewed } from '../lib/recently-viewed';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -50,9 +50,23 @@ const PACKS = [
   { id: 'dozen', label: 'Dozen', pieces: 12, note: '12 pieces' }
 ] as const;
 
+/**
+ * Two claims the bakery can stand behind on any given day.
+ *
+ * Neither of these used to be. "Prepared this morning / Every order is
+ * prepared the day you collect it" described a daily bake, and the bakery does
+ * not run one — it produces to demand, weekly in slow stretches. On a product
+ * page that is an advertised freshness guarantee nobody can honour, which is
+ * the kind of sentence a customer quotes back at you. It says who makes it and
+ * where instead, which is true every day of the week.
+ *
+ * "Same-day pickup" was wrong for a plainer reason: checkout refuses same-day.
+ * The earliest slot the counter offers is tomorrow — see `PickupBanner` — so
+ * the product page was promising a collection time the order form declines.
+ */
 const REASSURANCE = [
-  { Icon: Sunrise, title: 'Prepared this morning', body: 'Every order is prepared the day you collect it.' },
-  { Icon: Truck, title: 'Pickup or delivery', body: 'Same-day pickup, next-day local delivery.' }
+  { Icon: ChefHat, title: 'Made in our own kitchen', body: 'Mixed, proofed and finished by hand in Toronto.' },
+  { Icon: Truck, title: 'Pickup or delivery', body: 'Next-day pickup, or local delivery to your door.' }
 ];
 
 /**
@@ -76,7 +90,7 @@ const REASSURANCE = [
  * different page with the same job, and which one opens is decided below.
  */
 function Cabinet({ product }: { product: Product }) {
-  const { closeProduct, openProduct, add, customize, wishlist, toggleWishlist } = useShop();
+  const { closeProduct, openProduct, add, wishlist, toggleWishlist } = useShop();
   const [qty, setQty] = useState(1);
   const [pack, setPack] = useState<(typeof PACKS)[number]['id']>('single');
   const [openSection, setOpenSection] = useState<'details' | 'allergens' | 'delivery' | ''>('details');
@@ -218,22 +232,35 @@ function Cabinet({ product }: { product: Product }) {
      shape travels whichever one is pressed. */
   const addToBag = () => {
     if (!ready) return;
-    add(product, pieces * qty);
-    if (isPrint) {
-      customize(product.id, {
-        kind: 'print',
-        icingFlavour: printIcing,
-        sprinkleId: printSprinkle,
-        /* The mix's own name, which is what the counter reads; the id is how
-           the bag line finds its swatch again to draw the dots. */
-        sprinkleColours: printSprinkleChoice?.name ?? '',
-        artworks
-      });
-    }
-    if (isGlyph) customize(product.id, { kind: 'glyph', glyph });
-    if (isFinish) customize(product.id, finish);
+    /* The spec goes in WITH the line, not onto it afterwards. Two steps worked
+       for as long as a product could only be one row: `add` merged into the
+       existing line, then `customize` wrote the answer over it. Spelling a
+       word broke both halves — every letter merged into the first letter's row
+       and then overwrote its character, so "OMG" was one cake reading "G".
+       Passed here, the character is part of what `add` matches on, so each
+       letter is its own row. See `lineKeyOf`. */
+    const spec: Customization | undefined = isPrint
+      ? {
+          kind: 'print',
+          icingFlavour: printIcing,
+          sprinkleId: printSprinkle,
+          /* The mix's own name, which is what the counter reads; the id is how
+             the bag line finds its swatch again to draw the dots. */
+          sprinkleColours: printSprinkleChoice?.name ?? '',
+          artworks
+        }
+      : isGlyph
+        ? { kind: 'glyph', glyph }
+        : isFinish
+          ? finish
+          : undefined;
+    /* Never opens the bag. The flying donut is the confirmation, and a drawer
+       over the picker is what made spelling a word out of single letters
+       unusable. */
+    add(product, pieces * qty, { openCart: false, customization: spec });
     setAdded(true);
   };
+
   const minimumQuantity = minimumQuantityFor(product.id);
   // A boxed item is already a set quantity; only by-the-piece stock takes packs.
   /* A bulk line has no box size. Petite donuts are cheap enough per unit to
@@ -302,6 +329,36 @@ function Cabinet({ product }: { product: Product }) {
       .sort((a, b) => rank(a) - rank(b))
       .slice(0, 2);
   }, [product]);
+
+  /**
+   * What this visitor looked at before this, most recent first.
+   *
+   * Snapshotted once per product rather than read live. The shop context
+   * records a view the moment the panel opens (see `recordProductView`), so a
+   * live read would put the product you are looking at at the top of its own
+   * "recently viewed" and reshuffle the row underneath you as you moved from
+   * one recommendation to the next. Keyed on `product.id`, the row is the
+   * history as it stood when you arrived — which is what the words mean.
+   *
+   * The current product is filtered out regardless of that ordering, so it
+   * does not matter whether the write lands before or after this read.
+   *
+   * Resolved against `SHOP_PRODUCTS` at render: an id whose product has since
+   * left the catalogue drops out rather than rendering a hole. Four, to match
+   * the row above it.
+   */
+  const recentlyViewed = useMemo(() => {
+    const byId = new Map(SHOP_PRODUCTS.map((p) => [p.id, p]));
+    return readRecentlyViewed()
+      .filter((id) => id !== product.id)
+      .map((id) => byId.get(id))
+      .filter((p): p is Product => Boolean(p))
+      .slice(0, 4);
+    /* `product.id`, not `product`: a re-priced catalogue replaces the object
+       every time Square answers, and re-snapshotting on that would undo the
+       whole point of taking a snapshot. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
 
   // Something from a different counter, and never one of the two already shown
   // in the bundle directly above it.
@@ -392,40 +449,28 @@ function Cabinet({ product }: { product: Product }) {
               belongs beside the buy action, which is where it is; these three
               send the product to someone else, which is a different job from
               keeping it for yourself. */}
-          <div className="cabinet__mediaTools">
-            <a
-              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Share ${product.name} on Facebook`}
-              className="cabinet__iconBtn"
-            >
-              <FacebookSolid size={18} />
-            </a>
+          {/* One share button, not a row of named networks.
 
-            {/* Instagram has no share-by-URL: you cannot hand it a link and a
-                caption the way Facebook and WhatsApp take one. So this is the
-                platform's own share sheet, which lists Instagram on a phone
-                where the app is installed — and a copied link on a desktop,
-                where posting to Instagram means going to the app anyway. */}
+              It was Facebook, Instagram and WhatsApp side by side. Naming
+              platforms dates: Facebook is Meta's now, the set is wrong the day
+              the bakery cares about a fourth one, and on a phone all three were
+              a worse version of the sheet the operating system already draws —
+              which lists every app the visitor actually has, in their order,
+              including the ones we would never have thought to hard-code.
+
+              So: the platform's share sheet where there is one, and a copied
+              link where there is not. Desktop Safari and Chrome both have
+              `navigator.share` now; the clipboard is the fallback, and it says
+              so by turning into a tick. */}
+          <div className="cabinet__mediaTools">
             <button
               type="button"
               onClick={shareNative}
               aria-label={`Share ${product.name}`}
               className="cabinet__iconBtn"
             >
-              {copied ? <Check size={18} strokeWidth={2.6} /> : <Instagram size={18} strokeWidth={2.2} />}
+              {copied ? <Check size={18} strokeWidth={2.6} /> : <Share2 size={18} strokeWidth={2.2} />}
             </button>
-
-            <a
-              href={`https://wa.me/?text=${encodeURIComponent(`${product.name} — ${shareUrl}`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Share ${product.name} on WhatsApp`}
-              className="cabinet__iconBtn"
-            >
-              <WhatsAppSolid size={18} />
-            </a>
 
             <button type="button" onClick={copyLink} aria-label="Copy link to this product" className="cabinet__iconBtn">
               {copied ? <Check size={17} strokeWidth={2.6} /> : <Link2 size={17} strokeWidth={2.4} />}
@@ -538,7 +583,7 @@ function Cabinet({ product }: { product: Product }) {
                 as the bag drawer's editor and the checkout page's rescue, so
                 the three cannot drift. */}
             {isFinish && (
-              <div style={{ marginBottom: 20 }}>
+              <div className="cabinet__spec">
                 <FinishPicker value={finish} onChange={setFinish} units={packSize ? packSize * qty : undefined} />
               </div>
             )}
@@ -557,7 +602,7 @@ function Cabinet({ product }: { product: Product }) {
                 icings the bakery prints onto as a segmented pair, and the lab's
                 own sprinkle mixes as swatches. */}
             {isPrint && (
-              <div style={{ marginBottom: 20 }}>
+              <div className="cabinet__spec">
                 <span className="cabinet__label">Icing</span>
                 <div className="cabinet__packs" role="radiogroup" aria-label="Icing">
                   {(['Chocolate', 'Vanilla'] as const).map((flavour) => (
@@ -672,7 +717,7 @@ function Cabinet({ product }: { product: Product }) {
             )}
 
             {isGlyph && (
-              <div style={{ marginBottom: 20 }}>
+              <div className="cabinet__spec">
                 <span className="cabinet__label">Cut as</span>
                 <div className="cabinet__packs" role="radiogroup" aria-label="Letter or number">
                   {(['number', 'letter'] as GlyphMode[]).map((option) => (
@@ -949,6 +994,35 @@ function Cabinet({ product }: { product: Product }) {
             <BrandButton variant="outline" className="cabinet__bundleAdd" onClick={addBundle}>
               Add all three
             </BrandButton>
+          </div>
+        </section>
+      )}
+
+      {/* --- recently viewed ---
+
+          Last of the three rows, and last on purpose. "Goes well with" and the
+          bundle are the bakery making a case for something new; this is the
+          visitor's own trail back to what they were already considering. It
+          belongs after the pitch, as the way out of the page rather than
+          another thing to look at on it — someone who has opened four donuts
+          deciding between them should not have to use the back button four
+          times to compare them.
+
+          Absent on a first visit, which is correct: a "recently viewed" row
+          with nothing in it is a heading apologising for itself. */}
+      {recentlyViewed.length > 0 && (
+        <section className="cabinet__pairs">
+          <h3 className="cabinet__pairsTitle">Recently viewed</h3>
+          <div className="cabinet__pairsGrid">
+            {recentlyViewed.map((p) => (
+              <button key={p.id} type="button" onClick={() => openProduct(p.id)} className="cabinet__pairCard">
+                <span className="cabinet__pairBed">
+                  <img src={p.img} alt="" loading="lazy" />
+                </span>
+                <strong>{p.name}</strong>
+                <span className="cabinet__pairPrice">{p.price}</span>
+              </button>
+            ))}
           </div>
         </section>
       )}
