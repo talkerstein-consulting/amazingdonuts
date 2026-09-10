@@ -99,6 +99,8 @@ export default function AddControl({
      donut's questions, not silently make two of the first. */
   const needsSpec = Boolean(customizationFor(product.id));
 
+  if (product.available === false) return <span style={{ ...face, padding: '0 10px', display: 'grid', placeItems: 'center', background: C.navy, fontSize: 12 }}>Unavailable</span>;
+
   if (needsSpec) {
     return (
       <button

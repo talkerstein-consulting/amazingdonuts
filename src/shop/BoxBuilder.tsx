@@ -133,7 +133,7 @@ function BoxSlot({
 }
 
 export default function BoxBuilder({ product }: { product: Product }) {
-  const { closeProduct, add, customize, lines, products } = useShop();
+  const { closeProduct, add, lines, products } = useShop();
   const counts = BOX_PRODUCTS.get(product.id) ?? [6, 12];
   const max = boxMaxFor(product.id);
   /* One id per donut, in the order they were added — the order IS the
@@ -235,7 +235,7 @@ export default function BoxBuilder({ product }: { product: Product }) {
     () =>
       products.filter(
         (p) =>
-          !INTERNAL_PRODUCT_IDS.has(p.id) &&
+          !INTERNAL_PRODUCT_IDS.has(p.id) && p.available !== false &&
           (product.boxFlavours === undefined || product.boxFlavours.includes(p.name)) &&
           p.category === 'Donuts' &&
           p.id !== product.id &&
@@ -256,7 +256,7 @@ export default function BoxBuilder({ product }: { product: Product }) {
   const atMax = chosen.length >= max;
   /* A part-filled tray is not something the counter can pack, so the only
      buyable state is a full one. */
-  const packable = counts.includes(chosen.length) && chosen.every(id => options.some(option => option.id === id));
+  const packable = product.available !== false && counts.includes(chosen.length) && chosen.every(id => options.some(option => option.id === id));
   const remaining = Math.max(0, max - chosen.length);
 
   const addOne = (id: string) =>
@@ -296,12 +296,7 @@ export default function BoxBuilder({ product }: { product: Product }) {
 
   const addToBag = (event: React.MouseEvent<HTMLElement>) => {
     if (!packable) return;
-    add(product, 1, { openCart: false });
-    /* Written straight onto the line, so the bag shows the flavours that were
-       chosen rather than an empty box. Adding a second box replaces the
-       first's contents, which is the same limitation every customised line
-       here has — one customization per product line, not per unit. */
-    customize(product.id, { kind: 'box', donuts: chosen });
+    add(product, 1, { openCart: false, customization: { kind: 'box', donuts: chosen } });
     /* Geometry is read synchronously here, so the flight is already launched
        from the button's real position by the time the surface closes over it. */
     flyToCart(event.currentTarget, tray.art);

@@ -19,6 +19,7 @@ export type Product = {
   secondary?: string[];
   url: string;
   boxFlavours?: string[];
+  available?: boolean;
 };
 
 /**

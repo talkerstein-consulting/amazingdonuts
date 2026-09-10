@@ -14,13 +14,14 @@ import {
   Truck,
   X
 } from 'lucide-react';
-import { SHOP_PRODUCTS, type Product } from '../data/products';
+import { INTERNAL_PRODUCT_IDS, type Product } from '../data/products';
 import { tagFor } from '../data/product-tags';
 import { C, F, BadgeRow, BrandButton } from '../components/brand';
 import { useShop, money, priceOf } from '../lib/shop';
 import { PRINT_SPRINKLE_SWATCHES } from '../lib/petite-palette';
 import {
   BOX_PRODUCTS,
+  customizationFor,
   BULK_PACK_SIZES,
   GLYPH_PRODUCTS,
   imageDataUrl,
@@ -90,7 +91,8 @@ const REASSURANCE = [
  * different page with the same job, and which one opens is decided below.
  */
 function Cabinet({ product }: { product: Product }) {
-  const { closeProduct, openProduct, add, wishlist, toggleWishlist } = useShop();
+  const { closeProduct, openProduct, add, wishlist, toggleWishlist, products } = useShop();
+  const shopProducts = useMemo(() => products.filter(item => !INTERNAL_PRODUCT_IDS.has(item.id)), [products]);
   const [qty, setQty] = useState(1);
   const [pack, setPack] = useState<(typeof PACKS)[number]['id']>('single');
   const [openSection, setOpenSection] = useState<'details' | 'allergens' | 'delivery' | ''>('details');
@@ -204,7 +206,7 @@ function Cabinet({ product }: { product: Product }) {
 
   /* Every gate behind one name, so the two add buttons and the label they share
      each ask one question. */
-  const ready = petiteReady && printReady && glyphReady;
+  const ready = product.available !== false && petiteReady && printReady && glyphReady;
 
   const addArtwork = async (file?: File) => {
     if (!file) return;
@@ -323,12 +325,12 @@ function Cabinet({ product }: { product: Product }) {
       const tag = tagFor(p.id);
       return tag === 'seller' ? 0 : tag === 'popular' ? 1 : 2;
     };
-    return SHOP_PRODUCTS.filter(
-      (p) => p.category !== product.category && priceOf(p) > 0 && priceOf(p) < 10 && rank(p) < 2
+    return shopProducts.filter(
+      (p) => p.available !== false && !customizationFor(p.id) && p.category !== product.category && priceOf(p) > 0 && priceOf(p) < 10 && rank(p) < 2
     )
       .sort((a, b) => rank(a) - rank(b))
       .slice(0, 2);
-  }, [product]);
+  }, [product, shopProducts]);
 
   /**
    * What this visitor looked at before this, most recent first.
@@ -348,24 +350,20 @@ function Cabinet({ product }: { product: Product }) {
    * the row above it.
    */
   const recentlyViewed = useMemo(() => {
-    const byId = new Map(SHOP_PRODUCTS.map((p) => [p.id, p]));
+    const byId = new Map(shopProducts.map((p) => [p.id, p]));
     return readRecentlyViewed()
       .filter((id) => id !== product.id)
       .map((id) => byId.get(id))
       .filter((p): p is Product => Boolean(p))
       .slice(0, 4);
-    /* `product.id`, not `product`: a re-priced catalogue replaces the object
-       every time Square answers, and re-snapshotting on that would undo the
-       whole point of taking a snapshot. */
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product.id]);
+  }, [product.id, shopProducts]);
 
   // Something from a different counter, and never one of the two already shown
   // in the bundle directly above it.
   const pairsWith = useMemo(() => {
     const inBundle = new Set(bundle.map((p) => p.id));
-    return SHOP_PRODUCTS.filter((p) => p.category !== product.category && !inBundle.has(p.id)).slice(0, 4);
-  }, [product, bundle]);
+    return shopProducts.filter((p) => p.available !== false && p.category !== product.category && !inBundle.has(p.id)).slice(0, 4);
+  }, [product, bundle, shopProducts]);
 
   const bundleTotal = unit + bundle.reduce((n, p) => n + priceOf(p), 0);
 

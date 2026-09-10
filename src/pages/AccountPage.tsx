@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type InputHTMLAttributes } from "react";
 import { ArrowLeft, Building2, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, ReceiptText, Truck, UserRound, X } from "lucide-react";
-import { BOX_BUILDER_IDS, PRODUCTS } from "../data/products";
-import { GLYPH_PRODUCTS, PRINT_PRODUCTS } from "../lib/custom-order";
+import { customizationFor } from "../lib/custom-order";
 import AuthModal from "../shop/AuthModal";
 import "../index.css";
 import "../components/brand/brand.css";
@@ -149,7 +148,7 @@ function AccountShell() {
   const [orders, setOrders] = useState<any[]>([]);
   const [creditAccount, setCreditAccount] = useState<any>();
   const [application, setApplication] = useState<any>();
-  const [wishlist, setWishlist] = useState<string[]>([]);
+  const { wishlist, toggleWishlist } = useShop();
   const [authOpen, setAuthOpen] = useState(false);
   /* `#wishlist` opens on the saved hearts. The header's Favourites row points
      here, and without this it landed on the order list — a link named for one
@@ -165,17 +164,27 @@ function AccountShell() {
       .then(async (next) => {
         setSession(next);
         if (next.user) {
-          const [orderBody, applicationBody, creditBody, wishlistBody] = await Promise.all([api("/storefront/orders"), api("/storefront/house-application"), next.houseAccount ? api("/portal/account") : Promise.resolve({ account: null }), api("/storefront/wishlist")]);
+          const [orderBody, applicationBody, creditBody] = await Promise.all([api("/storefront/orders"), api("/storefront/house-application"), next.houseAccount ? api("/portal/account") : Promise.resolve({ account: null })]);
           setOrders(orderBody.orders);
           setApplication(applicationBody.application);
           setCreditAccount(creditBody.account);
-          setWishlist(wishlistBody.productIds || []);
         } else setAuthOpen(true);
       })
       .catch((error) => setMessage(error.message));
   useEffect(() => {
     if (!resetToken) void load();
+    const refresh = () => { if (!resetToken) void load(); };
+    window.addEventListener("amazing:auth-changed", refresh);
+    return () => window.removeEventListener("amazing:auth-changed", refresh);
   }, [resetToken]);
+  useEffect(() => {
+    const sync = () => {
+      const next = location.hash.slice(1);
+      if (next === "orders" || next === "wishlist" || next === "profile" || next === "house") setView(next);
+    };
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
   if (resetToken) return <PasswordReset token={resetToken} />;
   if (!session?.user)
     return (
@@ -250,7 +259,7 @@ function AccountShell() {
           {view === "orders" ? (
             <Orders orders={orders} />
           ) : view === "wishlist" ? (
-            <Wishlist productIds={wishlist} onRemoved={(id) => setWishlist((current) => current.filter((item) => item !== id))} />
+            <Wishlist productIds={wishlist} onRemoved={toggleWishlist} />
           ) : view === "profile" ? (
             <Profile
               session={session}
@@ -302,20 +311,20 @@ function AccountShell() {
    cake and a build-your-own box are all configured on their own page before
    they mean anything, and adding one with a blank spec makes a line checkout
    will refuse. "Add all" takes the rest and says how many it took. */
-const needsConfiguring = (id: string) => PRINT_PRODUCTS.has(id) || GLYPH_PRODUCTS.has(id) || BOX_BUILDER_IDS.has(id);
+const needsConfiguring = (id: string) => Boolean(customizationFor(id));
 
 function Wishlist({productIds,onRemoved}:{productIds:string[];onRemoved:(id:string)=>void}) {
-  const {openProduct,add,openCart}=useShop();
+  const {openProduct,add,openCart,products:catalogProducts}=useShop();
   const boxQty=useBoxQty();
-  const products=productIds.flatMap(id=>{const product=PRODUCTS.find(item=>item.id===id);return product?[product]:[]});
-  const addable=products.filter(product=>!needsConfiguring(product.id));
-  const skipped=products.length-addable.length;
+  const products=productIds.flatMap(id=>{const product=catalogProducts.find(item=>item.id===id);return product?[product]:[]});
+  const addable=products.filter(product=>product.available !== false && !needsConfiguring(product.id));
+  const skipped=products.filter(product=>needsConfiguring(product.id)).length;
   return <><div className="commerce-heading"><p>Saved for later</p><h1>Your wishlist</h1></div>{products.length?<>{addable.length>0&&<div className="wishlist-actions"><button type="button" className="wishlist-actions__add" onClick={()=>{
     /* One drawer at the end, not one per product: the adds are silent and the
        bag opening once is the confirmation for all of them. */
     addable.forEach(product=>add(product,1,{openCart:false}));
     openCart();
-  }}>Add all to bag{addable.length===products.length?"":` (${addable.length})`}</button>{skipped>0&&<small>{skipped===1?"One saved product is made to order":`${skipped} saved products are made to order`} — open {skipped===1?"it":"them"} to choose the details.</small>}</div>}<div className="shop-grid wishlist-grid">{products.map(product=><article key={product.id} className="wishlist-tile"><ProductTile product={product} onOpen={item=>openProduct(item.id)} inBox={Boolean(boxQty[product.id])} bedCorner={<button type="button" className="wishlist-tile__remove" onClick={async()=>{await api(`/storefront/wishlist/${product.id}`,{method:"DELETE"});onRemoved(product.id);}} aria-label={`Remove ${product.name} from wishlist`} title="Remove from wishlist"><Heart fill="currentColor"/></button>}/></article>)}</div></>:<div className="no-orders"><Heart/><h2>No saved favourites yet</h2><p>Tap the heart on any product to keep it here.</p><a href="/shop/">Browse products</a></div>}</>;
+  }}>Add all to bag{addable.length===products.length?"":` (${addable.length})`}</button>{skipped>0&&<small>{skipped===1?"One saved product is made to order":`${skipped} saved products are made to order`} — open {skipped===1?"it":"them"} to choose the details.</small>}</div>}<div className="shop-grid wishlist-grid">{products.map(product=><article key={product.id} className="wishlist-tile"><ProductTile product={product} onOpen={item=>openProduct(item.id)} inBox={Boolean(boxQty[product.id])} bedCorner={<button type="button" className="wishlist-tile__remove" onClick={()=>onRemoved(product.id)} aria-label={`Remove ${product.name} from wishlist`} title="Remove from wishlist"><Heart fill="currentColor"/></button>}/></article>)}</div></>:<div className="no-orders"><Heart/><h2>No saved favourites yet</h2><p>Tap the heart on any product to keep it here.</p><a href="/shop/">Browse products</a></div>}</>;
 }
 
 function PasswordReset({token}:{token:string}){

@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { PRODUCTS, type Product } from '../data/products';
 import { customizationFor, minimumQuantityFor, PRINT_PRODUCTS, type Customization } from './custom-order';
 import { recordProductView } from './recently-viewed';
+import { lineKeyOf } from './cart-line';
+export { lineKeyOf } from './cart-line';
 
 /**
  * The storefront's client state: which view is showing, which product is open,
@@ -17,25 +19,6 @@ import { recordProductView } from './recently-viewed';
  * gone — anything still calling them was setting a hash that matched nothing.
  */
 export type CartLine = { product: Product; qty: number; customization?: Customization };
-
-/**
- * What makes a bag row its own row.
- *
- * The bag was keyed on the product id alone, which is right for everything the
- * bakery sells off a shelf and wrong for the letter cake: spelling "OMG" is
- * three adds of one product, and one row per product collapsed them into a
- * single line whose glyph was whichever letter went in last. The customer saw
- * one cake, was charged for one cake, and the bakery was told to cut a "G".
- *
- * So a glyph line is identified by its character too. Every other line keys on
- * the product id exactly as before, which is why `setQty`, `remove` and
- * `customize` still take an id from every call site that has only ever had
- * one.
- */
-export const lineKeyOf = (line: { product: Product; customization?: Customization }) =>
-  line.customization?.kind === 'glyph' && line.customization.glyph
-    ? `${line.product.id}::${line.customization.glyph}`
-    : line.product.id;
 
 type Store = {
   products: Product[];
@@ -128,20 +111,34 @@ export function ShopProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/house/storefront/catalog', { cache: 'no-store' }).then(async response => {
+    let pending = false;
+    const refresh = () => {
+      if (pending || document.visibilityState === 'hidden') return;
+      pending = true;
+      void fetch('/api/house/storefront/catalog', { cache: 'no-store' }).then(async response => {
       if (!response.ok) throw new Error('Square catalog is unavailable.');
       return response.json();
     }).then(body => {
       if (!active) return;
       const live = new Map((body.products || []).map((item: { name:string;price:number }) => [item.name.toLowerCase(), item]));
       const next = PRODUCTS.map(product => {
-        const match = live.get(product.name.toLowerCase()) as { price:number;boxFlavours?:string[] } | undefined;
-        return match ? { ...product, price: money(match.price / 100), boxFlavours: match.boxFlavours } : product;
+        const match = live.get(product.name.toLowerCase()) as { price:number;boxFlavours?:string[];available?:boolean } | undefined;
+        return match ? { ...product, price: money(match.price / 100), boxFlavours: match.boxFlavours, available: match.available !== false } : { ...product, available: false };
       });
       setProducts(next);
       setLines(current => current.map(line => ({ ...line, product: next.find(item => item.id === line.product.id) || line.product })));
-    }).catch(() => {});
-    return () => { active = false; };
+      }).catch(() => {}).finally(() => { pending = false; });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 60000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, []);
 
   const loadWishlist = useCallback(async () => {
@@ -215,6 +212,8 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   }, [product]);
 
   const add = useCallback((p: Product, qty = 1, { openCart = true, customization }: { openCart?: boolean; customization?: Customization } = {}) => {
+    p = products.find(product => product.id === p.id) || p;
+    if (p.available === false) return;
     setLines((prev) => {
       qty=Math.max(qty,minimumQuantityFor(p.id));
       const spec = customization ?? customizationFor(p.id);
@@ -230,12 +229,12 @@ export function ShopProvider({ children }: { children: ReactNode }) {
          reads the spec back rather than asking for it, so the second visit to
          the page is the order, not an addition to one. */
       next[at] = PRINT_PRODUCTS.has(p.id)
-        ? { ...next[at], qty }
+        ? { ...next[at], qty, customization: spec }
         : { ...next[at], qty: next[at].qty + qty };
       return next;
     });
     if (openCart) setCartOpen(true);
-  }, []);
+  }, [products]);
 
   /* These three take either a line key or a bare product id. A product that
      can only ever be one row is both, so the call sites that predate keys are

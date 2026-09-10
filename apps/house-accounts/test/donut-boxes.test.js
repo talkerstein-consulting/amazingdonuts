@@ -41,6 +41,16 @@ test("rejects incomplete, oversized, missing, and wrong-kind selections", () => 
   }
 });
 
+test("two boxes of the same size retain their own flavour selections in Square", async () => {
+  const { item, custom, objects } = fixture();
+  const selections = ["Glazed Donut", "Chocolate Marble Donut"].map(name => ({ ...custom, donuts: Array(6).fill(name) }));
+  const order = await buildSquareOrder({ request: async () => ({ objects }) }, "LOCATION", {
+    items: selections.map(() => ({ name: item.item_data.name, quantity: 1 })), customizations: selections,
+    fulfillment: { type: "pickup", scheduledAt: "2026-10-05T14:00:00Z", recipient: { displayName: "Test Customer", email: "test@example.com", phone: "4165550123" } }
+  }, null);
+  assert.deepEqual(order.line_items.map(line => line.modifiers), [[{ catalog_object_id: "FLAVOUR-0", quantity: "6" }], [{ catalog_object_id: "FLAVOUR-1", quantity: "6" }]]);
+});
+
 test("rejects flavours not explicitly assigned to this box, including deleted or sold-out modifiers", () => {
   for (const change of [
     ({ custom }) => { custom.donuts[0] = "Twelve Custom Printed Donuts"; },
@@ -61,6 +71,15 @@ test("supports repeated flavours without accepting a box customization on indivi
   const single = { item_data: { name: "Glazed Donut" } };
   assert.deepEqual(squareBoxSelection(single, undefined, objects, "LOCATION"), {});
   assert.throws(() => squareBoxSelection(single, custom, objects, "LOCATION"), { code: "BOX_ITEM_REQUIRED" });
+});
+
+test("a sold-out individual donut cannot be selected through its box modifier", () => {
+  const { item, custom, objects } = fixture();
+  objects.push({ type: "ITEM", item_data: { name: "Glazed Donut", variations: [{ item_variation_data: {
+    price_money: { amount: 200, currency: "CAD" }, location_overrides: [{ location_id: "LOCATION", sold_out: true }]
+  } }] } });
+  assert.deepEqual(boxModifiers(item, objects, "LOCATION").map(modifier => modifier.modifier_data.name), ["Chocolate Marble Donut"]);
+  assert.throws(() => squareBoxSelection(item, custom, objects, "LOCATION"), { code: "BOX_FLAVOUR_UNAVAILABLE" });
 });
 
 test("catalog only exposes the box's assigned flavour list at the checkout location", () => {

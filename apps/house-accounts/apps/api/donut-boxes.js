@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { availableAtLocation, variationAtLocation } from "./catalog-availability.js";
 
 export const DONUT_BOXES = [
   { sku: "half-dozen-box", name: "Build your own half dozen", title: "The Sweet Six", size: 6, amount: 1200 },
@@ -23,8 +24,11 @@ export function boxModifiers(item, objects, locationId) {
     object.modifier_list_data?.name === boxModifierListName(box) && availableAt(object, locationId));
   const info = item.item_data.modifier_list_info?.find(entry => entry.modifier_list_id === list?.id && entry.enabled !== false);
   if (!info) return [];
-  return (list.modifier_list_data.modifiers || []).filter(modifier => availableAt(modifier, locationId) &&
-    !modifier.modifier_data?.location_overrides?.some(override => override.location_id === locationId && override.sold_out));
+  return (list.modifier_list_data.modifiers || []).filter(modifier => {
+    if (!availableAt(modifier, locationId) || modifier.modifier_data?.location_overrides?.some(override => override.location_id === locationId && override.sold_out)) return false;
+    const donut = objects.find(object => object.type === "ITEM" && normalize(object.item_data?.name) === normalize(modifier.modifier_data?.name));
+    return !donut || availableAtLocation(donut, variationAtLocation(donut, locationId), locationId);
+  });
 }
 
 export function squareBoxSelection(item, custom, objects, locationId) {
