@@ -63,15 +63,8 @@ export const FINISH_PRODUCTS = new Set([
   'customizable-donut'
 ]);
 
-/**
- * What one chosen element adds to a lab donut.
- *
- * A placeholder, and marked as one: the bakery has not priced the builder's
- * options yet, and a made-up per-element figure is at least an honest
- * placeholder where a silent flat price was not. Every element costs the same
- * for now, so the arithmetic on the cart line is the count times this.
- */
-export const LAB_ELEMENT_PRICE = 0.25;
+/** Design choices are included in the Square catalog price. */
+export const LAB_ELEMENT_PRICE = 0;
 export const GLYPH_PRODUCTS = new Set(['letter-number-donut-cake']);
 
 /**

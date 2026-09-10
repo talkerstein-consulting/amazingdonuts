@@ -457,10 +457,14 @@ function Checkout() {
   }, [config, quote?.order?.currency, quote?.order?.total, quoteError, ready, validPhone]);
   const items = () =>
     lines.map((line) => ({ name: line.product.name, quantity: line.qty }));
-  const boxCustomizations = () => lines.flatMap(line => line.customization?.kind === "box" ? [{
+  const boxCustomizations = () => lines.filter(line => line.customization?.kind === "box").map(line => ({
     productName: line.product.name,
     kind: "box" as const,
-    donuts: line.customization.donuts.map(id => products.find(product => product.id === id)?.name || id),
+    donuts: line.customization?.kind === "box" ? line.customization.donuts.map(id => products.find(product => product.id === id)?.name || id) : [],
+  }));
+  const labCustomizations = () => lines.flatMap(line => line.customization?.kind === "lab" ? [{
+    productName: line.product.name, kind: "lab" as const,
+    elements: line.customization.elements.map(({label,value}) => ({label,value}))
   }] : []);
   const fulfillmentBody = () => ({
     type: fulfillment,
@@ -498,7 +502,7 @@ function Checkout() {
         signal: controller.signal,
         body: JSON.stringify({
           items: items(),
-          customizations: boxCustomizations(),
+          customizations: [...boxCustomizations(), ...labCustomizations()],
           fulfillment: fulfillmentBody(),
         }),
       })
@@ -546,7 +550,8 @@ function Checkout() {
       sprinkleColours?: string;
       artworks?: { assetId: string; count: number }[];
       donuts?: string[];
-    }[] = boxCustomizations();
+      elements?: { label: string; value: string }[];
+    }[] = [...boxCustomizations(), ...labCustomizations()];
     for (const line of lines) {
       const custom = line.customization;
       if (custom?.kind === "glyph")

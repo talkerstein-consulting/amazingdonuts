@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { PRODUCTS, INTERNAL_PRODUCT_IDS } from '../src/data/products.ts';
+import { PRODUCTS } from '../src/data/products.ts';
 
 // Read-only release check: catalog reads and Square price calculations, never payments or orders.
 const base = process.env.VERIFY_API_URL || 'http://127.0.0.1:5173/api/house';
@@ -10,7 +10,7 @@ const request = async (path, body) => {
   return data;
 };
 const { products } = await request('/storefront/catalog');
-const missing = PRODUCTS.filter(product => !INTERNAL_PRODUCT_IDS.has(product.id) && !products.some(live => live.name.toLowerCase() === product.name.toLowerCase()));
+const missing = PRODUCTS.filter(product => !products.some(live => live.name.toLowerCase() === product.name.toLowerCase()));
 assert.deepEqual(missing.map(product => product.name), []);
 const scheduled = new Date(Date.now() + 8 * 86400000);
 while (scheduled.getUTCDay() !== 1) scheduled.setUTCDate(scheduled.getUTCDate() + 1);
@@ -31,4 +31,9 @@ const names = ['Banana Muffin', 'Chocolate Cupcake', 'Brownie Square', 'Bulka Ch
 for (const name of names) assert.equal(products.find(item => item.name === name)?.available, true, name);
 const result = await request('/public/storefront/quote', { items: names.map(name => ({ name, quantity: 1 })), fulfillment });
 assert.ok(result.order.total > 0);
-console.log(JSON.stringify({ matchedStorefrontProducts: PRODUCTS.length - INTERNAL_PRODUCT_IDS.size, catalogCount: products.length, mixedCategoryQuote: result.order.total }));
+for (const quantity of [1, 6, 12]) {
+  const lab = await request('/public/storefront/quote', { items: [{ name: 'Donut lab donut', quantity }], customizations: [{ productName: 'Donut lab donut', kind: 'lab', elements: [{ label: 'Shape', value: 'Round Donut' }, { label: 'Icing', value: 'Pink' }, { label: 'Sprinkles', value: 'Rainbow' }] }], fulfillment });
+  assert.equal(lab.order.subtotal, quantity * 200);
+  console.log(JSON.stringify({ labQuantity: quantity, subtotal: lab.order.subtotal, total: lab.order.total }));
+}
+console.log(JSON.stringify({ matchedStorefrontProducts: PRODUCTS.length, catalogCount: products.length, mixedCategoryQuote: result.order.total }));

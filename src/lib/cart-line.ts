@@ -5,5 +5,6 @@ export function lineKeyOf(line: { product: Product; customization?: Customizatio
   const custom = line.customization;
   if (custom?.kind === 'glyph' && custom.glyph) return `${line.product.id}::${custom.glyph}`;
   if (custom?.kind === 'box') return `${line.product.id}::box::${JSON.stringify([...custom.donuts].sort())}`;
+  if (custom?.kind === 'lab') return `${line.product.id}::lab::${JSON.stringify(custom.elements.map(({label,value}) => [label,value]).sort(([a],[b]) => a.localeCompare(b)))}`;
   return line.product.id;
 }

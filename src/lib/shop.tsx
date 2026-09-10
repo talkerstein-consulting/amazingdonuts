@@ -55,19 +55,9 @@ const ShopContext = createContext<Store | null>(null);
 /** Prices in the catalogue are strings like "$2.00". */
 export const priceOf = (p: Product) => Number(p.price.replace(/[^0-9.]/g, '')) || 0;
 
-/**
- * What one unit of a line costs, customization included.
- *
- * A Donut Lab donut is priced from its parts: the catalogue price is the empty
- * shape and each chosen element adds to it, so the bag's arithmetic has to read
- * the line rather than the product. Every other line is just its product's own
- * price, which is what `priceOf` already answers.
- */
+/** Square owns pricing; legacy Lab placeholder charges are not added. */
 export const unitPriceOf = (line: { product: Product; customization?: Customization }) =>
-  priceOf(line.product) +
-  (line.customization?.kind === 'lab'
-    ? line.customization.elements.reduce((sum, el) => sum + el.price, 0)
-    : 0);
+  priceOf(line.product);
 export const money = (n: number) => `$${n.toFixed(2)}`;
 
 /** The panel opens over whatever page it was opened from. */
@@ -99,7 +89,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
                 icingFlavour:
                   (customization as { icingFlavor?: 'Chocolate' | 'Vanilla' }).icingFlavor ?? ''
               }
-            : customization;
+            : customization?.kind === 'lab' ? { ...customization, elements: customization.elements.map(element => ({ ...element, price: 0 })) } : customization;
         return product && Number.isInteger(qty) && qty > 0 ? [{ product, qty:Math.max(qty,minimumQuantityFor(id)), customization:migrated||customizationFor(id) }] : [];
       });
     } catch { return []; }

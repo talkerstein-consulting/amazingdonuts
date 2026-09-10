@@ -2,7 +2,7 @@ import { useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } 
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
 import { ArrowLeft, ChevronRight, Dices, RefreshCw, Upload } from 'lucide-react';
 import { useShop } from '../lib/shop';
-import { LAB_PRODUCT_ID, PRODUCTS } from '../data/products';
+import { LAB_PRODUCT_ID } from '../data/products';
 import { LAB_ELEMENT_PRICE } from '../lib/custom-order';
 import { pulseCart } from '../lib/fly-to-cart';
 import SprinkleLayer from './SprinkleLayer';
@@ -413,7 +413,7 @@ type Tile = {
 
 export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: boolean }) {
   const [s, dispatch] = useReducer(reducer, undefined, hydrate);
-  const { add, openCart, customize } = useShop();
+  const { add, openCart, products } = useShop();
   const railRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   /* 0–1 while the file is being read, null when idle. Transient UI, so it is
@@ -506,9 +506,8 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
     const commit = () => {
       if (spent) return;
       spent = true;
-      const product = PRODUCTS.find((p) => p.id === LAB_PRODUCT_ID);
-      if (!product) return;
-      add(product, s.qty, { openCart: false });
+      const product = products.find((p) => p.id === LAB_PRODUCT_ID);
+      if (!product || product.available === false) return;
       /* The build, written onto the line as the steps that made it — so the bag
          reads "Shape · Round Donut · +$0.25" rather than a product code. Only
          the steps this shape actually had: an ungrouped shape has no size step
@@ -526,7 +525,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
           price: LAB_ELEMENT_PRICE
         }))
         .filter((el) => el.value && el.value !== 'None' && el.value !== 'Upload');
-      customize(product.id, { kind: 'lab', elements });
+      add(product, s.qty, { openCart: false, customization: { kind: 'lab', elements } });
       /* The bag reacts on its own rather than taking a flight: the claw
          sequence IS the animation here, and a donut arcing across the screen on
          top of it would be two things at once. */
