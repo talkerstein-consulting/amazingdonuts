@@ -72,7 +72,8 @@
 .shop-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(16px, 2vw, 24px);
+  column-gap: clamp(16px, 2vw, 24px);
+  row-gap: clamp(30px, 4vw, 48px);
   align-content: start;
 }
 

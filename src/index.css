@@ -436,7 +436,8 @@ nav a,
    Change one and the other has to move with it. */
 @media (min-width: 700px) {
   .product-grid {
-    gap: clamp(16px, 1.6vw, 24px) !important;
+    column-gap: clamp(16px, 1.6vw, 24px) !important;
+    row-gap: clamp(32px, 3.4vw, 48px) !important;
     /* No horizontal padding. It inset the tiles by 20px from the line every
        other block on the page starts and ends on — the hero's copy, the box
        cards, the heading, the counter dividers and the pinned rail all run
@@ -1065,7 +1066,24 @@ nav a,
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   column-gap: 12px;
+  width: calc(100% - clamp(28px, 10%, 48px));
+  margin-inline: auto;
   min-width: 0;
+}
+
+/* The homepage grid is authored inline because its column count changes with
+   the preview length. Keep that horizontal rhythm, but give consecutive rows
+   enough room that one tile's label does not crowd the next tile's image. */
+.product-grid {
+  column-gap: 16px !important;
+  row-gap: clamp(28px, 7vw, 40px) !important;
+}
+
+@media (min-width: 700px) {
+  .product-grid {
+    column-gap: clamp(16px, 1.6vw, 24px) !important;
+    row-gap: clamp(32px, 3.4vw, 48px) !important;
+  }
 }
 
 .product-tile__price {
