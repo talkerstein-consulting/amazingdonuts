@@ -140,11 +140,11 @@
   }
 }
 
-/* Short desktop windows cannot hold the stage, five progress controls, option
-   cards and purchase action in one viewport at a useful size. Let the page
-   scroll in that case; keeping the fixed shell would hide the CTA below its
-   clipped edge. Taller screens retain the one-screen builder. */
-@media (min-width: 900px) and (max-height: 899px) {
+/* Desktop windows cannot reliably hold the stage, progress controls, option
+   cards and purchase action in one fixed viewport across Safari's changing
+   toolbar heights. Use natural page flow so no part of the builder can be
+   masked by the footer boundary. */
+@media (min-width: 900px) {
   .donut-lab-main {
     height: auto !important;
     min-height: calc(100dvh - var(--nav-h));
@@ -163,15 +163,6 @@
 
   .sb-claw {
     width: clamp(240px, 38vh, 340px) !important;
-  }
-
-  .sb-sheet,
-  .sb-panel {
-    flex: none !important;
-  }
-
-  .sb-panel {
-    height: 236px !important;
   }
 }
 
@@ -310,16 +301,10 @@
   }
 }
 
-/* --- Desktop: the surplus height belongs to the choices -------------------
-   The stage was `flex: 1` and the creation inside it is capped at 520px
-   square, so on a tall window the band drew a 520px donut in a 771px box and
-   left ~250px of nothing above and below it — while the option tiles under it
-   were squeezed into a fixed 150px panel with 96px cards.
-
-   So the two swap roles. The stage sizes to the art it actually draws, and the
-   sheet becomes the flexible band: the leftover lands on the options, which is
-   the part being used. The panel keeps 150px as a floor, so a short window
-   behaves exactly as it did.
+/* --- Desktop option sizing ------------------------------------------------
+   Keep the choice band sized to its cards. Making this panel flexible creates
+   a large empty area on wide, tall Safari windows and can push the CTA beyond
+   a fixed-height parent. The page itself now handles any necessary scrolling.
 
    `!important` throughout because these are inline styles in JSX expressing
    the phone layout, and this is the width where the phone layout is wrong —
@@ -330,16 +315,15 @@
   }
 
   .sb-sheet {
-    flex: 1 1 auto !important;
+    flex: none !important;
     display: flex;
     flex-direction: column;
-    min-height: 0;
   }
 
   .sb-panel {
-    flex: 1 1 auto !important;
-    height: auto !important;
-    min-height: 236px;
+    flex: none !important;
+    height: 220px !important;
+    min-height: 0;
   }
 
   /* The rail sits in the middle of whatever the panel now has, rather than at
@@ -367,7 +351,7 @@
   .sb-panel .sb-options {
     gap: clamp(18px, 1.8vw, 28px) !important;
     padding-inline: clamp(24px, 4vw, 48px) !important;
-    padding-block: 22px !important;
+    padding-block: 16px !important;
   }
 
   .sb-actions {
