@@ -24,6 +24,7 @@ import {
 } from "../lib/custom-order";
 import CheckoutFix from "../shop/CheckoutFix";
 import BrandDatePicker from "../components/BrandDatePicker";
+import BrandTimePicker from "../components/BrandTimePicker";
 import AddressAutocomplete, {
   type Address,
   type SavedAddress,
@@ -1088,31 +1089,21 @@ function Checkout() {
                     disabledDay={(day) => day.getDay() === 6}
                   />
                 </div>
-                <label>
+                <div className="checkout-time-field">
                   <span>Time window</span>
-                  <select
+                  <BrandTimePicker
                     value={
                       fulfillmentTimes.length ? scheduledAt.slice(11, 16) : ""
                     }
                     disabled={!fulfillmentTimes.length}
-                    onChange={(event) =>
+                    options={fulfillmentTimes}
+                    onChange={(value) =>
                       setScheduledAt(
-                        `${scheduledAt.slice(0, 10)}T${event.target.value}`,
+                        `${scheduledAt.slice(0, 10)}T${value}`,
                       )
                     }
-                    required
-                  >
-                    {fulfillmentTimes.length ? (
-                      fulfillmentTimes.map((slot) => (
-                        <option value={slot.value} key={slot.value}>
-                          {slot.label}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="">Closed</option>
-                    )}
-                  </select>
-                </label>
+                  />
+                </div>
                 {requiresPrintLeadTime && (
                   <small>
                     Custom-printed items require at least one week's notice.

@@ -1,0 +1,115 @@
+.brand-time {
+  position: relative;
+  width: min(100%, 390px);
+}
+
+.brand-time__trigger {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 18px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--cream);
+  box-shadow: inset 0 0 0 2px rgba(14, 62, 105, .2);
+  color: var(--navy);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 16px;
+  text-align: left;
+  transition: box-shadow .18s ease, background .18s ease;
+}
+
+.brand-time__trigger:hover,
+.brand-time__trigger[aria-expanded="true"] {
+  background: #fffdf8;
+  box-shadow: inset 0 0 0 2px var(--navy);
+}
+
+.brand-time__trigger:focus-visible {
+  outline: 3px solid var(--orange);
+  outline-offset: 3px;
+}
+
+.brand-time__trigger:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
+
+.brand-time__trigger svg {
+  width: 20px;
+  height: 20px;
+}
+
+.brand-time__trigger .brand-time__chevron {
+  width: 18px;
+  height: 18px;
+  transition: transform .18s ease;
+}
+
+.brand-time__trigger[aria-expanded="true"] .brand-time__chevron {
+  transform: rotate(180deg);
+}
+
+.brand-time__panel {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 100%;
+  max-height: min(320px, calc(100vh - 180px));
+  overflow-y: auto;
+  padding: 8px;
+  border: 2px solid var(--navy);
+  border-radius: 16px;
+  background: var(--cream);
+  box-shadow: 10px 12px 0 rgba(14, 62, 105, .14);
+  scrollbar-color: rgba(14, 62, 105, .45) transparent;
+  scrollbar-width: thin;
+}
+
+.brand-time__panel button {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--navy);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.brand-time__panel button:hover,
+.brand-time__panel button:focus-visible {
+  outline: 0;
+  background: var(--pink);
+}
+
+.brand-time__panel button.is-selected {
+  background: var(--navy);
+  color: var(--cream);
+  font-weight: 800;
+}
+
+.brand-time__panel button svg {
+  width: 17px;
+  height: 17px;
+}
+
+@media (max-width: 480px) {
+  .brand-time { width: 100%; }
+  .brand-time__panel { box-shadow: 6px 8px 0 rgba(14, 62, 105, .14); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-time__trigger .brand-time__chevron { transition: none; }
+}
