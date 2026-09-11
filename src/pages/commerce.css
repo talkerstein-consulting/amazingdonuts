@@ -417,6 +417,7 @@
 }
 
 .payment-choice { min-width: 0; }
+.payment-options > button,
 .payment-choice > button {
   width: 100%;
   display: grid;
@@ -424,9 +425,15 @@
   align-items: start;
   column-gap: 10px;
 }
+.payment-options > button svg,
 .payment-choice > button svg { margin-top: 2px; }
+.payment-options > button strong,
 .payment-choice > button strong { line-height: 1.25; }
+.payment-options > button small,
 .payment-choice > button small { line-height: 1.35; }
+.payment-options > button.active,
+.payment-options > button.active strong,
+.payment-options > button.active small,
 .payment-choice > button.active,
 .payment-choice > button.active strong,
 .payment-choice > button.active small { color: #072f52; }
