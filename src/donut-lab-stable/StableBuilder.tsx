@@ -416,6 +416,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
   const { add, openCart, products } = useShop();
   const railRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const drawerTimerRef = useRef<number | null>(null);
   /* 0–1 while the file is being read, null when idle. Transient UI, so it is
      local state rather than part of the build the reducer owns. */
   const [readPct, setReadPct] = useState<number | null>(null);
@@ -475,31 +476,9 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
     }
   }, [s.baseId, s.icingId, s.fillingId, s.sprinkleIds]);
 
-  /* Commit as soon as Add to Bag is pressed. The claw is confirmation, not a
-     gate in front of the cart: waiting for its full travel made the control
-     look broken for several seconds, especially in Safari. The drawer follows
-     after a short beat so the count visibly changes before it opens. */
-  useEffect(() => {
-    if (!s.added) return;
-    const product = products.find((p) => p.id === LAB_PRODUCT_ID);
-    if (!product || product.available === false) return;
-    const elements = steps
-      .filter((sid) => sid !== 'quantity')
-      .map((sid) => ({
-        label: STEP_LABEL[sid],
-        value: stepValue(sid),
-        price: LAB_ELEMENT_PRICE
-      }))
-      .filter((el) => el.value && el.value !== 'None' && el.value !== 'Upload');
-    add(product, s.qty, { openCart: false, customization: { kind: 'lab', elements } });
-    pulseCart();
-    const drawerTimer = setTimeout(openCart, CART_OPEN_DELAY_MS);
-    return () => clearTimeout(drawerTimer);
-    /* Deliberately keyed on `added` alone. `qty` is fixed by the time the claw
-       starts — its step is behind you — and listing it here would restart the
-       timer if anything else nudged it. */
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s.added]);
+  useEffect(() => () => {
+    if (drawerTimerRef.current !== null) window.clearTimeout(drawerTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (!s.added) {
@@ -558,8 +537,27 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
       dispatch({ type: 'reset' });
       return;
     }
-    if (last) dispatch({ type: 'add' });
-    else dispatch({ type: 'goto', i: i + 1 });
+    if (!last) {
+      dispatch({ type: 'goto', i: i + 1 });
+      return;
+    }
+
+    const product = products.find((item) => item.id === LAB_PRODUCT_ID);
+    if (!product) return;
+    const elements = steps
+      .filter((sid) => sid !== 'quantity')
+      .map((sid) => ({ label: STEP_LABEL[sid], value: stepValue(sid), price: LAB_ELEMENT_PRICE }))
+      .filter((element) => element.value && element.value !== 'None' && element.value !== 'Upload');
+    const committed = add(product, s.qty, {
+      openCart: false,
+      customization: { kind: 'lab', elements }
+    });
+    if (!committed) return;
+
+    dispatch({ type: 'add' });
+    pulseCart();
+    if (drawerTimerRef.current !== null) window.clearTimeout(drawerTimerRef.current);
+    drawerTimerRef.current = window.setTimeout(openCart, CART_OPEN_DELAY_MS);
   };
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {

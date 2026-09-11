@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { PRODUCTS, type Product } from '../data/products';
+import { INTERNAL_PRODUCT_IDS, PRODUCTS, type Product } from '../data/products';
 import { customizationFor, minimumQuantityFor, PRINT_PRODUCTS, type Customization } from './custom-order';
 import { recordProductView } from './recently-viewed';
 import { lineKeyOf } from './cart-line';
@@ -42,7 +42,7 @@ type Store = {
      by a following `customize` call. Two steps could not tell a new glyph line
      from an existing one — `add` had already merged into the wrong row by the
      time the character arrived. */
-  add: (product: Product, qty?: number, opts?: { openCart?: boolean; customization?: Customization }) => void;
+  add: (product: Product, qty?: number, opts?: { openCart?: boolean; customization?: Customization }) => boolean;
   setQty: (id: string, qty: number) => void;
   customize: (id: string, customization: Customization) => void;
   remove: (id: string) => void;
@@ -113,7 +113,11 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       const live = new Map((body.products || []).map((item: { name:string;price:number }) => [item.name.toLowerCase(), item]));
       const next = PRODUCTS.map(product => {
         const match = live.get(product.name.toLowerCase()) as { price:number;boxFlavours?:string[];available?:boolean } | undefined;
-        return match ? { ...product, price: money(match.price / 100), boxFlavours: match.boxFlavours, available: match.available !== false } : { ...product, available: false };
+        return match
+          ? { ...product, price: money(match.price / 100), boxFlavours: match.boxFlavours, available: match.available !== false }
+          : INTERNAL_PRODUCT_IDS.has(product.id)
+            ? { ...product, available: true }
+            : { ...product, available: false };
       });
       setProducts(next);
       setLines(current => current.map(line => ({ ...line, product: next.find(item => item.id === line.product.id) || line.product })));
@@ -203,7 +207,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
 
   const add = useCallback((p: Product, qty = 1, { openCart = true, customization }: { openCart?: boolean; customization?: Customization } = {}) => {
     p = products.find(product => product.id === p.id) || p;
-    if (p.available === false) return;
+    if (p.available === false) return false;
     setLines((prev) => {
       qty=Math.max(qty,minimumQuantityFor(p.id));
       const spec = customization ?? customizationFor(p.id);
@@ -224,6 +228,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       return next;
     });
     if (openCart) setCartOpen(true);
+    return true;
   }, [products]);
 
   /* These three take either a line key or a bare product id. A product that
