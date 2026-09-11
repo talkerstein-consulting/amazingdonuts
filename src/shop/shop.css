@@ -1021,10 +1021,12 @@ a.cabinet__iconBtn { text-decoration: none; }
 .auth {
   position: fixed;
   z-index: 220;
-  inset: 0;
-  margin: auto;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
   width: min(980px, calc(100vw - 32px));
-  max-height: min(680px, calc(100vh - 32px));
+  height: auto;
+  max-height: calc(100dvh - 32px);
   display: grid;
   grid-template-columns: 1fr;
   border-radius: 32px;
@@ -1102,10 +1104,12 @@ a.cabinet__iconBtn { text-decoration: none; }
 /* --- form column -------------------------------------------------------- */
 .auth__form {
   padding: clamp(28px, 4vw, 48px);
+  min-height: 0;
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .auth__title {
@@ -1283,6 +1287,23 @@ a.cabinet__iconBtn { text-decoration: none; }
   flex: 1;
   height: 1px;
   background: rgba(14, 62, 105, 0.16);
+}
+
+/* Account creation has five fields plus the provider option. On short laptop
+   viewports, use the compact control step so the dialog can still wrap all of
+   its content; the viewport cap and form scrolling remain as a fallback for
+   browser zoom and unusually short screens. */
+@media (max-height: 760px) {
+  .auth__form { padding: 20px clamp(24px, 4vw, 40px); }
+  .auth__sub { margin: 6px 0 12px; }
+  .auth__providers { gap: 8px; margin-bottom: 12px; }
+  .auth__provider { min-height: 46px; }
+  .auth__divider { margin-bottom: 12px; }
+  .auth__label { margin-bottom: 4px; }
+  .auth__input { min-height: 44px; margin-bottom: 8px; }
+  .auth__reveal { top: 22px; }
+  .auth__submit { min-height: 50px; }
+  .auth__swap { margin-top: 10px; }
 }
 
 /* ==========================================================================
@@ -2892,7 +2913,8 @@ a.cabinet__iconBtn { text-decoration: none; }
   grid-template-columns: 1fr;
   border-radius: 28px;
   background: var(--cream);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   box-shadow: 0 40px 90px -30px rgba(14, 62, 105, 0.5);
 }
 

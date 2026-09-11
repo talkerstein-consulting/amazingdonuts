@@ -2464,7 +2464,10 @@ html.lenis,
 .bulk-success-modal {
   position: relative;
   width: min(100%, 560px);
-  overflow: hidden;
+  height: auto;
+  max-height: calc(100dvh - 40px);
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: clamp(34px, 6vw, 58px);
   border-radius: 8px;
   background: var(--cream);
