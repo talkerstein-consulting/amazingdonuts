@@ -1,0 +1,24 @@
+.brand-select { width: 100%; }
+
+.brand-select__trigger {
+  grid-template-columns: minmax(0, 1fr) 18px;
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+
+.brand-select__panel {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.brand-select__panel button {
+  grid-template-columns: minmax(0, 1fr);
+  text-align: center;
+}
+
+.brand-select__panel button svg { display: none; }
+
+@media (max-width: 480px) {
+  .brand-select__panel { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}

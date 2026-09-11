@@ -16,6 +16,7 @@ import {
 import { INTERNAL_PRODUCT_IDS, type Product } from '../data/products';
 import { tagFor } from '../data/product-tags';
 import { C, F, BadgeRow, BrandButton } from '../components/brand';
+import BrandSelect from '../components/BrandSelect';
 import { useShop, money, priceOf } from '../lib/shop';
 import { PRINT_SPRINKLE_SWATCHES } from '../lib/petite-palette';
 import {
@@ -750,17 +751,12 @@ function Cabinet({ product }: { product: Product }) {
                 </div>
 
                 <div className="cabinet__glyphPick">
-                  <select
-                    aria-label={glyphMode === 'number' ? 'Which number' : 'Which letter'}
+                  <BrandSelect
+                    ariaLabel={glyphMode === 'number' ? 'Which number' : 'Which letter'}
                     value={glyph}
-                    onChange={(event) => setGlyph(event.target.value)}
-                  >
-                    {(glyphMode === 'number' ? NUMBERS : LETTERS).map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setGlyph}
+                    options={(glyphMode === 'number' ? NUMBERS : LETTERS).map(option => ({ value: option, label: option }))}
+                  />
                   <span aria-hidden="true">{glyph}</span>
                 </div>
               </div>
@@ -810,22 +806,10 @@ function Cabinet({ product }: { product: Product }) {
               </div>
             </div>
 
-            {/* The same pair as the sticky bar, in the same order. The bar is
-                only on screen while this button is not, so without a heart
-                here the favourite would be unreachable on any window tall
-                enough to keep the CTA in view — which is most of them. Add is
-                already duplicated between the two for exactly this reason. */}
+            {/* The media pane owns the wishlist action. Keeping this row for
+                purchase alone gives the label and its success state the full
+                card width. */}
             <div ref={addRef} className="cabinet__addAnchor">
-              <button
-                type="button"
-                onClick={saveToggle}
-                aria-pressed={saved}
-                aria-label={saved ? 'Saved to favourites' : 'Save to favourites'}
-                className={`cabinet__save${saved ? ' is-on' : ''}`}
-              >
-                <Heart size={19} strokeWidth={2.4} fill={saved ? 'currentColor' : 'none'} />
-              </button>
-
               <BrandButton
                 block
                 className="cabinet__brandAdd"

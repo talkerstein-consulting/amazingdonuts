@@ -286,24 +286,14 @@
 
 .cabinet__add.is-added { background: var(--navy); }
 
-/* Favourite and add on one row. The heart is a fixed circle and the knob takes
-   the rest, so the row is the same shape whatever the total says.
-
-   On a phone the heart leads: the knob is full width and a circle in front of
-   it reads as an icon on the front of a button. From 900px it moves to the far
-   side of the knob — see the `order` rule below. */
+/* Purchase owns the full row; wishlist remains in the media controls. */
 .cabinet__addAnchor {
   margin-top: 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: block;
 }
 
-/* The circular favourite, shared by the inline row and the sticky bar. Outline
-   at rest and Dare Devil when saved: it is the one control on the panel whose
-   state is worth colour, since nothing else says whether a product is in the
-   account's list. */
-.cabinet__save,
+/* The sticky bar keeps its own compact wishlist control once the card action
+   has scrolled away. */
 .cabinet__buybarSave {
   flex: none;
   display: grid;
@@ -319,15 +309,18 @@
   transition: box-shadow 0.18s ease, color 0.18s ease, background 0.18s ease;
 }
 
-.cabinet__save:hover,
 .cabinet__buybarSave:hover { box-shadow: inset 0 0 0 2px rgba(14, 62, 105, 0.45); }
 
-.cabinet__save.is-on,
 .cabinet__buybarSave.is-on {
   color: var(--orange);
   box-shadow: inset 0 0 0 2px var(--orange);
 }
 .cabinet__brandAdd { min-width: 0; }
+.cabinet__brandAdd .bbtn__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 
 /* --- Product cabinet: detail furniture ---------------------------------- */
 /* Top left, where a back control belongs, and wide enough to carry its word.
@@ -1918,7 +1911,6 @@ a.cabinet__iconBtn { text-decoration: none; }
 
   .cabinet__buybar { gap: 10px; }
 
-  .cabinet__save,
   .cabinet__buybarSave { width: 48px; height: 48px; }
 
   /* With the meta gone the knob takes the rest of the row rather than sitting
@@ -3690,32 +3682,9 @@ a.cabinet__iconBtn { text-decoration: none; }
   gap: 12px;
 }
 
-/* Native select: twenty-six one-character options is exactly the list a
-   platform picker is best at, and on a phone it beats anything drawn here. */
-/* Outlined, so it reads as a field you can open. On Shortbread with no border
-   it was a slightly darker rectangle — the same treatment the read-only
-   surfaces on this panel use — and nothing said it was interactive. */
-.cabinet__glyphPick select {
-  flex: 1;
-  min-width: 0;
-  min-height: 52px;
-  padding: 0 12px;
-  border: 2px solid rgba(14, 62, 105, 0.28);
-  border-radius: 14px;
-  background: var(--cream);
-  color: var(--navy);
-  cursor: pointer;
-  font-family: var(--font-display);
-  font-size: 22px;
-  transition: border-color 0.18s ease;
-}
-
-.cabinet__glyphPick select:hover { border-color: rgba(14, 62, 105, 0.55); }
-
-.cabinet__glyphPick select:focus-visible {
-  outline: none;
-  border-color: var(--navy);
-}
+/* The same custom trigger and listbox used by checkout, sized to share the row
+   with the large read-back character. */
+.cabinet__glyphPick .brand-select { flex: 1; min-width: 0; }
 
 /* The chosen character at cake scale, in the display face — the bakery cuts
    the shape of the letter, and the brand's own letterforms are the nearest
