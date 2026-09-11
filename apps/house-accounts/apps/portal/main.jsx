@@ -164,7 +164,7 @@ function App() {
     try {
       if (staff) {
         const managerRequest = user.role === "owner" ? request("/admin/managers") : Promise.resolve({ managers: [] });
-        const [a, r, b, o, c, m, n] = await Promise.all([request("/admin/accounts"), request("/admin/applications"), request("/admin/bulk-requests"), request("/admin/custom-orders"), request("/admin/careers"), managerRequest, request("/admin/notifications")]);
+        const [a, r, b, o, c, m, n] = await Promise.all([request("/admin/accounts"), request("/admin/applications"), request("/admin/bulk-requests"), request("/admin/orders"), request("/admin/careers"), managerRequest, request("/admin/notifications")]);
         setAccounts(a.accounts);
         setApplications(r.applications);
         setBulkRequests(b.requests);
@@ -192,6 +192,22 @@ function App() {
     window.addEventListener("hashchange", syncView);
     return () => window.removeEventListener("hashchange", syncView);
   }, []);
+  useEffect(() => {
+    if (!staff || demo || view !== "orders") return;
+    let cancelled = false, pending = false;
+    const refresh = async () => {
+      if (document.hidden || pending) return;
+      pending = true;
+      try { const body = await request("/admin/orders"); if (!cancelled) setCustomOrders(body.orders); }
+      catch (cause) { if (!cancelled) setError(cause.message); }
+      finally { pending = false; }
+    };
+    refresh();
+    const timer = setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { cancelled = true; clearInterval(timer); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+  }, [staff, demo, view]);
   if (user === undefined) return <div className="boot">Loading account service...</div>;
   if (!user) return <Login onUser={setUser} />;
   if (!staff && !demo) return <Login onUser={setUser} errorMessage="Administrator access is required." />;
@@ -373,7 +389,7 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
     );
   if (view === "orders")
     return (
-      <Listing eyebrow="Institutional account activity" title="Orders">
+      <Listing eyebrow="Website and institutional orders" title="Orders">
         <OrderTable orders={orders} />
       </Listing>
     );
@@ -1364,7 +1380,7 @@ function OrderTable({ orders = [] }) {
                 {x.organization_name || x.email || `#${x.receipt_number || String(x.square_order_id || x.id).slice(-8)}`}
                 {x.purchaser_first_name || x.purchaser_email || x.email ? <small className="purchaser-attribution">Purchased by {x.purchaser_first_name ? `${x.purchaser_first_name} ${x.purchaser_last_name || ""}`.trim() : x.purchaser_email || x.email}</small> : null}
               </strong>
-              <em>{x.source}</em>
+              <em>{x.source}<small className="purchaser-attribution">{x.fulfillmentStatus || "Status unavailable"}</small>{x.paymentStatus ? <small className="purchaser-attribution">{x.paymentStatus}</small> : null}</em>
               <b>{cash(x.total, x.currency)}</b>
               <ChevronDown className="order-chevron" />
             </button>

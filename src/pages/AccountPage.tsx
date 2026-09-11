@@ -178,6 +178,21 @@ function AccountShell() {
     return () => window.removeEventListener("amazing:auth-changed", refresh);
   }, [resetToken]);
   useEffect(() => {
+    if (!session?.user || view !== "orders") return;
+    let cancelled = false, busy = false;
+    const refresh = async () => {
+      if (document.hidden || busy) return;
+      busy = true;
+      try { const body = await api("/storefront/orders"); if (!cancelled) setOrders(body.orders); }
+      catch { if (!cancelled) setMessage("Order updates are temporarily unavailable. Your last order details are shown."); }
+      finally { busy = false; }
+    };
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+  }, [session?.user?.id, view]);
+  useEffect(() => {
     const sync = () => {
       const next = location.hash.slice(1);
       if (next === "orders" || next === "wishlist" || next === "profile" || next === "house") setView(next);
@@ -348,7 +363,7 @@ function Orders({ orders }: { orders: any[] }) {
                   <span>{day(order.ordered_at)}</span>
                   <strong>Order #{order.square_order_id.slice(-8)}</strong>
                 </div>
-                <em>{order.status}</em>
+                <em>{order.fulfillmentStatus || "Order received"}</em>
               </header>
               <div>
                 {(order.line_items || []).map((line: any) => (
@@ -360,9 +375,20 @@ function Orders({ orders }: { orders: any[] }) {
                   </p>
                 ))}
               </div>
+              {order.breakdown && <dl className="order-breakdown">
+                <div><dt>Merchandise</dt><dd>{cash(order.breakdown.merchandise, order.currency)}</dd></div>
+                {order.breakdown.discount > 0 && <div><dt>Discount</dt><dd>-{cash(order.breakdown.discount, order.currency)}</dd></div>}
+                {order.fulfillment?.type === "delivery" && <div><dt>Delivery fee</dt><dd>{cash(order.breakdown.deliveryFee, order.currency)}</dd></div>}
+                <div><dt>HST</dt><dd>{cash(order.breakdown.tax, order.currency)}</dd></div>
+                {order.breakdown.tip > 0 && <div><dt>Tip</dt><dd>{cash(order.breakdown.tip, order.currency)}</dd></div>}
+                <div><dt>Total</dt><dd>{cash(order.breakdown.total, order.currency)}</dd></div>
+              </dl>}
+              {order.scheduledAt && <p className="order-schedule">Scheduled {order.fulfillment?.type === "delivery" ? "delivery" : "pickup"}: {new Date(order.scheduledAt).toLocaleString("en-CA", {timeZone:"America/Toronto",dateStyle:"medium",timeStyle:"short"})} Toronto time</p>}
+              {order.delivery?.estimatedDeliveryAt && order.delivery.status !== "dispatch_failed" && <p className="order-schedule">Estimated arrival: {new Date(order.delivery.estimatedDeliveryAt).toLocaleString("en-CA", {timeZone:"America/Toronto",dateStyle:"medium",timeStyle:"short"})} Toronto time</p>}
+              {order.liveStatusAvailable === false && <p className="order-schedule">Live updates temporarily unavailable.</p>}
               <footer>
                 <span>
-                  {order.payment_method === "house_account" ? "Pay on account" : "Card"} · {order.fulfillment?.type}
+                  {order.payment_method === "house_account" ? "Pay on account" : "Card"} · {order.paymentStatus} · {order.fulfillment?.type}
                 </span>
                 <strong>{cash(order.total, order.currency)}</strong>
               </footer>

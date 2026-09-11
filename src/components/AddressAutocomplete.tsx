@@ -5,7 +5,7 @@ export type Address = { addressLine1:string; addressLine2:string; locality:strin
 export type SavedAddress = Address & { id:string; label:string; addressType:'home'|'work'|'other'; isDefault:boolean };
 type Suggestion = { placeId:string; label:string; mainText:string; secondaryText:string };
 
-async function addressApi(path:string,options?:RequestInit){const response=await fetch(`/api/house/storefront${path}`,{headers:{'Content-Type':'application/json',...(options?.headers||{})},...options});const body=await response.json();if(!response.ok)throw new Error(body?.error?.message||'Address search failed.');return body;}
+async function addressApi(path:string,options?:RequestInit){const response=await fetch(`/api/house/public/storefront${path}`,{headers:{'Content-Type':'application/json',...(options?.headers||{})},...options});const body=await response.json();if(!response.ok)throw new Error(body?.error?.message||'Address search failed.');return body;}
 
 export default function AddressAutocomplete({address,onChange,enabled=true,required=false}:{address:Address;onChange:(address:Address)=>void;enabled?:boolean;required?:boolean}){
   const [suggestions,setSuggestions]=useState<Suggestion[]>([]),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');

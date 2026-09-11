@@ -276,6 +276,7 @@ function Checkout() {
   const [quoteError, setQuoteError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
   const [success, setSuccess] = useState<any>();
   const [confirmPayment, setConfirmPayment] = useState(false);
   const [saveCardForAccount, setSaveCardForAccount] = useState(false);
@@ -596,8 +597,10 @@ function Checkout() {
     event?: React.FormEvent,
     cardConfirmed = false,
     presetSource?: string,
+    alreadyLocked = false,
   ) => {
     event?.preventDefault();
+    if (submitting.current && !alreadyLocked) return;
     if (!identified) {
       if (!asGuest) setAuthOpen(true);
       return;
@@ -619,6 +622,7 @@ function Checkout() {
       return;
     }
     setConfirmPayment(false);
+    submitting.current = true;
     setBusy(true);
     setError("");
     try {
@@ -739,11 +743,14 @@ function Checkout() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Checkout failed.");
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   };
   const payWithWallet = (wallet: SquareWallet | undefined) => {
-    if (!wallet || busy || !ready || !validPhone || !quote || quoteError) return;
+    if (!wallet || submitting.current || busy || !ready || !validPhone || !quote || quoteError) return;
+    submitting.current = true;
+    setBusy(true);
     setError("");
     const tokenization = wallet.tokenize();
     void tokenization
@@ -752,16 +759,19 @@ function Checkout() {
           throw new Error(
             token.errors?.[0]?.message || "Wallet authorization failed.",
           );
-        return place(undefined, true, token.token);
+        return place(undefined, true, token.token, true);
       })
-      .catch((cause) =>
+      .catch((cause) => {
+        submitting.current = false;
+        setBusy(false);
         setError(
           cause instanceof Error ? cause.message : "Wallet payment failed.",
-        ),
-      );
+        );
+      });
   };
   const saveAndUseCredit = async () => {
-    if (!session?.user || !card.current || !quote) return;
+    if (!session?.user || !card.current || !quote || submitting.current) return;
+    submitting.current = true;
     setConfirmPayment(false);
     setBusy(true);
     setError("");
@@ -808,6 +818,7 @@ function Checkout() {
         cause instanceof Error ? cause.message : "Card could not be saved.",
       );
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   };
@@ -851,7 +862,14 @@ function Checkout() {
           </button>
         )}
       </header>
-      <div className="checkout-grid">
+      <div className={`checkout-grid${busy ? " is-processing-payment" : ""}`} aria-busy={busy}>
+        {busy && (
+          <div className="payment-progress" role="status" aria-live="polite">
+            <span aria-hidden="true" />
+            <strong>Confirming your payment</strong>
+            <small>Please keep this page open.</small>
+          </div>
+        )}
         <form id="checkout" className="checkout-form" onSubmit={place}>
           <div className="commerce-heading">
             <p>Secure checkout</p>
@@ -1156,7 +1174,7 @@ function Checkout() {
                     <AddressAutocomplete
                       address={address}
                       onChange={setAddress}
-                      enabled={config?.placesEnabled}
+                      enabled={Boolean(config?.placesEnabled)}
                       required
                     />
                   </label>
@@ -1514,7 +1532,7 @@ function Checkout() {
             }
           >
             {busy
-              ? "Uploading artwork and placing order..."
+              ? "Confirming payment..."
               : guestBlockedByPrint
                 ? "Sign in to order printed items"
                 : phone && !validPhone
