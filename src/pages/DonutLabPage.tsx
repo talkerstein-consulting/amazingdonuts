@@ -48,6 +48,7 @@ export default function DonutLabPage() {
           <Header onSignIn={() => setAuthOpen(true)} />
 
           <main
+            className="donut-lab-main"
             style={{
               // dvh, not vh: on mobile the collapsing URL bar would otherwise
               // hide the CTA at the bottom of the sheet.

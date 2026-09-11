@@ -37,7 +37,15 @@ const api = createApp({ pool, square, config: {
   deploymentMode: "local",
   mixedEnvironmentTestMode: false,
   uberDirectMode: "sandbox",
-  uberDirectAutoDispatch: false
+  uberDirectAutoDispatch: false,
+  smtpHost: process.env.SMTP_HOST || "",
+  smtpPort: Number(process.env.SMTP_PORT || 465),
+  smtpSecure: process.env.SMTP_SECURE !== "false",
+  smtpUser: process.env.SMTP_USER || "",
+  smtpPassword: process.env.SMTP_PASSWORD || "",
+  emailFrom: process.env.ACCOUNTS_EMAIL_FROM || "Amazing Donuts <accounts@amazingdonuts.com>",
+  emailReplyTo: process.env.ACCOUNTS_REPLY_TO || process.env.SMTP_USER || "",
+  ownerEmails: (process.env.OWNER_NOTIFICATION_EMAILS || process.env.ADMIN_EMAILS || "").split(",").map(value => value.trim()).filter(Boolean)
 } });
 const app = express();
 app.use(isolateLocalCookies(mode));

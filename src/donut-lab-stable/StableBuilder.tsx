@@ -957,7 +957,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
           }}
         >
           {!s.added && (
-            <span style={{ minWidth: 0, textAlign: 'center', fontSize: 13.5, lineHeight: 1.35, color: 'var(--text-body)' }}>
+          <span className="sb-description" style={{ minWidth: 0, textAlign: 'center', fontSize: 13.5, lineHeight: 1.35, color: 'var(--text-body)' }}>
               {describe({ base, icing, filling, sprinkle, printOn: !!s.print })}
             </span>
           )}
@@ -972,7 +972,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
       </div>
 
       {/* Stage rail — one pill per step, tap to jump back to it. */}
-      <div ref={railRef} className="sb-rail" style={{ flex: 'none', gap: 8, padding: '12px 14px 10px' }}>
+      <div ref={railRef} className="sb-rail sb-stage-rail" style={{ flex: 'none', gap: 14, padding: '16px 18px 14px' }}>
         {steps.map((sid, n) => {
           const on = n === i;
           return (
@@ -1025,12 +1025,12 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
 
       {/* Option sheet. Rounded at the top only — it reads as a drawer the
           stage sits in, and the action row belongs to it, not below it. */}
-      <div className="sb-sheet" style={{ flex: 'none', background: 'var(--sand)', borderRadius: '28px 28px 0 0', padding: '14px 0 0' }}>
+      <div className="sb-sheet" style={{ flex: 'none', background: 'var(--sand)', borderRadius: '28px 28px 0 0', padding: '18px 0 0' }}>
         <div
           className="sb-head sb-measure"
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 12, padding: '0 18px 2px'
+            gap: 16, padding: '0 18px 12px'
           }}
         >
           <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 28, lineHeight: 1.05 }}>
@@ -1061,7 +1061,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
         {/* Option panel. Fixed height and one panel at a time, sliding: the
             step's options used to be swapped in place, which resized the band
             and shifted the stage above it on every Next. */}
-        <div className="sb-panel" style={{ position: 'relative', height: PANEL_H, overflow: 'hidden' }}>
+        <div className="sb-panel" style={{ position: 'relative', height: PANEL_H + 12, overflow: 'hidden' }}>
           <AnimatePresence initial={false} custom={dir} mode="sync">
             <motion.div
               key={step}
@@ -1179,7 +1179,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
                     </button>
                   </p>
                 )}
-              <div className="sb-rail sb-options" style={{ gap: 10, padding: '0 18px 14px' }}>
+              <div className="sb-rail sb-options" style={{ gap: 16, padding: '4px 22px 18px' }}>
                 {options.map((opt) => (
                   <button
                     key={opt.id}
@@ -1192,7 +1192,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
                     style={{
                       flex: 'none', width: 96, scrollSnapAlign: 'start', border: 0, borderRadius: 22,
                       background: 'var(--cream)', padding: '7px 7px 10px', display: 'flex',
-                      flexDirection: 'column', gap: 5, cursor: opt.blocked ? 'default' : 'pointer',
+                      flexDirection: 'column', gap: 9, cursor: opt.blocked ? 'default' : 'pointer',
                       opacity: opt.blocked ? 0.4 : 1,
                       fontFamily: 'var(--font-body)', textAlign: 'center',
                       boxShadow: opt.active ? 'inset 0 0 0 3px var(--navy)' : 'inset 0 0 0 1px rgba(14,62,105,.10)'
@@ -1265,10 +1265,10 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
         {/* Action row. The bottom pad clears iOS home indicators and the
             Android URL bar — which is also why the band is sized in dvh. */}
         <div
-          className="sb-measure"
+          className="sb-actions sb-measure"
           style={{
             display: 'flex', alignItems: 'center', gap: 10, background: 'var(--sand)',
-            padding: '0 14px calc(16px + env(safe-area-inset-bottom, 0px))'
+            padding: '10px 14px calc(16px + env(safe-area-inset-bottom, 0px))'
           }}
         >
           {i > 0 && (

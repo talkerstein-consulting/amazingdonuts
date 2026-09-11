@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSquareOrder } from '../apps/api/app.js';
+import { buildSquareOrder, orderEmailSummary } from '../apps/api/app.js';
 import { labCustomizationSchema, labOrderNote, LAB_NAME } from '../apps/api/donut-lab.js';
 import { lineKeyOf } from '../../../src/lib/cart-line.ts';
 
@@ -27,4 +27,14 @@ test('different Lab designs remain separate and use the Square catalog price', a
     assert.equal(line.base_price_money, undefined);
     assert.equal(line.modifiers, undefined);
   }
+  order.id = 'LAB-ORDER';
+  order.total_money = { amount: 3600, currency: 'CAD' };
+  order.total_tax_money = { amount: 400, currency: 'CAD' };
+  order.total_service_charge_money = { amount: 800, currency: 'CAD' };
+  order.line_items.forEach(line => { line.name = LAB_NAME; });
+  const email = orderEmailSummary(order, { type: 'delivery', scheduledAt: '2026-10-05T14:00:00Z' });
+  assert.match(email, /Donut lab donut x 6/);
+  assert.match(email, /DONUT LAB: Shape: Round Donut; Icing: Pink/);
+  assert.match(email, /Delivery: \$8\.00/);
+  assert.match(email, /HST: \$4\.00/);
 });

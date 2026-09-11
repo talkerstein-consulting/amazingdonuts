@@ -23,6 +23,7 @@ import {
   type Customization,
 } from "../lib/custom-order";
 import CheckoutFix from "../shop/CheckoutFix";
+import CartCustomization from "../shop/CartCustomization";
 import BrandDatePicker from "../components/BrandDatePicker";
 import BrandTimePicker from "../components/BrandTimePicker";
 import AddressAutocomplete, {
@@ -1455,6 +1456,14 @@ function Checkout() {
                       )}
                     </b>
                   </div>
+                  {line.customization && !blocked && (
+                    <CartCustomization
+                      productId={line.product.id}
+                      qty={line.qty}
+                      value={line.customization}
+                      onChange={(next) => customize(lineKeyOf(line), next)}
+                    />
+                  )}
                   {blocked && (
                     <CheckoutFix
                       productId={line.product.id}

@@ -59,6 +59,14 @@
   scroll-snap-type: x proximity;
 }
 
+.sb-stage-rail {
+  column-gap: 14px !important;
+}
+
+.sb-description {
+  margin-top: 4px;
+}
+
 /* --- Presses. Every control confirms the tap by shrinking. ---------------- */
 
 .sb-press        { transition: transform 140ms cubic-bezier(.2,.85,.3,1); }
@@ -129,6 +137,41 @@
 
   .sb-rail > *:last-child {
     margin-inline-end: auto;
+  }
+}
+
+/* Short desktop windows cannot hold the stage, five progress controls, option
+   cards and purchase action in one viewport at a useful size. Let the page
+   scroll in that case; keeping the fixed shell would hide the CTA below its
+   clipped edge. Taller screens retain the one-screen builder. */
+@media (min-width: 900px) and (max-height: 899px) {
+  .donut-lab-main {
+    height: auto !important;
+    min-height: calc(100dvh - var(--nav-h));
+    overflow: visible !important;
+  }
+
+  .sb-stable {
+    height: auto !important;
+    min-height: calc(100dvh - var(--nav-h));
+    overflow: visible !important;
+  }
+
+  .sb-stage {
+    min-height: 0 !important;
+  }
+
+  .sb-claw {
+    width: clamp(240px, 38vh, 340px) !important;
+  }
+
+  .sb-sheet,
+  .sb-panel {
+    flex: none !important;
+  }
+
+  .sb-panel {
+    height: 190px !important;
   }
 }
 
@@ -252,10 +295,18 @@
     padding-bottom: clamp(12px, 1.4vw, 18px) !important;
   }
 
+  .sb-stage-rail {
+    column-gap: clamp(16px, 1.8vw, 26px) !important;
+  }
+
   /* The stage is the flexible band, so anything it gives back lands here —
      which is the point: the option sheet is where the work happens. */
   .sb-sheet {
     padding-top: clamp(18px, 2vw, 26px) !important;
+  }
+
+  .sb-head {
+    padding-bottom: clamp(12px, 1.4vw, 18px) !important;
   }
 }
 
@@ -288,7 +339,7 @@
   .sb-panel {
     flex: 1 1 auto !important;
     height: auto !important;
-    min-height: 150px;
+    min-height: 174px;
   }
 
   /* The rail sits in the middle of whatever the panel now has, rather than at
@@ -308,7 +359,18 @@
   /* And the cards take some of it. A 96px tile was sized for a 150px panel;
      with room above and below, the preview is worth seeing. */
   .sb-panel .sb-tile {
-    width: 124px !important;
+    width: 132px !important;
+    padding: 9px 9px 13px !important;
+    gap: 10px !important;
+  }
+
+  .sb-panel .sb-options {
+    gap: clamp(18px, 1.8vw, 28px) !important;
+    padding-inline: clamp(24px, 4vw, 48px) !important;
+  }
+
+  .sb-actions {
+    padding-top: clamp(12px, 1.6vw, 20px) !important;
   }
 }
 
