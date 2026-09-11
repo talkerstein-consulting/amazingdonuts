@@ -350,22 +350,12 @@ nav a,
   text-decoration-color: currentColor;
 }
 
-/* The two studio lockups, as the ends of one line: Handcrafted on the left,
-   RescueMyWebsite across from it on the right.
-
-   Sized by HEIGHT here. The artwork is 1981x148 and 2612x148 - the same cap
-   height, different lengths, because one name is longer than the other - so a
-   shared height sets both names at one size, and matching their widths instead
-   would set the same words at two. */
+/* The studio lockup sits below the link columns on its own baseline. */
 .footer-credits {
-  /* Room above it. The credits are a separate register from the link columns -
-     whose site this is, not what is on it - and with the copyright line gone
-     they sat right under the last link as if they were one more of them. */
   margin-top: clamp(44px, 6vw, 92px);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: clamp(20px, 4vw, 56px);
+  justify-content: flex-start;
 }
 
 .footer-credits__mark {
@@ -378,26 +368,10 @@ nav a,
   height: 18pt;
 }
 
-/* Stacked, the row's logic inverts. Two marks in a column are read as a list,
-   and a list of two different lengths is ragged where the row was two ends of
-   one line - so on a phone they share a WIDTH and centre on it. */
 @media (max-width: 700px) {
   .footer-credits {
-    flex-direction: column;
     align-items: center;
-    gap: 18px;
-  }
-
-  /* Full width of the column, both of them: the wider mark sets the measure
-     and the narrower one matches it, so the stack has one left edge and one
-     right edge rather than two ragged ones. */
-  .footer-credits__mark {
-    width: 100%;
-  }
-
-  .footer-credits__mark img {
-    width: 100%;
-    height: auto;
+    justify-content: center;
   }
 }
 
@@ -626,6 +600,7 @@ nav a,
 .hero__copy {
   /* The one reading edge. Everything in this column starts here: the headline,
      the lede, the first button, the stars. */
+  min-width: 0;
   text-align: left;
 }
 
@@ -665,10 +640,18 @@ nav a,
 }
 
 .hero__actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: clamp(10px, 1.2vw, 14px);
   margin-top: clamp(18px, 2.2vw, 28px);
+  margin-bottom: clamp(20px, 2.4vw, 32px);
+}
+
+.hero__actions > * {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
 }
 
 /* Full width, side by side, on the narrowest screens — two half-width pills
@@ -686,27 +669,13 @@ nav a,
    below its content, and "Order delivery" is wide enough to force a wrap
    without it. */
 @media (max-width: 560px) {
+  .hero__actions { gap: 10px; }
+}
+
+@media (max-width: 340px) {
   .hero__actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  /* Label to the leading edge, knob to the trailing one.
-
-     The button is an inline-flex that packs its content to the start, which is
-     right when it is sized by that content. In a grid cell it is not: both
-     cells are 167px, and "Delivery" and "Pickup" are different lengths, so the
-     content huddled left and left a ragged tail of 31px on one button and 48px
-     on the other. Two knobs at two different insets, in a pair meant to read
-     as one choice.
-
-     `space-between` is what `.bbtn--block` already does for full-width
-     buttons; these are full-width in their own column, so they want the same
-     thing. The knobs now sit on the same line as each other. */
-  .hero__actions > * {
-    min-width: 0;
-    justify-content: space-between;
+    grid-template-columns: 1fr;
+    padding-bottom: 8px;
   }
 }
 

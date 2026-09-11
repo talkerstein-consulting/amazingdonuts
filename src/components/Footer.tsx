@@ -382,22 +382,8 @@ export default function Footer({ ready }: { ready: boolean }) {
           )}
         </motion.div>
 
-        {/* Was a `space-between` row holding the copyright and the socials.
-            The socials have gone up beside the logo and the copyright line has
-            gone too, so what is left is the credit block, centred on its own. */}
+        {/* The build credit sits on its own baseline beneath the footer links. */}
         <motion.div variants={item} className="footer-baseline">
-          {/* Two lockups rather than a line of type.
-
-              The credit was "Designed and built by Talkerstein Consulting" set
-              in the copyright's own size and colour. These say the same thing
-              in the two studios' own marks — and a supplied lockup is not
-              something to re-typeset, so they are the artwork as given.
-
-              Handcrafted leads, on the left; RescueMyWebsite answers it across
-              the row. On a phone the row becomes a stack and the two are set
-              to one WIDTH instead: a column of two marks is read as a list, and
-              a list whose items are different lengths reads as ragged where the
-              row read as two ends of one line. */}
           <div className="footer-credits">
             <a
               href="https://talkerstein.com"
@@ -406,14 +392,6 @@ export default function Footer({ ready }: { ready: boolean }) {
               className="footer-credits__mark"
             >
               <img src="/img/credit-talkerstein.png" alt="Handcrafted by Talkerstein Consulting" loading="lazy" />
-            </a>
-            <a
-              href="https://rescuemywebsite.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="footer-credits__mark"
-            >
-              <img src="/img/credit-rescuemywebsite.png" alt="Powered by RescueMyWebsite.ai" loading="lazy" />
             </a>
           </div>
         </motion.div>
