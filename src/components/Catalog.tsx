@@ -4,7 +4,7 @@ import { BOX_BUILDER_IDS, CATEGORIES, INTERNAL_PRODUCT_IDS, type Category, type 
 import CollectionRail from '../shop/CollectionRail';
 import BoxCard from './BoxCard';
 import { tagFor } from '../data/product-tags';
-import { Badge, C, F, SQUIRCLE } from './brand';
+import { Badge, BrandButton, C, F, SQUIRCLE } from './brand';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useBoxQty, useShop } from '../lib/shop';
 import AddControl from './AddControl';
@@ -24,8 +24,7 @@ function ProductThumb({ product }: { product: Product }) {
 
   return (
     <article
-      className={BOX_BUILDER_IDS.has(product.id) ? 'product-wide' : undefined}
-      style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}
+      className={`product-tile${BOX_BUILDER_IDS.has(product.id) ? ' product-wide' : ''}`}
     >
       <div style={{ position: 'relative' }}>
       <button
@@ -59,7 +58,7 @@ function ProductThumb({ product }: { product: Product }) {
         <AddControl product={product} />
       </div>
 
-      <div style={{ minWidth: 0 }}>
+      <div className="product-tile__meta">
         {/* See `.product-tag`: over the picture's top-left on a wide grid, in
             the flow above the name on a phone. The add knob owns the photo's
             top-right corner, so the opposite one is free at any label length. */}
@@ -72,11 +71,10 @@ function ProductThumb({ product }: { product: Product }) {
           style={{
             margin: 0,
             fontFamily: F.display,
-            /* Karla at 800 made every product name shout; the card's job is to be
-               scanned, and a grid of extra-bold names has no hierarchy left in
-               it. Regular weight, with size and colour doing the work. */
-            fontWeight: 400,
-            fontSize: 14,
+            /* The shared tile step: substantial enough to anchor the price row
+               without competing with the category heading above it. */
+            fontWeight: 700,
+            fontSize: 16,
             lineHeight: 1.2,
             color: C.navy,
             textTransform: 'none',
@@ -88,7 +86,7 @@ function ProductThumb({ product }: { product: Product }) {
         >
           {product.name}
         </h4>
-        <span style={{ fontFamily: F.text, fontWeight: 500, fontSize: 13, color: C.price }}>{product.price}</span>
+        <span className="product-tile__price" style={{ fontFamily: F.text, fontWeight: 700, fontSize: 14, color: C.price }}>{product.price}</span>
       </div>
     </article>
   );
@@ -140,23 +138,11 @@ function CategoryRow({
     <div
       id={`home-${category.toLowerCase()}`}
       className="home-category"
-      /* `clip` with a margin, not `hidden`.
-
-         The panel clips so its 24px corners actually round the Canvas behind
-         the tiles. `hidden` clips at the border box exactly, and the add knob
-         deliberately straddles the top-right corner of its photo bed by 6px
-         (see `AddControl`) — so the last tile in every row had the right-hand
-         side of its plus sliced off against the panel wall. Every row, on
-         every counter.
-
-         The grid cannot simply be inset instead: it runs edge to edge on
-         purpose, so the tiles start and end on the same line as the heading
-         above them and every other block on the page.
-
-         8px of clip margin is the 6px overhang plus a little. Nothing here
-         animates its height — the rows are mounted and unmounted, not
-         collapsed — so a slightly generous clip box has nothing to leak. */
-      style={{ borderRadius: 24, background: C.cream, overflow: 'clip', overflowClipMargin: 8 }}
+      /* The add knob deliberately straddles its photo bed by 6px. Keep the
+         section overflow visible so the last tile receives the same complete
+         control as every other tile; the panel's own background still follows
+         its rounded corners without clipping its children. */
+      style={{ borderRadius: 24, background: C.cream, overflow: 'visible' }}
     >
       <button
         type="button"
@@ -225,33 +211,19 @@ function CategoryRow({
                   hash — the route of the catalogue *overlay*, retired when
                   /shop/ became a real page. The hash landed on the homepage,
                   matched nothing, and the button appeared to do nothing. */}
-              <a
+              <BrandButton
                 href={shopHref({ category })}
-                className="brand-press"
+                variant="outline"
+                block
                 style={{
                   textDecoration: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  width: '100%',
-                  minHeight: 52,
-                  border: 'none',
-                  borderRadius: 99,
-                  background: 'transparent',
-                  boxShadow: `inset 0 0 0 2px ${C.navy}`,
-                  color: C.navy,
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-cta)',
-                  fontWeight: 700,
                   fontSize: 15,
-                  letterSpacing: '.05em',
-                  textTransform: 'uppercase'
+                  minHeight: 52
                 }}
               >
                 Shop all {category}
-                <span style={{ opacity: 0.6 }}>+{hidden} more</span>
-              </a>
+                <span style={{ opacity: 0.6, marginLeft: 8 }}>+{hidden} more</span>
+              </BrandButton>
             </div>
           )}
         </>

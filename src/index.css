@@ -1049,6 +1049,31 @@ nav a,
   pointer-events: none;
 }
 
+/* Shared product metadata: the name and price are one compact row beneath the
+   image instead of two separate lines. A little more air after the rounded
+   photo bed makes the text feel attached without crowding its silhouette. */
+.product-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.product-tile__meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 12px;
+  min-width: 0;
+}
+
+.product-tile__price {
+  white-space: nowrap;
+  justify-self: end;
+  line-height: 1.2;
+}
+
 /* On a phone it comes back into the flow, above the name.
    Two columns of tiles on a 375px screen leaves a photo about 160px wide, and
    "BEST SELLER" laid across the top of it covers the donut it is meant to sell
@@ -1058,6 +1083,7 @@ nav a,
   .product-tag {
     position: static;
     display: block;
+    grid-column: 1 / -1;
     margin-bottom: 6px;
     pointer-events: auto;
   }

@@ -1335,11 +1335,25 @@
   margin-top: 30px;
 }
 
-.order-breakdown { margin: 20px 0; }
+/* Multi-row surfaces use one padded outer shell and rounded inset rows. This
+   mirrors the contact form: the parent supplies breathing room, while each
+   child remains a distinct, floating object instead of touching an edge. */
+.stacked-surface {
+  padding: clamp(16px, 2.4vw, 24px);
+  border-radius: var(--radius-panel);
+  background: var(--sand);
+}
+
+.order-breakdown {
+  margin: 2px 0;
+  padding: 12px 16px;
+  border-radius: var(--radius-chip);
+  background: var(--cream);
+}
 .order-breakdown > div { display: flex; justify-content: space-between; gap: 20px; padding: 6px 0; }
 .order-breakdown dd { margin: 0; white-space: nowrap; }
 .order-breakdown > div:last-child { font-weight: 700; border-top: 1px solid currentColor; margin-top: 8px; padding-top: 12px; }
-.customer-orders .order-schedule { display: block; padding: 8px 0; overflow-wrap: anywhere; }
+.customer-orders .order-schedule { display: block; padding: 12px 14px; overflow-wrap: anywhere; }
 
 .customer-orders > h2 {
   margin: 0 0 8px;
@@ -1366,9 +1380,9 @@
 
 .customer-orders article {
   border: 0;
-  border-radius: var(--radius-panel);
-  background: var(--sand);
-  overflow: hidden;
+  display: grid;
+  gap: 10px;
+  overflow: visible;
 }
 
 .customer-orders article header,
@@ -1377,6 +1391,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-radius: var(--radius-chip);
   background: var(--cream);
 }
 
@@ -1395,19 +1410,21 @@
 }
 
 .customer-orders article > div {
-  padding: 8px 18px;
+  display: grid;
+  gap: 8px;
+  padding: 0;
 }
 
 .customer-orders article p {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  margin: 6px 0;
+  margin: 0;
   padding: 12px 14px;
   border-radius: var(--radius-chip);
   background: var(--cream);
 }
-.customer-orders article .delivery-test-status{align-items:center;justify-content:flex-start;border-top:1px solid rgba(14,62,105,.14);border-radius:0;text-transform:capitalize}.delivery-test-status svg{width:18px;flex:none}.delivery-test-status a{margin-left:auto;color:var(--navy);font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.customer-orders article .delivery-test-status{align-items:center;justify-content:flex-start;text-transform:capitalize}.delivery-test-status svg{width:18px;flex:none}.delivery-test-status a{margin-left:auto;color:var(--navy);font-weight:800;text-decoration:underline;text-underline-offset:3px}
 .organization-member-list article{position:relative;box-shadow:inset 0 0 0 1.5px rgba(14,62,105,.12)}
 .organization-member-list .organization-member--admin{box-shadow:inset 5px 0 0 var(--pink),inset 0 0 0 1.5px rgba(14,62,105,.18)}
 .organization-member-list .organization-member--current{box-shadow:inset 0 0 0 3px var(--navy)}

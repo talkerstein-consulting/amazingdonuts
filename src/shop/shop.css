@@ -362,9 +362,9 @@
   .cabinet__back:hover { transform: none; }
 }
 
-/* Four circles now, so they stack into a column on the media's right edge
-   rather than running a row across the top of it — a row of four 44px discs
-   is 200px of furniture over the photograph on a phone. */
+/* Two circles stack into a column on the media's right edge rather than
+   running across the top of it, where they would cover the photograph on a
+   phone. */
 .cabinet__mediaTools {
   position: absolute;
   z-index: 3;
@@ -375,8 +375,7 @@
   gap: 8px;
 }
 
-/* The share circles are links as well as buttons, so the anchor needs the
-   button's own centring — `.cabinet__iconBtn` was written for a <button>. */
+/* Retained for any linked media action using the same circular control. */
 a.cabinet__iconBtn { text-decoration: none; }
 
 .cabinet__iconBtn {
@@ -395,6 +394,7 @@ a.cabinet__iconBtn { text-decoration: none; }
 
 .cabinet__iconBtn:hover { transform: translateY(-2px); }
 .cabinet__iconBtn.is-on { color: var(--orange); }
+.cabinet__iconGlyph { display: grid; place-items: center; }
 
 .cabinet__crumbs {
   display: flex;
@@ -2680,14 +2680,12 @@ a.cabinet__iconBtn { text-decoration: none; }
   gap: 0;
 }
 
-/* 17, between the 16 it started at and the 20 it grew to.
-
-   20 was right when the strip was a floating pill with its own padding and
-   corners. Flush under the navbar it is a bar, and a bar's labels should not
-   out-size the navbar's own links beside them — the chips were reading louder
-   than the site's navigation while being subordinate to it. */
+/* The condensed display face needs a larger optical size than the navbar's
+   body-text links. At 17px the category names became difficult to distinguish
+   once the rail compacted; 21px keeps them readable without restoring the
+   resting rail's height. */
 .collections--compact .collection-card__name {
-  font-size: 17px;
+  font-size: 21px;
 }
 
 /* The lift belongs to a card in a grid, not to a pill in a strip that is
@@ -2883,10 +2881,11 @@ a.cabinet__iconBtn { text-decoration: none; }
 .return-prompt {
   position: fixed;
   z-index: 235;
-  inset: 0;
-  margin: auto;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
   width: min(780px, calc(100vw - 28px));
-  height: max-content;
+  height: auto;
   max-height: calc(100dvh - 28px);
   display: grid;
   grid-template-columns: 1fr;

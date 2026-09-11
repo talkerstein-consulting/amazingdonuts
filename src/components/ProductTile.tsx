@@ -36,7 +36,7 @@ export default function ProductTile({
   bedCorner?: ReactNode;
 }) {
   return (
-    <>
+    <div className="product-tile">
       <div style={{ position: 'relative' }}>
         <button
           type="button"
@@ -83,6 +83,7 @@ export default function ProductTile({
 
       <button
         type="button"
+        className="product-tile__meta"
         onClick={() => onOpen(product)}
         style={{ border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer' }}
       >
@@ -118,8 +119,8 @@ export default function ProductTile({
         >
           {product.name}
         </h4>
-        <span style={{ fontFamily: F.text, fontWeight: 500, fontSize: 14, color: C.price }}>{product.price}</span>
+        <span className="product-tile__price" style={{ fontFamily: F.text, fontWeight: 700, fontSize: 14, color: C.price }}>{product.price}</span>
       </button>
-    </>
+    </div>
   );
 }

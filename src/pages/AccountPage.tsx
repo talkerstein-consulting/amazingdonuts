@@ -357,7 +357,7 @@ function Orders({ orders }: { orders: any[] }) {
       {orders.length ? (
         <div className="customer-orders">
           {orders.map((order) => (
-            <article key={order.id}>
+            <article key={order.id} className="stacked-surface">
               <header>
                 <div>
                   <span>{day(order.ordered_at)}</span>

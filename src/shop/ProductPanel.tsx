@@ -6,7 +6,6 @@ import {
   ChefHat,
   ChevronDown,
   Heart,
-  Link2,
   FileImage,
   Minus,
   Plus,
@@ -443,10 +442,6 @@ function Cabinet({ product }: { product: Product }) {
       <div className="cabinet__inner">
         {/* --- media pane --- */}
         <div className="cabinet__media" ref={mediaRef}>
-          {/* Share, on the media's own corner. The favourite is not here — it
-              belongs beside the buy action, which is where it is; these three
-              send the product to someone else, which is a different job from
-              keeping it for yourself. */}
           {/* One share button, not a row of named networks.
 
               It was Facebook, Instagram and WhatsApp side by side. Naming
@@ -459,7 +454,8 @@ function Cabinet({ product }: { product: Product }) {
               So: the platform's share sheet where there is one, and a copied
               link where there is not. Desktop Safari and Chrome both have
               `navigator.share` now; the clipboard is the fallback, and it says
-              so by turning into a tick. */}
+              so by turning only the share control into a tick. The second
+              control saves this product, which is distinct from sharing it. */}
           <div className="cabinet__mediaTools">
             <button
               type="button"
@@ -470,8 +466,23 @@ function Cabinet({ product }: { product: Product }) {
               {copied ? <Check size={18} strokeWidth={2.6} /> : <Share2 size={18} strokeWidth={2.2} />}
             </button>
 
-            <button type="button" onClick={copyLink} aria-label="Copy link to this product" className="cabinet__iconBtn">
-              {copied ? <Check size={17} strokeWidth={2.6} /> : <Link2 size={17} strokeWidth={2.4} />}
+            <button
+              type="button"
+              onClick={saveToggle}
+              aria-label={saved ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
+              aria-pressed={saved}
+              title={saved ? 'Remove from wishlist' : 'Add to wishlist'}
+              className={`cabinet__iconBtn${saved ? ' is-on' : ''}`}
+            >
+              <motion.span
+                key={saved ? 'saved' : 'unsaved'}
+                initial={{ scale: 0.72 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.22, ease: EASE }}
+                className="cabinet__iconGlyph"
+              >
+                <Heart size={18} strokeWidth={2.2} fill={saved ? 'currentColor' : 'none'} />
+              </motion.span>
             </button>
           </div>
 
