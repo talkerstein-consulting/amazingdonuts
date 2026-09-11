@@ -171,7 +171,7 @@
   }
 
   .sb-panel {
-    height: 190px !important;
+    height: 236px !important;
   }
 }
 
@@ -339,7 +339,7 @@
   .sb-panel {
     flex: 1 1 auto !important;
     height: auto !important;
-    min-height: 174px;
+    min-height: 236px;
   }
 
   /* The rail sits in the middle of whatever the panel now has, rather than at
@@ -367,6 +367,7 @@
   .sb-panel .sb-options {
     gap: clamp(18px, 1.8vw, 28px) !important;
     padding-inline: clamp(24px, 4vw, 48px) !important;
+    padding-block: 22px !important;
   }
 
   .sb-actions {

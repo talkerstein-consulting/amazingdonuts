@@ -231,7 +231,7 @@ const SQUIRCLE: CSSProperties = { clipPath: 'url(#squircle-clip)' };
  * rail's own 14px bottom padding.
  */
 const LABEL_H = 32;
-const PANEL_H = 150;
+const PANEL_H = 174;
 
 /**
  * Forward: the old panel leaves to the left, the new one arrives from the
@@ -1058,9 +1058,10 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
             line cost the stage a band of height on every screen. STEP_NOTES is
             still in builder-data.ts, unrendered, like the prices. */}
 
-        {/* Option panel. Fixed height and one panel at a time, sliding: the
+        {/* Option panel. Stable height and one panel at a time, sliding: the
             step's options used to be swapped in place, which resized the band
-            and shifted the stage above it on every Next. */}
+            and shifted the stage above it on every Next. The extra allowance
+            keeps the card edges clear of Safari's overflow clipping. */}
         <div className="sb-panel" style={{ position: 'relative', height: PANEL_H + 12, overflow: 'hidden' }}>
           <AnimatePresence initial={false} custom={dir} mode="sync">
             <motion.div
