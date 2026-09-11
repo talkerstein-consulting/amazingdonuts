@@ -29,7 +29,7 @@ import './claw-sequence.css';
 /* The lab's own catalogue line, and what one element adds to it. */
 
 /** The claw sequence's own length — see `claw-sequence.css`, which owns it. */
-const CLAW_MS = 4300;
+const CART_OPEN_DELAY_MS = 650;
 
 /**
  * How many donuts sit on each row of the stack, bottom row last.
@@ -475,86 +475,26 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
     }
   }, [s.baseId, s.icingId, s.fillingId, s.sprinkleIds]);
 
-  /* The claw rig is fixed, so it is positioned against the viewport and has to
-     be told where the stage is. Re-measured on anything that could move the
-     stage under it: the builder cannot scroll, but the page around it can. */
-  /* The claw carries the donut off and the box takes it — really takes it.
-     `add` was destructured here and never called: pressing "Add to the box"
-     played the whole 4300ms sequence and the cart count did not move, which is
-     an animation about a purchase that never happened.
-
-     Fired once per add, on the transition into `added`, and at the moment the
-     claw leaves the frame rather than at the start of the sequence or the end
-     of the timeline. The line appearing in the drawer is the thing the
-     animation is a picture of, so it lands when the box does — but the last
-     stretch of `clawRig` is the rig travelling on across empty screen it has
-     already cleared, and waiting that out left the drawer opening onto a stage
-     nothing had happened on for the better part of a second.
-
-     Watched rather than timed. The exit runs 80%-100% of the timeline from
-     `translateX(0)` to `translateX(100vw)`, so the instant it clears depends on
-     how far the rig sits from the right edge — 455px in from a 1440px window,
-     much less on a phone — and any constant would be right at one width only.
-     `CLAW_MS` stays as the ceiling: if the rig is not there to watch (reduced
-     motion takes it out of the layout entirely) the old timing still applies. */
+  /* Commit as soon as Add to Bag is pressed. The claw is confirmation, not a
+     gate in front of the cart: waiting for its full travel made the control
+     look broken for several seconds, especially in Safari. The drawer follows
+     after a short beat so the count visibly changes before it opens. */
   useEffect(() => {
     if (!s.added) return;
-    let frame = 0;
-    let seenRig = false;
-    let spent = false;
-
-    const commit = () => {
-      if (spent) return;
-      spent = true;
-      const product = products.find((p) => p.id === LAB_PRODUCT_ID);
-      if (!product || product.available === false) return;
-      /* The build, written onto the line as the steps that made it — so the bag
-         reads "Shape · Round Donut · +$0.25" rather than a product code. Only
-         the steps this shape actually had: an ungrouped shape has no size step
-         and a bare one has no icing, and listing them as blanks would invent
-         choices nobody made.
-
-         `quantity` is deliberately not an element. It is how many of this line
-         there are, which the line's own qty already says, and pricing it as an
-         element would charge for it twice. */
-      const elements = steps
-        .filter((sid) => sid !== 'quantity')
-        .map((sid) => ({
-          label: STEP_LABEL[sid],
-          value: stepValue(sid),
-          price: LAB_ELEMENT_PRICE
-        }))
-        .filter((el) => el.value && el.value !== 'None' && el.value !== 'Upload');
-      add(product, s.qty, { openCart: false, customization: { kind: 'lab', elements } });
-      /* The bag reacts on its own rather than taking a flight: the claw
-         sequence IS the animation here, and a donut arcing across the screen on
-         top of it would be two things at once. */
-      pulseCart();
-      openCart();
-    };
-
-    /* Out of view means the rig's leading edge has passed the right of the
-       window. A rig with no width is one reduced motion has removed, and there
-       is no exit to wait for. */
-    const watch = () => {
-      const rig = document.querySelector('[data-claw-rig]');
-      if (rig) {
-        seenRig = true;
-        const box = rig.getBoundingClientRect();
-        if (box.width === 0 || box.left >= window.innerWidth) return commit();
-      } else if (seenRig) {
-        /* It was there and now is not — the sequence is over either way. */
-        return commit();
-      }
-      frame = requestAnimationFrame(watch);
-    };
-    frame = requestAnimationFrame(watch);
-
-    const ceiling = setTimeout(commit, CLAW_MS);
-    return () => {
-      cancelAnimationFrame(frame);
-      clearTimeout(ceiling);
-    };
+    const product = products.find((p) => p.id === LAB_PRODUCT_ID);
+    if (!product || product.available === false) return;
+    const elements = steps
+      .filter((sid) => sid !== 'quantity')
+      .map((sid) => ({
+        label: STEP_LABEL[sid],
+        value: stepValue(sid),
+        price: LAB_ELEMENT_PRICE
+      }))
+      .filter((el) => el.value && el.value !== 'None' && el.value !== 'Upload');
+    add(product, s.qty, { openCart: false, customization: { kind: 'lab', elements } });
+    pulseCart();
+    const drawerTimer = setTimeout(openCart, CART_OPEN_DELAY_MS);
+    return () => clearTimeout(drawerTimer);
     /* Deliberately keyed on `added` alone. `qty` is fixed by the time the claw
        starts — its step is behind you — and listing it here would restart the
        timer if anything else nudged it. */
