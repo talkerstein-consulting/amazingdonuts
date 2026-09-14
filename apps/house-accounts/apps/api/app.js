@@ -20,6 +20,7 @@ import { websiteTaxes, customerOrder } from "./order-presentation.js";
 import { ensureHouseCustomer, ensureProfileCustomer, assertHouseCard } from "./house-customer.js";
 import { deliveryPreflight } from "./delivery-preflight.js";
 import { attachGuestOrders, findOrCreateGuestCustomer, findSquareCustomers, guestFulfillmentReference, guestOrderReference } from "./guest-customer.js";
+import { squareCustomerOrderHistory } from './square-order-history.js';
 
 const loginSchema = z.object({ email:z.string().email(), password:z.string().min(8), tenant:z.string().min(2) });
 const forgotPasswordSchema=z.object({email:z.string().email(),tenantSlug:z.string().min(2).default("amazing-donuts")});
@@ -279,12 +280,18 @@ export function createApp({ pool, square, uberDirect, config }) {
   }catch(error){next(error);}});
   app.get("/api/storefront/orders",async(request,response,next)=>{try{
     const user=requireUser(request),result=await pool.query(`SELECT so.id,so.square_order_id,so.payment_method,so.status,so.subtotal,so.tax,so.total,so.currency,so.fulfillment,so.line_items,so.ordered_at,so.raw_square,CASE WHEN sd.id IS NULL THEN NULL ELSE jsonb_build_object('provider',sd.provider,'environment',sd.environment,'status',sd.status,'trackingUrl',sd.tracking_url,'deliveryId',sd.external_delivery_id,'estimatedDeliveryAt',COALESCE(sd.raw_provider->'data'->>'dropoff_eta',sd.raw_provider->'delivery'->>'dropoff_eta',sd.raw_provider->>'dropoff_eta')) END AS delivery FROM storefront_orders so LEFT JOIN storefront_deliveries sd ON sd.storefront_order_id=so.id WHERE so.tenant_id=$1 AND so.user_id=$2 UNION ALL SELECT o.id,o.square_order_id,'house_account' AS payment_method,o.status,o.subtotal,o.tax,o.total,o.currency,o.fulfillment,o.line_items,o.ordered_at,o.raw_square,NULL::jsonb AS delivery FROM orders o JOIN account_users au ON au.account_id=o.account_id AND au.user_id=$2 WHERE o.tenant_id=$1 AND NOT EXISTS(SELECT 1 FROM storefront_orders so WHERE so.tenant_id=o.tenant_id AND so.square_order_id=o.square_order_id) ORDER BY ordered_at DESC LIMIT 100`,[user.tenant_id,user.id]);
-    let live=[];
-    if(result.rows.length){try{
-      const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
-      live=(await tenantSquare.request("/v2/orders/batch-retrieve",{method:"POST",body:{order_ids:[...new Set(result.rows.map(row=>row.square_order_id))]}})).orders||[];
-    }catch(error){console.error("Customer order status refresh failed",error.message);}}
-    response.set("Cache-Control","private, no-store").json({orders:result.rows.map(row=>customerOrder(row,live.find(order=>order.id===row.square_order_id)))});
+    const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
+    let orders=result.rows.map(row=>customerOrder(row));
+    try{
+      const [profile,accounts,matches]=await Promise.all([
+        pool.query("SELECT square_customer_id FROM customer_profiles WHERE tenant_id=$1 AND user_id=$2",[user.tenant_id,user.id]),
+        pool.query("SELECT a.square_customer_id FROM accounts a JOIN account_users au ON au.account_id=a.id WHERE a.tenant_id=$1 AND au.user_id=$2 AND au.status='active'",[user.tenant_id,user.id]),
+        findSquareCustomers(tenantSquare,user.email)
+      ]);
+      const customerIds=[profile.rows[0]?.square_customer_id,...accounts.rows.map(row=>row.square_customer_id),...matches.map(customer=>customer.id)];
+      orders=await squareCustomerOrderHistory(tenantSquare,{customerIds,locationId:config.squareLocationId,storedRows:result.rows,limit:100});
+    }catch(error){console.error("Customer Square history sync failed",error.message);}
+    response.set("Cache-Control","private, no-store").json({orders});
   }catch(error){next(error);}});
 
   const guestTenant=async slug=>{const tenant=await pool.query("SELECT id FROM tenants WHERE slug=$1 AND status='active'",[slug]);if(!tenant.rowCount)throw Object.assign(new Error("Online ordering is unavailable."),{status:404});return tenant.rows[0].id;};

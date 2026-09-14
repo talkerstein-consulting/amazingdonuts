@@ -39,3 +39,11 @@ test('Square ready pickup is shown separately from a completed payment', () => {
   assert.equal(ready.liveStatusAvailable, true);
   assert.equal(customerOrder(pickup,{fulfillments:[{state:'COMPLETED'}]}).fulfillmentStatus,'Collected');
 });
+
+test('live Square refunds override payment state', () => {
+  const full = customerOrder(row, {state:'COMPLETED'}, [{status:'COMPLETED',amount_money:{amount:1000},refunded_money:{amount:1000}}]);
+  assert.equal(full.paymentStatus, 'Refunded');
+  assert.equal(full.fulfillmentStatus, 'Completed');
+  const partial = customerOrder(row, {state:'COMPLETED'}, [{status:'COMPLETED',amount_money:{amount:1000},refunded_money:{amount:250}}]);
+  assert.equal(partial.paymentStatus, 'Partially refunded');
+});

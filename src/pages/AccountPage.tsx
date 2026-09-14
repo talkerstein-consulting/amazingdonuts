@@ -348,6 +348,8 @@ function PasswordReset({token}:{token:string}){
 }
 
 function Orders({ orders }: { orders: any[] }) {
+  const statusLabel = (order: any) => /refund/i.test(order.paymentStatus || "") ? order.paymentStatus : order.fulfillmentStatus || "Order received";
+  const paymentLabel = (order: any) => order.payment_method === "house_account" ? "Pay on account" : order.payment_method === "cash" ? "Cash" : order.payment_method === "card" ? "Card" : "Payment";
   return (
     <>
       <div className="commerce-heading">
@@ -363,7 +365,7 @@ function Orders({ orders }: { orders: any[] }) {
                   <span>{day(order.ordered_at)}</span>
                   <strong>Order #{order.square_order_id.slice(-8)}</strong>
                 </div>
-                <em>{order.fulfillmentStatus || "Order received"}</em>
+                <em>{statusLabel(order)}</em>
               </header>
               <div>
                 {(order.line_items || []).map((line: any) => (
@@ -388,7 +390,7 @@ function Orders({ orders }: { orders: any[] }) {
               {order.liveStatusAvailable === false && <p className="order-schedule">Live updates temporarily unavailable.</p>}
               <footer>
                 <span>
-                  {order.payment_method === "house_account" ? "Pay on account" : "Card"} · {order.paymentStatus} · {order.fulfillment?.type}
+                  {paymentLabel(order)} · {order.paymentStatus}{order.fulfillment?.type ? ` · ${order.fulfillment.type}` : ""}
                 </span>
                 <strong>{cash(order.total, order.currency)}</strong>
               </footer>
