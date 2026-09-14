@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type InputHTMLAttributes } from "react";
-import { ArrowLeft, Building2, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, ReceiptText, Truck, UserRound, X } from "lucide-react";
+import { ArrowLeft, Building2, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, ReceiptText, RefreshCw, Truck, UserRound, X } from "lucide-react";
 import { customizationFor } from "../lib/custom-order";
 import AuthModal from "../shop/AuthModal";
 import "../index.css";
@@ -154,7 +154,8 @@ function AccountShell() {
      here, and without this it landed on the order list — a link named for one
      thing showing another. Any other hash falls through to orders. */
   const [view, setView] = useState<View>(() => {
-    if (new URLSearchParams(location.search).has("statement")) return "house";
+    const search = new URLSearchParams(location.search);
+    if (search.has("statement") || search.has("replace-card")) return "house";
     const hash = location.hash.slice(1);
     return hash === "wishlist" || hash === "profile" || hash === "house" ? hash : "orders";
   });
@@ -503,6 +504,7 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
 function HouseAccount({ session, account, application, statementToken, onStatementPaid, onApplied }: { session: any; account: any; application: any; statementToken: string | null; onStatementPaid: () => void; onApplied: (application: any) => void }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [replacingCard, setReplacingCard] = useState(() => new URLSearchParams(location.search).has("replace-card"));
   const [purchasers, setPurchasers] = useState([{ name: "", email: "", organizationRole: "Purchaser", pin: "" }]);
   const blankAddress:Address={addressLine1:"",addressLine2:"",locality:"Toronto",administrativeDistrictLevel1:"ON",postalCode:"",country:"CA"};
   const [organizationAddress,setOrganizationAddress]=useState<Address>({...blankAddress,...(session.profile?.default_address||{})});
@@ -531,9 +533,12 @@ function HouseAccount({ session, account, application, statementToken, onStateme
             Your account is {session.houseAccount.status}. You currently have <strong>{cash(session.houseAccount.credit.available)}</strong> available.
           </p>
           {session.houseAccount.card ? (
-            <p>
-              <CreditCard /> {session.houseAccount.card.brand || "Card"} ending in {session.houseAccount.card.last4} is on file.
-            </p>
+            <div className="house-card-summary">
+              <p>
+                <CreditCard /> {session.houseAccount.card.brand || "Card"} ending in {session.houseAccount.card.last4} is on file.
+              </p>
+              {session.houseAccount.role === "account_admin" && !replacingCard ? <button type="button" onClick={() => setReplacingCard(true)}><RefreshCw /> Change card</button> : null}
+            </div>
           ) : (
             <p>A card on file is required before credit purchases are enabled.</p>
           )}
@@ -541,7 +546,18 @@ function HouseAccount({ session, account, application, statementToken, onStateme
         {featuredStatement?<StatementPaymentPanel statement={{...featuredStatement,orders:(account?.orders||[]).filter((order:any)=>order.payment_method==="house_account"&&Number(order.balance_due)>0)}} session={session} onPaid={onStatementPaid}/>:null}
         {statementToken&&account&&!linkedStatement?<div className="statement-link-error" role="alert"><ReceiptText/><div><strong>We could not match this payment link</strong><span>The invoice may belong to another institutional account or the link may no longer be valid.</span></div></div>:null}
         {session.houseAccount.role === "account_admin" && account ? <OrganizationSettings account={account} /> : null}
-        {!session.houseAccount.card || new URLSearchParams(location.search).has("replace-card") ? <SaveHouseCard session={session} onSaved={() => location.reload()} /> : null}
+        {session.houseAccount.role === "account_admin" && (!session.houseAccount.card || replacingCard) ? <SaveHouseCard session={session} replacing={Boolean(session.houseAccount.card)} onCancel={session.houseAccount.card ? () => {
+          const url = new URL(location.href);
+          url.searchParams.delete("replace-card");
+          history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+          setReplacingCard(false);
+        } : undefined} onSaved={() => {
+          const url = new URL(location.href);
+          url.searchParams.delete("replace-card");
+          history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+          setReplacingCard(false);
+          onStatementPaid();
+        }} /> : null}
         <CustomerMemberManager session={session} account={account} onChanged={onStatementPaid} />
         {account?.orders?.some((order:any)=>order.payment_method==="house_account"&&Number(order.balance_due)>0)?<div className="customer-orders"><h2>Outstanding credit orders</h2><div className="account-table-scroll"><table className="account-data-table outstanding-order-table"><thead><tr><th>Date</th><th>Order</th><th>Channel</th><th className="money-column">Balance</th><th className="action-column">Payment</th></tr></thead><tbody>{account.orders.filter((order:any)=>order.payment_method==="house_account"&&Number(order.balance_due)>0).map((order:any)=><tr key={order.id}><td>{day(order.ordered_at)}</td><td><strong>{order.receipt_number||String(order.square_order_id).slice(-8)}</strong></td><td>{order.source==="pos"?"In store":"Online"}</td><td className="money-column">{cash(order.balance_due,order.currency)}</td><td className="action-column"><PayOrder order={order} session={session} onPaid={onStatementPaid}/></td></tr>)}</tbody></table></div></div>:null}
         {account?.ledger?.length ? (
@@ -817,7 +833,7 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
   );
 }
 
-function SaveHouseCard({ session, onSaved }: { session: any; onSaved: () => void }) {
+function SaveHouseCard({ session, replacing = false, onCancel, onSaved }: { session: any; replacing?: boolean; onCancel?: () => void; onSaved: () => void }) {
   const card = useRef<SquareCard | undefined>(undefined),
     [ready, setReady] = useState(false),
     [consent, setConsent] = useState(false),
@@ -869,14 +885,14 @@ function SaveHouseCard({ session, onSaved }: { session: any; onSaved: () => void
               email: session.user.email,
             },
           });
-          if (token.status !== "OK" || !token.token) throw new Error(token.errors?.[0]?.message || "Card authorization failed.");
+          if (token.status !== "OK" || !token.token) throw new Error(cardErrorMessage(token.errors?.[0]?.message));
           await api("/storefront/house-card", {
             method: "POST",
             body: JSON.stringify({
               sourceId: token.token,
               consent: true,
               cardholderName: `${session.user.firstName} ${session.user.lastName}`,
-              replace: new URLSearchParams(location.search).has("replace-card"),
+              replace: replacing,
             }),
           });
           onSaved();
@@ -888,8 +904,8 @@ function SaveHouseCard({ session, onSaved }: { session: any; onSaved: () => void
       }}
     >
       <div>
-        <h2>Add a card on file</h2>
-        <p>This card secures the credit account and may be charged for statement balances.</p>
+        <h2>{replacing ? "Change card on file" : "Add a card on file"}</h2>
+        <p>{replacing ? "Your current card stays active until the replacement is securely saved." : "This card secures the credit account and may be charged for statement balances."}</p>
         <div id="house-card-fields" className="square-card" />
       </div>
       <label className="house-card-consent">
@@ -897,9 +913,12 @@ function SaveHouseCard({ session, onSaved }: { session: any; onSaved: () => void
         <span>I authorize Amazing Donuts to save this card and charge outstanding statements when due.</span>
       </label>
       {error ? <p className="checkout-error">{error}</p> : null}
-      <button disabled={!ready || !consent || busy}>
-        {busy ? "Saving card..." : "Save card and enable credit"}
-      </button>
+      <div className="house-card-actions">
+        {onCancel ? <button className="house-card-cancel" type="button" disabled={busy} onClick={onCancel}>Cancel</button> : null}
+        <button disabled={!ready || !consent || busy}>
+          {busy ? "Saving card..." : replacing ? "Save replacement card" : "Save card and enable credit"}
+        </button>
+      </div>
     </form>
   );
 }
