@@ -41,3 +41,10 @@ export async function postPayment(client, { tenantId, accountId, paymentId, amou
   if (journal.rowCount) await client.query(`INSERT INTO journal_postings(transaction_id,account_id,ledger_account,amount,currency) VALUES($1,$2,'accounts_receivable',$3,$4)`, [journal.rows[0].id,accountId,-Math.abs(amount),currency]);
   return journal.rows[0]?.id || null;
 }
+
+export async function postRefund(client,{tenantId,accountId,refundId,amount,currency,description,actorId}){
+  const journal=await client.query(`INSERT INTO journal_transactions(tenant_id,account_id,transaction_type,source_type,source_id,description,effective_at,created_by)
+    VALUES($1,$2,'refund','square_refund',$3,$4,now(),$5) ON CONFLICT(tenant_id,source_type,source_id,transaction_type) DO NOTHING RETURNING id`,[tenantId,accountId,refundId,description,actorId]);
+  if(journal.rowCount)await client.query(`INSERT INTO journal_postings(transaction_id,account_id,ledger_account,amount,currency) VALUES($1,$2,'accounts_receivable',$3,$4)`,[journal.rows[0].id,accountId,-Math.abs(amount),currency]);
+  return journal.rows[0]?.id||null;
+}

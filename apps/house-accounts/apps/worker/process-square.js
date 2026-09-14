@@ -1,5 +1,6 @@
 import { postSale } from "../api/ledger.js";
 import { transaction } from "../api/db.js";
+import { syncInstitutionalAccountBalance } from "../api/square-customer-note.js";
 
 const normalizeTender=(value)=>String(value||"").trim().toLowerCase();
 
@@ -34,6 +35,7 @@ export async function processNextSquareEvent(pool, square, acceptedSources) {
       if(houseTender)await postSale(client,{tenantId:claimed.tenant_id,accountId:account.rows[0].id,orderId:order.id,amount:Number(order.total_money?.amount||payment.amount_money.amount),currency:order.total_money?.currency||payment.amount_money.currency,description:`In-store order ${order.ticket_name||order.id}`,actorId:account.rows[0].purchaser_user_id});
       await client.query("UPDATE webhook_events SET status='completed',processed_at=now(),error=NULL WHERE id=$1",[claimed.id]);
     });
+    if(houseTender)await syncInstitutionalAccountBalance(pool,square,account.rows[0].id).catch(error=>console.error("Square institutional balance note sync failed",error));
     return {status:"completed"};
   } catch(error) {
     await pool.query("UPDATE webhook_events SET status=CASE WHEN attempts>=5 THEN 'review' ELSE 'pending' END,available_at=now()+make_interval(secs=>LEAST(3600,power(2,attempts)::int*30)),error=$2 WHERE id=$1",[claimed.id,error.message]);
