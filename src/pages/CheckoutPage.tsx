@@ -4,7 +4,10 @@ import {
   Building2,
   CreditCard,
   LockKeyhole,
+  Pencil,
+  Plus,
   ShoppingBag,
+  Trash2,
   Store,
   Truck,
   UserRound,
@@ -209,6 +212,8 @@ async function api(path: string, options?: RequestInit) {
     },
     ...options,
   });
+  /* A 204 carries no body and no content-type: the delete routes answer so. */
+  if (response.status === 204) return null;
   if (!response.headers.get("content-type")?.includes("application/json")) {
     throw new Error("The checkout service is unavailable. Please try again shortly.");
   }
@@ -250,7 +255,9 @@ function Checkout() {
   /* Empty until one is picked. It defaulted to 'card', which mounted the Square
      card iframe on arrival and made "choose how to pay" a decision nobody was
      asked to make — the intake was simply already there. */
-  const [method, setMethod] = useState<"" | "card" | "house_account">("");
+  const [method, setMethod] = useState<
+    "" | "saved_card" | "card" | "house_account"
+  >("");
   const [authorizationPin, setAuthorizationPin] = useState("");
   const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">(() =>
     readFulfillmentPreference(),
@@ -264,13 +271,111 @@ function Checkout() {
     return chosen ? `${chosen.date}T${chosen.time}` : tomorrow();
   });
   const [phone, setPhone] = useState("");
+  const [phoneEditing, setPhoneEditing] = useState(false);
+  /* Answered steps fold to a line with a Change link, the way Amazon's do,
+     so the page a returning customer lands on is a review, not a form. A
+     step that cannot be summarised yet stays open regardless. */
+  const [identityOpen, setIdentityOpen] = useState(true);
+  const [fulfillmentOpen, setFulfillmentOpen] = useState(false);
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [address, setAddress] = useState<Address>(blankAddress);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
-  const [saveAddress, setSaveAddress] = useState(false);
+  /* The card editor. `address` is the one the order goes to; `addressDraft`
+     is the one being typed, so cancelling an edit leaves the order alone. */
+  const [addressPanel, setAddressPanel] = useState<
+    null | { mode: "new" } | { mode: "edit"; id: string }
+  >(null);
+  const [addressDraft, setAddressDraft] = useState<Address>(blankAddress);
   const [addressLabel, setAddressLabel] = useState("Home");
   const [addressType, setAddressType] = useState<"home" | "work" | "other">(
     "home",
   );
+  const [addressDefault, setAddressDefault] = useState(false);
+  const [addressBusy, setAddressBusy] = useState(false);
+  const [addressError, setAddressError] = useState("");
+  const addressDraftComplete =
+    Boolean(addressDraft.addressLine1.trim()) &&
+    Boolean(addressDraft.locality.trim()) &&
+    addressDraft.postalCode.replace(/\s/g, "").length >= 6;
+  /* `item` opens a saved card; `undefined` opens the one-off address already
+     on the order; `null` opens a blank card. */
+  const openAddressEditor = (item?: SavedAddress | null) => {
+    setAddressError("");
+    if (item) {
+      setAddressPanel({ mode: "edit", id: item.id });
+      setAddressDraft(addressValue(item));
+      setAddressLabel(item.label);
+      setAddressType(item.addressType);
+      setAddressDefault(item.isDefault);
+      return;
+    }
+    setAddressPanel({ mode: "new" });
+    setAddressDraft(item === undefined ? addressValue(address) : blankAddress);
+    setAddressLabel("");
+    setAddressType("home");
+    setAddressDefault(savedAddresses.length === 0);
+  };
+  const saveAddressDraft = async () => {
+    if (!addressPanel || !addressDraftComplete) return;
+    setAddressBusy(true);
+    setAddressError("");
+    try {
+      const editing = addressPanel.mode === "edit" ? addressPanel.id : null;
+      const body = await api(
+        editing ? `/storefront/addresses/${editing}` : "/storefront/addresses",
+        {
+          method: editing ? "PATCH" : "POST",
+          body: JSON.stringify({
+            ...addressValue(addressDraft),
+            label: addressLabel.trim() || "Home",
+            addressType,
+            isDefault: addressDefault,
+          }),
+        },
+      );
+      const saved: SavedAddress = body.address;
+      setSavedAddresses((current) => {
+        /* One default at a time, as the server enforces. */
+        const others = current
+          .filter((item) => item.id !== saved.id)
+          .map((item) => (saved.isDefault ? { ...item, isDefault: false } : item));
+        return editing
+          ? current.map((item) => (item.id === saved.id ? saved : others.find((o) => o.id === item.id)!))
+          : [...others, saved];
+      });
+      setAddress(addressValue(saved));
+      setAddressPanel(null);
+    } catch (cause) {
+      setAddressError(
+        cause instanceof Error ? cause.message : "The address could not be saved.",
+      );
+    } finally {
+      setAddressBusy(false);
+    }
+  };
+  const deleteSavedAddress = async (id: string) => {
+    if (!window.confirm("Delete this saved address?")) return;
+    setAddressBusy(true);
+    setAddressError("");
+    try {
+      await api(`/storefront/addresses/${id}`, { method: "DELETE" });
+      const removed = savedAddresses.find((item) => item.id === id);
+      const remaining = savedAddresses.filter((item) => item.id !== id);
+      /* The server promotes the oldest remaining address when the default
+         goes; mirror that so the cards do not wait for a reload to agree. */
+      if (removed?.isDefault && remaining.length) remaining[0] = { ...remaining[0], isDefault: true };
+      setSavedAddresses(remaining);
+      if (removed && sameAddress(removed, address))
+        setAddress(remaining[0] ? addressValue(remaining[0]) : blankAddress);
+      setAddressPanel(null);
+    } catch (cause) {
+      setAddressError(
+        cause instanceof Error ? cause.message : "The address could not be deleted.",
+      );
+    } finally {
+      setAddressBusy(false);
+    }
+  };
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [noContact, setNoContact] = useState(false);
   const [config, setConfig] = useState<any>();
@@ -289,6 +394,10 @@ function Checkout() {
   /* One answer to "who is this order for", whichever lane produced it, so
      nothing downstream has to ask which lane that was. */
   const asGuest = !session?.user && identity === "guest";
+  const savedCard =
+    !asGuest && session?.houseAccount?.status === "active"
+      ? session.houseAccount.card
+      : undefined;
   const contact =
     session?.user ??
     (asGuest
@@ -323,10 +432,64 @@ function Checkout() {
     fulfillment,
     schedule,
   );
+  const addressComplete =
+    Boolean(address.addressLine1) &&
+    address.postalCode.replace(/\s/g, "").length >= 6;
+  const fulfillmentComplete =
+    ready &&
+    Boolean(scheduledAt) &&
+    fulfillmentTimes.some((slot) => slot.value === scheduledAt.slice(11, 16)) &&
+    (fulfillment === "pickup" || addressComplete);
+  const scheduledLabel = () => {
+    const [date] = scheduledAt.split("T");
+    const [year, month, day] = date.split("-").map(Number);
+    const slot = fulfillmentTimes.find(
+      (item) => item.value === scheduledAt.slice(11, 16),
+    );
+    return `${new Date(year, month - 1, day).toLocaleDateString("en-CA", {
+      weekday: "short",
+      month: "long",
+      day: "numeric",
+    })}${slot ? ` · ${slot.label}` : ""}`;
+  };
+  const chosenSavedAddress = savedAddresses.find((item) =>
+    sameAddress(item, address),
+  );
+  /* Why a step cannot close yet, said on the step, next to the button that
+     would close it. The place-order button says the same things, but from
+     the other column, where the eye is not. */
+  const identityReason = asGuest
+    ? !guest.name.trim()
+      ? "Add your name."
+      : !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guest.email.trim())
+        ? "Add an email address for the receipt."
+        : !phone
+          ? "Add the number we can reach you on."
+          : !validPhone
+            ? "Enter a valid Canadian or US phone number."
+            : guestBlockedByPrint
+              ? "Custom-printed items need an account. Sign in to keep them."
+              : ""
+    : "";
+  const fulfillmentReason = !ready
+    ? "Finish your details above first."
+    : !fulfillmentTimes.length
+      ? `No ${fulfillment} windows on that day. Pick another date.`
+      : fulfillment === "delivery" && !address.addressLine1
+        ? asGuest || !savedAddresses.length
+          ? "Enter the delivery address."
+          : "Choose a delivery address, or add one."
+        : fulfillment === "delivery" && !addressComplete
+          ? "The delivery address needs a full postal code."
+          : "";
   const loadSession = () =>
     api("/storefront/session")
       .then(async (body) => {
         setSession(body);
+        /* A card on file is the answer to "how are you paying" until the
+           customer says otherwise — the same way the default address is. */
+        if (body.houseAccount?.card)
+          setMethod((current) => current || "saved_card");
         // A delayed session response must not erase contact details already typed.
         setPhone((current) => current || formatNorthAmericanPhone(body.profile?.default_phone || ""));
         if (body.user) {
@@ -628,25 +791,9 @@ function Checkout() {
     setBusy(true);
     setError("");
     try {
-      if (
-        !asGuest &&
-        fulfillment === "delivery" &&
-        saveAddress &&
-        !savedAddresses.some((item) => sameAddress(item, address))
-      ) {
-        const saved = await api("/storefront/addresses", {
-          method: "POST",
-          body: JSON.stringify({
-            ...address,
-            label: addressLabel,
-            addressType,
-            isDefault: savedAddresses.length === 0,
-          }),
-        });
-        setSavedAddresses((current) => [...current, saved.address]);
-        setSaveAddress(false);
-      }
       let sourceId: string | undefined = presetSource;
+      /* The API resolves this sentinel to the account's Square card id. */
+      if (method === "saved_card" && !sourceId) sourceId = "SAVED_CARD";
       if (method === "card" && !sourceId) {
         if (!card.current)
           throw new Error("The secure card form is still loading.");
@@ -732,7 +879,8 @@ function Checkout() {
                   items: items(),
                   customizations,
                   fulfillment: fulfillmentBody(),
-                  paymentMethod: presetSource ? "card" : method,
+                  paymentMethod:
+                    presetSource || method === "saved_card" ? "card" : method,
                   sourceId,
                   authorizationPin:
                     !presetSource && method === "house_account" ? authorizationPin : undefined,
@@ -902,8 +1050,60 @@ function Checkout() {
                     {session.user.firstName} {session.user.lastName}
                   </strong>
                   <span>{session.user.email}</span>
+                  {/* The number the counter rings, up here with the name it
+                  belongs to — a guest gives it in the same breath, and it is
+                  the first thing a signed-in customer should see is right. It
+                  used to sit in Fulfillment below the date and time pickers,
+                  which is where Amazon keeps it too, but Amazon's courier
+                  never phones; ours does. Read as text with a Change link
+                  when it is already good, a field when it is not. */}
+                  {validPhone && !phoneEditing ? (
+                    <span className="signed-row__phone">
+                      {phone}
+                      <button
+                        type="button"
+                        className="edit-pencil"
+                        aria-label="Change phone number"
+                        onClick={() => setPhoneEditing(true)}
+                      >
+                        <Pencil />
+                      </button>
+                    </span>
+                  ) : (
+                    <label className="signed-row__phone-field">
+                      <span>Phone</span>
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(event) =>
+                          setPhone(formatNorthAmericanPhone(event.target.value))
+                        }
+                        onBlur={() => validPhone && setPhoneEditing(false)}
+                        autoComplete="tel"
+                        enterKeyHint="done"
+                        autoFocus={phoneEditing}
+                        required
+                      />
+                    </label>
+                  )}
                 </div>
                 <a href="/account/">Manage account</a>
+              </section>
+            ) : identified && !identityOpen ? (
+              <section className="signed-row step-summary">
+                <div>
+                  <strong>{guest.name.trim()}</strong>
+                  <span>{guest.email.trim()}</span>
+                  <span className="signed-row__phone">{phone}</span>
+                </div>
+                <button
+                  type="button"
+                  className="edit-pencil"
+                  aria-label="Change your details"
+                  onClick={() => setIdentityOpen(true)}
+                >
+                  <Pencil />
+                </button>
               </section>
             ) : (
               <fieldset className="identity-choice" disabled={busy}>
@@ -988,6 +1188,17 @@ function Checkout() {
                           them.
                         </p>
                       )}
+                      <div className="step-continue-row">
+                        <button
+                          type="button"
+                          className="step-continue"
+                          disabled={Boolean(identityReason)}
+                          onClick={() => setIdentityOpen(false)}
+                        >
+                          Continue
+                        </button>
+                        {identityReason && <small>{identityReason}</small>}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1030,6 +1241,34 @@ function Checkout() {
           </div>
 
           <div className="checkout-step" data-step="2">
+            {fulfillmentComplete && !fulfillmentOpen ? (
+              <section className="signed-row step-summary">
+                <div>
+                  <strong>
+                    {fulfillment === "pickup" ? <Store /> : <Truck />}
+                    {fulfillment === "pickup"
+                      ? `Pickup at ${SHOP_ADDRESS.street}`
+                      : `Delivery to ${chosenSavedAddress ? `${chosenSavedAddress.label} · ` : ""}${address.addressLine1}${address.addressLine2 ? `, ${address.addressLine2}` : ""}`}
+                  </strong>
+                  <span>{scheduledLabel()}</span>
+                  {fulfillment === "delivery" && (deliveryInstructions || noContact) && (
+                    <span>
+                      {[noContact ? "No-contact" : "", deliveryInstructions]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="edit-pencil"
+                  aria-label={fulfillment === "pickup" ? "Change pickup details" : "Change delivery details"}
+                  onClick={() => setFulfillmentOpen(true)}
+                >
+                  <Pencil />
+                </button>
+              </section>
+            ) : (
             <fieldset disabled={!identified || busy}>
               <legend>Fulfillment</legend>
               <div className="segment">
@@ -1116,124 +1355,154 @@ function Checkout() {
                     : `Delivery windows run ${timeLabel(schedule.deliveryStart)}–${timeLabel(schedule.deliveryEnd)} Sunday through Friday. Saturday closed. Times are in ${schedule.intervalMinutes}-minute windows.`}
                 </small>
               </div>
-              {/* Guests answered this with their name and email — see the identity
-            block above. A signed-in customer has no such block, so it is asked
-            here, where it always was. */}
-              {!asGuest && (
-                <label>
-                  <span>Phone</span>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(event) =>
-                      setPhone(formatNorthAmericanPhone(event.target.value))
-                    }
-                    autoComplete="tel"
-                    required
-                  />
-                </label>
-              )}
               {fulfillment === "delivery" && (
                 <div className="address-fields">
-                  {savedAddresses.length > 0 && (
-                    <label className="saved-address-select">
-                      <span>Saved address</span>
-                      <select
-                        value={
-                          savedAddresses.find((item) =>
-                            sameAddress(item, address),
-                          )?.id || ""
-                        }
-                        onChange={(event) => {
-                          const selected = savedAddresses.find(
-                            (item) => item.id === event.target.value,
+                  {/* A signed-in customer picks from cards, the way Amazon's
+                  "Your Addresses" page works: every saved address is a card
+                  with its full lines on it, the one in use is ringed, a pencil
+                  on each opens it for editing (and deleting), and a dotted
+                  card at the end adds a new one. The old `<select>` hid the
+                  address behind its label and put "use another" first, so
+                  the customer had to open it to find out what "Home" was.
+
+                  A guest has nothing saved, so a guest gets the form. */}
+                  {!asGuest ? (
+                    <>
+                      <div className="address-cards" role="radiogroup" aria-label="Delivery address">
+                        {savedAddresses.map((item) => {
+                          const active = sameAddress(item, address);
+                          return (
+                            <div
+                              key={item.id}
+                              className={`address-card${active ? " is-active" : ""}`}
+                            >
+                              <button
+                                type="button"
+                                role="radio"
+                                aria-checked={active}
+                                className="address-card__pick"
+                                onClick={() => {
+                                  setAddress(addressValue(item));
+                                  setAddressPanel(null);
+                                }}
+                              >
+                                <strong>
+                                  {item.label}
+                                  {item.isDefault && <em>Default</em>}
+                                </strong>
+                                <span>
+                                  {item.addressLine1}
+                                  {item.addressLine2 ? `, ${item.addressLine2}` : ""}
+                                </span>
+                                <small>
+                                  {item.locality}, {item.administrativeDistrictLevel1}{" "}
+                                  {item.postalCode}
+                                </small>
+                              </button>
+                              <button
+                                type="button"
+                                className="address-card__edit"
+                                aria-label={`Edit ${item.label}`}
+                                onClick={() => openAddressEditor(item)}
+                              >
+                                <Pencil />
+                              </button>
+                            </div>
                           );
-                          if (selected) setAddress(addressValue(selected));
-                        }}
-                      >
-                        <option value="">Use another address</option>
-                        {savedAddresses.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.label}
-                            {item.isDefault ? " · Default" : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                  <label>
-                    <span>Street address</span>
-                    <AddressAutocomplete
-                      address={address}
-                      onChange={setAddress}
-                      enabled={Boolean(config?.placesEnabled)}
-                      required
-                    />
-                  </label>
-                  <label>
-                    <span>Unit</span>
-                    <input
-                      value={address.addressLine2}
-                      onChange={(event) =>
-                        setAddress({
-                          ...address,
-                          addressLine2: event.target.value,
-                        })
-                      }
-                      autoComplete="address-line2"
-                    />
-                  </label>
-                  <label>
-                    <span>City</span>
-                    <input
-                      value={address.locality}
-                      onChange={(event) =>
-                        setAddress({ ...address, locality: event.target.value })
-                      }
-                      autoComplete="address-level2"
-                      required
-                    />
-                  </label>
-                  <label>
-                    <span>Postal code</span>
-                    <input
-                      value={address.postalCode}
-                      onChange={(event) =>
-                        setAddress({
-                          ...address,
-                          postalCode: event.target.value.toUpperCase(),
-                        })
-                      }
-                      autoComplete="postal-code"
-                      required
-                    />
-                  </label>
-                  {!asGuest &&
-                    !savedAddresses.some((item) =>
-                      sameAddress(item, address),
-                    ) && (
-                    <div className="save-address-row">
-                      <label className="no-contact">
-                        <input
-                          type="checkbox"
-                          checked={saveAddress}
-                          onChange={(event) =>
-                            setSaveAddress(event.target.checked)
-                          }
-                        />
-                        <span>Save this address</span>
-                      </label>
-                      {saveAddress && (
-                        <>
+                        })}
+                        {/* An address typed for this order only, kept as a card so
+                        it can be seen and re-opened like the saved ones. */}
+                        {address.addressLine1 &&
+                          !savedAddresses.some((item) => sameAddress(item, address)) && (
+                            <div className="address-card is-active address-card--once">
+                              <button
+                                type="button"
+                                role="radio"
+                                aria-checked="true"
+                                className="address-card__pick"
+                                onClick={() => setAddressPanel(null)}
+                              >
+                                <strong>This order only</strong>
+                                <span>
+                                  {address.addressLine1}
+                                  {address.addressLine2 ? `, ${address.addressLine2}` : ""}
+                                </span>
+                                <small>
+                                  {address.locality}, {address.administrativeDistrictLevel1}{" "}
+                                  {address.postalCode}
+                                </small>
+                              </button>
+                              <button
+                                type="button"
+                                className="address-card__edit"
+                                aria-label="Edit this address"
+                                onClick={() => openAddressEditor()}
+                              >
+                                <Pencil />
+                              </button>
+                            </div>
+                          )}
+                        <button
+                          type="button"
+                          className={`address-card address-card--new${addressPanel?.mode === "new" ? " is-active" : ""}`}
+                          onClick={() => openAddressEditor(null)}
+                        >
+                          <Plus />
+                          <span>New saved address</span>
+                        </button>
+                      </div>
+                      {addressPanel && (
+                        <div className="address-editor" role="group" aria-label={addressPanel.mode === "edit" ? "Edit address" : "New address"}>
+                          <p className="address-editor__title">
+                            {addressPanel.mode === "edit" ? `Edit ${addressLabel || "address"}` : "New address"}
+                          </p>
+                          <label>
+                            <span>Street address</span>
+                            <AddressAutocomplete
+                              address={addressDraft}
+                              onChange={setAddressDraft}
+                              enabled={Boolean(config?.placesEnabled)}
+                            />
+                          </label>
+                          <label>
+                            <span>Unit</span>
+                            <input
+                              value={addressDraft.addressLine2}
+                              onChange={(event) =>
+                                setAddressDraft({ ...addressDraft, addressLine2: event.target.value })
+                              }
+                              autoComplete="address-line2"
+                            />
+                          </label>
+                          <label>
+                            <span>City</span>
+                            <input
+                              value={addressDraft.locality}
+                              onChange={(event) =>
+                                setAddressDraft({ ...addressDraft, locality: event.target.value })
+                              }
+                              autoComplete="address-level2"
+                            />
+                          </label>
+                          <label>
+                            <span>Postal code</span>
+                            <input
+                              value={addressDraft.postalCode}
+                              onChange={(event) =>
+                                setAddressDraft({
+                                  ...addressDraft,
+                                  postalCode: event.target.value.toUpperCase(),
+                                })
+                              }
+                              autoComplete="postal-code"
+                            />
+                          </label>
                           <label>
                             <span>Label</span>
                             <input
                               value={addressLabel}
-                              onChange={(event) =>
-                                setAddressLabel(event.target.value)
-                              }
-                              placeholder="Home, Work..."
-                              required
+                              onChange={(event) => setAddressLabel(event.target.value)}
+                              placeholder="Home, Work, Studio..."
                             />
                           </label>
                           <label>
@@ -1241,9 +1510,7 @@ function Checkout() {
                             <select
                               value={addressType}
                               onChange={(event) =>
-                                setAddressType(
-                                  event.target.value as typeof addressType,
-                                )
+                                setAddressType(event.target.value as typeof addressType)
                               }
                             >
                               <option value="home">Home</option>
@@ -1251,21 +1518,132 @@ function Checkout() {
                               <option value="other">Other</option>
                             </select>
                           </label>
-                        </>
+                          <label className="no-contact address-editor__default">
+                            <input
+                              type="checkbox"
+                              checked={addressDefault}
+                              onChange={(event) => setAddressDefault(event.target.checked)}
+                            />
+                            <span>Make this my default address</span>
+                          </label>
+                          {addressError && <p className="address-editor__error">{addressError}</p>}
+                          <div className="address-editor__actions">
+                            <button
+                              type="button"
+                              className="address-editor__save"
+                              disabled={addressBusy || !addressDraftComplete}
+                              onClick={() => void saveAddressDraft()}
+                            >
+                              {addressBusy ? "Saving..." : addressPanel.mode === "edit" ? "Save changes" : "Save address"}
+                            </button>
+                            {addressPanel.mode === "new" && (
+                              <button
+                                type="button"
+                                disabled={addressBusy || !addressDraftComplete}
+                                onClick={() => {
+                                  setAddress(addressValue(addressDraft));
+                                  setAddressPanel(null);
+                                }}
+                              >
+                                Use once
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              disabled={addressBusy}
+                              onClick={() => setAddressPanel(null)}
+                            >
+                              Cancel
+                            </button>
+                            {addressPanel.mode === "edit" && (
+                              <button
+                                type="button"
+                                className="address-editor__delete"
+                                disabled={addressBusy}
+                                onClick={() => void deleteSavedAddress(addressPanel.id)}
+                              >
+                                <Trash2 /> Delete
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       )}
-                    </div>
+                    </>
+                  ) : (
+                    <>
+                      <label>
+                        <span>Street address</span>
+                        <AddressAutocomplete
+                          address={address}
+                          onChange={setAddress}
+                          enabled={Boolean(config?.placesEnabled)}
+                          required
+                        />
+                      </label>
+                      <label>
+                        <span>Unit</span>
+                        <input
+                          value={address.addressLine2}
+                          onChange={(event) =>
+                            setAddress({
+                              ...address,
+                              addressLine2: event.target.value,
+                            })
+                          }
+                          autoComplete="address-line2"
+                        />
+                      </label>
+                      <label>
+                        <span>City</span>
+                        <input
+                          value={address.locality}
+                          onChange={(event) =>
+                            setAddress({ ...address, locality: event.target.value })
+                          }
+                          autoComplete="address-level2"
+                          required
+                        />
+                      </label>
+                      <label>
+                        <span>Postal code</span>
+                        <input
+                          value={address.postalCode}
+                          onChange={(event) =>
+                            setAddress({
+                              ...address,
+                              postalCode: event.target.value.toUpperCase(),
+                            })
+                          }
+                          autoComplete="postal-code"
+                          required
+                        />
+                      </label>
+                    </>
                   )}
-                  <label className="delivery-instructions">
-                    <span>Drop-off instructions</span>
-                    <textarea
-                      value={deliveryInstructions}
-                      onChange={(event) =>
-                        setDeliveryInstructions(event.target.value)
-                      }
-                      maxLength={500}
-                      rows={3}
-                    />
-                  </label>
+                  {/* A link until it is wanted, as Amazon does: most orders have
+                  no note, and a three-line box asks everyone to think of one. */}
+                  {instructionsOpen || deliveryInstructions ? (
+                    <label className="delivery-instructions">
+                      <span>Drop-off instructions</span>
+                      <textarea
+                        value={deliveryInstructions}
+                        onChange={(event) =>
+                          setDeliveryInstructions(event.target.value)
+                        }
+                        maxLength={500}
+                        rows={3}
+                        autoFocus={instructionsOpen}
+                      />
+                    </label>
+                  ) : (
+                    <button
+                      type="button"
+                      className="delivery-instructions__add"
+                      onClick={() => setInstructionsOpen(true)}
+                    >
+                      + Add drop-off instructions
+                    </button>
+                  )}
                   <label className="no-contact">
                     <input
                       type="checkbox"
@@ -1276,7 +1654,19 @@ function Checkout() {
                   </label>
                 </div>
               )}
+              <div className="step-continue-row">
+                <button
+                  type="button"
+                  className="step-continue"
+                  disabled={!fulfillmentComplete}
+                  onClick={() => setFulfillmentOpen(false)}
+                >
+                  Continue to payment
+                </button>
+                {fulfillmentReason && <small>{fulfillmentReason}</small>}
+              </div>
             </fieldset>
+            )}
           </div>
 
           <div className="checkout-step" data-step="3">
@@ -1331,6 +1721,25 @@ function Checkout() {
                   </div>
                 )}
 
+                {/* The card already on file, first and pre-chosen, the way Amazon
+                lists "Visa ending in 1234" above "Add a card". Entering a
+                number is the exception, so the blank form is behind the
+                second button. */}
+                {savedCard && (
+                  <button
+                    type="button"
+                    className={`saved-card${method === "saved_card" ? " active" : ""}`}
+                    onClick={() => setMethod("saved_card")}
+                  >
+                    <CreditCard />
+                    <span>
+                      <strong>
+                        {savedCard.brand || "Card"} ending in {savedCard.last4}
+                      </strong>
+                      <small>Saved to {session?.houseAccount?.organizationName}</small>
+                    </span>
+                  </button>
+                )}
                 <div className="payment-choice">
                   <button
                     type="button"
@@ -1341,7 +1750,7 @@ function Checkout() {
                   >
                     <CreditCard />
                     <span>
-                      <strong>Credit or debit card</strong>
+                      <strong>{savedCard ? "Use a different card" : "Credit or debit card"}</strong>
                       <small>Securely processed by Square</small>
                     </span>
                   </button>
@@ -1421,7 +1830,40 @@ function Checkout() {
           </div>
         </form>
         <div className="checkout-side">
-          {/* What all three steps are about, and the button that commits them. */}
+          {/* Outside the form element, attached to it by `form`: the button belongs
+          under the total it quotes, and the total lives in this column. */}
+          <button
+            className="place-order"
+            form="checkout"
+            disabled={
+              !ready ||
+              !validPhone ||
+              !lines.length ||
+              !customReady ||
+              !quote ||
+              !method ||
+              busy
+            }
+          >
+            {busy
+              ? "Confirming payment..."
+              : guestBlockedByPrint
+                ? "Sign in to order printed items"
+                : phone && !validPhone
+                  ? "Enter a valid phone number"
+                : !identified
+                  ? "Add your name, email and number"
+                  : !customReady
+                    ? `Finish the highlighted item${blockedCount === 1 ? "" : "s"}`
+                    : !method
+                      ? "Choose how to pay"
+                      : quote
+                        ? `Place order · ${money(payable)}`
+                        : quoteError
+                          ? "Check your order details"
+                          : "Calculating Square total..."}
+          </button>
+          {/* What all three steps are about. */}
           <aside className="order-summary">
             <p>Your bag</p>
             <h2>{lines.reduce((total, line) => total + line.qty, 0)} items</h2>
@@ -1516,39 +1958,6 @@ function Checkout() {
               {quoteError || error}
             </p>
           )}
-          {/* Outside the form element, attached to it by `form`: the button belongs
-          under the total it quotes, and the total lives in this column. */}
-          <button
-            className="place-order"
-            form="checkout"
-            disabled={
-              !ready ||
-              !validPhone ||
-              !lines.length ||
-              !customReady ||
-              !quote ||
-              !method ||
-              busy
-            }
-          >
-            {busy
-              ? "Confirming payment..."
-              : guestBlockedByPrint
-                ? "Sign in to order printed items"
-                : phone && !validPhone
-                  ? "Enter a valid phone number"
-                : !identified
-                  ? "Add your name, email and number"
-                  : !customReady
-                    ? `Finish the highlighted item${blockedCount === 1 ? "" : "s"}`
-                    : !method
-                      ? "Choose how to pay"
-                      : quote
-                        ? `Place order · ${money(payable)}`
-                        : quoteError
-                          ? "Check your order details"
-                          : "Calculating Square total..."}
-          </button>
         </div>
       </div>
       <AuthModal

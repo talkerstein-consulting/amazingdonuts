@@ -15,7 +15,8 @@
     "accounts:seed": "node apps/house-accounts/database/seed.js",
     "accounts:import-owner": "node apps/house-accounts/database/import-owner.js",
     "test": "node --test apps/house-accounts/test/*.test.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:api:mock": "node scripts/mock-storefront.js"
   },
   "dependencies": {
     "@react-three/fiber": "^9.7.0",
