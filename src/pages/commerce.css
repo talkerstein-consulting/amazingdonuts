@@ -311,6 +311,16 @@
   flex: 1;
 }
 
+/* The same navy wash the identity lane uses before it is chosen: an outlined
+   control fills a little on hover, a chosen one is already filled and stays
+   put. `:not(.active)` because a hover wash on the orange pill went muddy. */
+.segment button:not(.active):hover:not(:disabled),
+.payment-options > button:not(.active):hover:not(:disabled),
+.payment-choice > button:not(.active):hover:not(:disabled) {
+  background: rgba(14, 62, 105, 0.05);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.4);
+}
+
 .segment button:active,
 .payment-options > button:active,
 .payment-choice > button:active {
@@ -326,7 +336,7 @@
 .payment-choice > button.active {
   background: var(--orange);
   box-shadow: none;
-  color: var(--cream);
+  color: var(--navy);
 }
 
 /* A wallet that has not resolved yet still holds its place in the list.
@@ -369,7 +379,7 @@
 .segment button.active {
   background: var(--orange);
   box-shadow: none;
-  color: var(--cream);
+  color: var(--navy);
 }
 
 .segment button:disabled,
@@ -415,7 +425,7 @@
 
 .payment-options > button.active small,
 .payment-choice > button.active small {
-  color: #072f52;
+  color: var(--navy);
 }
 
 .payment-choice { min-width: 0; }
@@ -438,7 +448,7 @@
 .payment-options > button.active small,
 .payment-choice > button.active,
 .payment-choice > button.active strong,
-.payment-choice > button.active small { color: #072f52; }
+.payment-choice > button.active small { color: var(--navy); }
 .payment-choice__fields { margin-top: 12px; }
 .payment-choice__fields .square-card { margin-top: 0; }
 
@@ -507,9 +517,132 @@
   color: var(--text-muted);
 }
 
+.signed-row__phone {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  color: var(--navy) !important;
+}
+
+.signed-row__phone-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  max-width: 280px;
+}
+
+.signed-row__phone-field > span {
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .signed-row a {
   color: var(--navy);
   font-weight: 700;
+  text-decoration: none;
+  text-underline-offset: 4px;
+}
+
+.signed-row a:hover,
+.signed-row a:focus-visible {
+  text-decoration: underline;
+}
+
+/* An answered step, folded to its answer. Same sand row as the signed-in
+   identity line, with a Change link where "Manage account" sits there. */
+.step-summary strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-summary strong svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+/* One pencil for every "change this" on the page — the address cards, the
+   phone line, the folded steps — so the affordance is learned once. A
+   32px circle, the same as the card corner, ringed so it reads as a button
+   without a word on it. */
+.edit-pencil {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.24);
+  background: transparent;
+  color: var(--navy);
+  cursor: pointer;
+  transition: background 160ms ease, box-shadow 160ms ease;
+}
+
+.edit-pencil svg { width: 16px; height: 16px; }
+
+.edit-pencil:hover {
+  background: rgba(14, 62, 105, 0.08);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.4);
+}
+
+.edit-pencil:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+.signed-row__phone .edit-pencil {
+  width: 28px;
+  height: 28px;
+}
+
+.signed-row__phone .edit-pencil svg { width: 14px; height: 14px; }
+
+/* The button that closes an open step — "Deliver to this address" on Amazon.
+   The place-order button's size and shape, in navy: the same kind of press,
+   one rung down from the orange one it leads toward. Its reason for being
+   disabled sits beside it, so the customer is not left guessing. */
+.step-continue-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-top: 18px;
+}
+
+.step-continue {
+  min-height: 56px;
+  padding: 0 26px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--navy);
+  color: var(--cream);
+  font-family: var(--font-cta);
+  font-weight: 800;
+  font-size: var(--fs-body);
+  cursor: pointer;
+  transition: filter 140ms ease, transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.step-continue:hover:not(:disabled) { filter: brightness(1.15); }
+.step-continue:active:not(:disabled) { transform: scale(0.97); }
+
+.step-continue:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.step-continue-row small {
+  color: var(--text-body);
+  font-size: var(--fs-small);
+  line-height: 1.4;
 }
 
 .signin-gate {
@@ -787,7 +920,7 @@
   border: 0;
   border-radius: var(--radius-pill);
   background: var(--orange);
-  color: #fff;
+  color: var(--navy);
   font-family: var(--font-cta);
   font-weight: 800;
   font-size: var(--fs-body);
@@ -821,9 +954,11 @@
   transform: scale(0.97);
 }
 
+/* First in the column, above the bag it totals — Amazon's rail is the
+   button, then the breakdown — so a long bag never pushes it out of view. */
 .place-order {
   width: 100%;
-  margin-top: 22px;
+  margin-top: 0;
 }
 
 .place-order:disabled {
@@ -1439,7 +1574,7 @@
 .member-edit-form label{display:grid;gap:7px}.member-edit-form label>span{font-family:var(--font-cta);font-size:var(--fs-label);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--navy)}
 .member-edit-form input,.member-edit-form select{width:100%;min-height:52px;padding:0 16px;border:0;border-radius:16px;box-shadow:inset 0 0 0 2px rgba(14,62,105,.2);background:var(--cream);color:var(--navy);font:inherit;font-weight:400}
 .member-edit-form .storefront-money-input input{padding-left:36px}
-.member-edit-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px}.member-edit-actions button,.customer-orders article footer button{min-height:48px;padding:0 22px;border:2px solid var(--navy);border-radius:var(--radius-pill);background:transparent;color:var(--navy);font-family:var(--font-cta);font-size:var(--fs-body);font-weight:800}.member-edit-actions button:last-child{min-height:52px;background:var(--orange);border-color:var(--orange);color:#fff}
+.member-edit-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px}.member-edit-actions button,.customer-orders article footer button{min-height:48px;padding:0 22px;border:2px solid var(--navy);border-radius:var(--radius-pill);background:transparent;color:var(--navy);font-family:var(--font-cta);font-size:var(--fs-body);font-weight:800}.member-edit-actions button:last-child{min-height:52px;background:var(--orange);border-color:var(--orange);color:var(--navy)}
 @media(max-width:720px){.member-edit-form{grid-template-columns:1fr}.member-edit-actions{grid-column:auto;justify-content:stretch}.member-edit-actions button{flex:1}.customer-orders article footer{align-items:flex-start;gap:12px;flex-direction:column}}
 
 .statement-payment-panel{margin-top:30px;padding:clamp(22px,4vw,38px);border-radius:var(--radius-panel);background:#fff;color:var(--navy);box-shadow:inset 0 0 0 2px rgba(14,62,105,.13)}
@@ -1456,7 +1591,7 @@
 .statement-payment{padding:22px;border-radius:var(--radius-chip);background:var(--sand)}
 .statement-payment-options{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(180px,.65fr);gap:14px;margin-bottom:20px;align-items:end}.statement-payment-options label{display:grid;gap:8px;min-width:0}.statement-payment-options label>span{font-size:var(--fs-label);font-weight:800;text-transform:uppercase;color:var(--text-muted)}.statement-payment-options select,.statement-payment-options input{width:100%;height:56px;border:0;border-radius:16px;box-shadow:inset 0 0 0 2px rgba(14,62,105,.2);background:#fff;color:var(--navy);font:inherit;padding:0 16px;outline:0}.statement-payment-options select:focus-visible,.statement-payment-options input:focus-visible{box-shadow:inset 0 0 0 3px var(--navy)}.statement-payment-amount{position:relative}.statement-payment-amount b{position:absolute;z-index:1;left:16px;top:50%;transform:translateY(-50%);font-size:inherit}.statement-payment-amount input{padding-left:34px}.statement-payment-options small{color:var(--text-muted)}
 .statement-payment-heading{display:flex;align-items:center;gap:12px}.statement-payment-heading>svg{width:28px}.statement-payment-heading strong,.statement-payment-heading span{display:block}.statement-payment-heading span{margin-top:3px;color:var(--text-muted);font-size:var(--fs-label)}
-.statement-payment>.square-card{margin:18px 0 0;background:#fff}.statement-payment>button{width:100%;min-height:54px;margin-top:14px;border:0;border-radius:var(--radius-pill);background:var(--orange);color:#fff;font-family:var(--font-cta);font-size:var(--fs-body);font-weight:800}.statement-payment>button:disabled{opacity:.5}.statement-payment-loading{margin:10px 0 0;color:var(--text-muted);font-size:var(--fs-label)}
+.statement-payment>.square-card{margin:18px 0 0;background:#fff}.statement-payment>button{width:100%;min-height:54px;margin-top:14px;border:0;border-radius:var(--radius-pill);background:var(--orange);color:var(--navy);font-family:var(--font-cta);font-size:var(--fs-body);font-weight:800}.statement-payment>button:disabled{opacity:.5}.statement-payment-loading{margin:10px 0 0;color:var(--text-muted);font-size:var(--fs-label)}
 .statement-payment>.statement-payment-secondary{min-height:44px;margin-top:8px;border:2px solid var(--navy);background:transparent;color:var(--navy);font-size:var(--fs-label)}
 .statement-payment-backdrop{position:fixed;z-index:200;inset:0;padding:20px;display:grid;place-items:center;background:rgba(14,62,105,.58)}
 .statement-payment-modal{width:min(620px,100%);height:auto;max-height:calc(100dvh - 40px);overflow:auto;border-radius:var(--radius-panel);background:#fff;color:var(--navy);box-shadow:0 24px 70px rgba(0,0,0,.22)}
@@ -1481,7 +1616,7 @@
 /* One action for the whole list, above it. The tiles keep their own knobs -
    this is the shortcut for someone who saved a list in order to order it. */
 .wishlist-actions { margin-top:22px; display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; }
-.wishlist-actions__add { min-height:48px; padding:0 22px; border:0; border-radius:var(--radius-pill); background:var(--orange); color:#fff; font-family:var(--font-cta); font-size:var(--fs-body); font-weight:800; cursor:pointer; }
+.wishlist-actions__add { min-height:48px; padding:0 22px; border:0; border-radius:var(--radius-pill); background:var(--orange); color:var(--navy); font-family:var(--font-cta); font-size:var(--fs-body); font-weight:800; cursor:pointer; }
 .wishlist-actions__add:hover { filter:brightness(1.05); }
 .wishlist-actions small { color:var(--text-body); }
 
@@ -1616,7 +1751,7 @@
 .house-application-form fieldset > legend { float:left; width:100%; margin:0 0 4px; padding:0; }
 .house-application-form fieldset > *:not(legend) { clear:both; }
 .authorized-purchaser-row { display:grid; grid-template-columns:1.1fr 1.1fr .8fr .7fr; gap:12px; align-items:end; padding:10px 0 18px; border-bottom:1px solid rgba(14,62,105,.12); }
-.house-application-form button { min-height:54px; margin-top:18px; padding:0 24px; border:0; border-radius:99px; background:var(--orange); color:#fff; font-family:var(--font-cta); font-size:var(--fs-body); font-weight:800; cursor:pointer; }
+.house-application-form button { min-height:54px; margin-top:18px; padding:0 24px; border:0; border-radius:99px; background:var(--orange); color:var(--navy); font-family:var(--font-cta); font-size:var(--fs-body); font-weight:800; cursor:pointer; }
 .house-application-form .address-autocomplete__menu button {
   min-height: auto;
   margin: 0;
@@ -1900,6 +2035,12 @@
   }
 
   .saved-addresses { grid-template-columns:1fr; }
+  .step-continue { width: 100%; }
+
+  /* The link drops under the details instead of squeezing the number. */
+  .signed-row { flex-wrap: wrap; row-gap: 12px; }
+  .signed-row > div { flex: 1 1 220px; min-width: 0; }
+  .signed-row__phone { white-space: nowrap; }
   .delete-account { align-items:stretch; flex-direction:column; }
   .save-address-row { grid-template-columns:1fr; }
   .house-application-form { grid-template-columns:1fr; }

@@ -82,3 +82,265 @@
     grid-column: auto;
   }
 }
+
+/* Saved addresses as cards, the way Amazon's "Your Addresses" page lays them
+   out: the whole address on the face, the one in use ringed in Dare Devil
+   (the same "this is your answer" ring the identity lane and the fulfillment
+   toggle use), a pencil in the corner to open it, and a dotted card at the
+   end that adds one. Cards, not a select, because a select shows the label
+   and hides the address — and the address is the thing being chosen. */
+.address-fields .address-cards {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 6px 0 14px;
+}
+
+.address-card {
+  position: relative;
+  min-height: 112px;
+  border-radius: 16px;
+  background: var(--sand);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.18);
+  transition: box-shadow 160ms ease;
+}
+
+.address-card:not(.is-active):hover {
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.4);
+}
+
+.address-card.is-active {
+  box-shadow: inset 0 0 0 2px var(--orange);
+}
+
+.address-card__pick {
+  transition: background 160ms ease;
+  width: 100%;
+  min-height: 112px;
+  padding: 16px 44px 16px 16px;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--navy);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.address-card__pick strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-cta);
+  font-weight: 800;
+}
+
+/* The badge Amazon prints beside the label on the default card. */
+.address-card__pick em {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--navy);
+  color: var(--cream);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.address-card__pick span,
+.address-card__pick small {
+  color: var(--text-body);
+  line-height: 1.4;
+}
+
+.address-card__pick small { font-size: var(--fs-small); }
+
+.address-card__edit {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--navy);
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.address-card:not(.is-active) .address-card__pick:hover {
+  background: rgba(14, 62, 105, 0.04);
+}
+
+.address-card__edit svg { width: 16px; height: 16px; }
+.address-card__edit:hover { background: rgba(14, 62, 105, 0.08); }
+
+.address-card__pick:focus-visible,
+.address-card__edit:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+/* A one-off address is a card too, so it is visible and re-openable, but
+   dashed to say it is not one of the saved ones. */
+.address-card--once { background: transparent; }
+
+.address-card--new {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 16px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: 2px dashed rgba(14, 62, 105, 0.32);
+  outline-offset: -2px;
+  color: var(--navy);
+  font-family: var(--font-cta);
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 160ms ease, outline-color 160ms ease;
+}
+
+.address-card--new svg { width: 22px; height: 22px; }
+.address-card--new:hover { background: rgba(14, 62, 105, 0.05); }
+.address-card--new.is-active { outline-color: var(--orange); }
+
+/* The editor opens under the cards and reuses the field grid. */
+.address-fields .address-editor {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+  padding: 16px 16px 4px;
+  margin-bottom: 14px;
+  border-radius: 16px;
+  background: var(--cream);
+  box-shadow: inset 0 0 0 2px var(--orange);
+}
+
+.address-editor > label:first-of-type,
+.address-editor__title,
+.address-editor__default,
+.address-editor__error,
+.address-editor__actions {
+  grid-column: 1 / -1;
+}
+
+.address-editor__title {
+  margin: 0 0 10px;
+  font-family: var(--font-cta);
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.address-editor__default {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+}
+
+.address-editor__error {
+  margin: 0 0 8px;
+  color: var(--orange);
+  font-size: var(--fs-small);
+}
+
+.address-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 0 12px;
+}
+
+.address-editor__actions button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.24);
+  background: transparent;
+  color: var(--navy);
+  font-family: var(--font-cta);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.address-editor__actions button {
+  transition: background 160ms ease, box-shadow 160ms ease, filter 140ms ease,
+    transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.address-editor__actions button:hover:not(:disabled) {
+  background: rgba(14, 62, 105, 0.05);
+  box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.4);
+}
+
+.address-editor__actions button:active:not(:disabled) { transform: scale(0.97); }
+.address-editor__actions button:disabled { opacity: 0.5; cursor: default; }
+
+.address-editor__actions .address-editor__save {
+  background: var(--navy);
+  box-shadow: none;
+  color: var(--cream);
+}
+
+.address-editor__actions .address-editor__delete {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: none;
+  color: var(--orange);
+}
+
+/* Filled and text buttons keep their own colour on hover: the navy pill dips
+   like place-order does, and delete underlines like the other text actions. */
+.address-editor__actions .address-editor__save:hover:not(:disabled) {
+  background: var(--navy);
+  box-shadow: none;
+  filter: brightness(1.15);
+}
+
+.address-editor__actions .address-editor__delete:hover:not(:disabled) {
+  background: rgba(255, 104, 50, 0.1);
+  box-shadow: none;
+}
+
+.address-editor__delete svg { width: 16px; height: 16px; }
+
+@media (max-width: 700px) {
+  .address-fields .address-cards { grid-template-columns: 1fr; }
+  .address-fields .address-editor { grid-template-columns: 1fr; }
+  .address-editor__actions .address-editor__delete { margin-left: 0; }
+}
+
+/* Drop-off instructions wait behind a link until someone has one. */
+.address-fields .delivery-instructions__add {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin: 4px 0 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--navy);
+  font: inherit;
+  font-weight: 700;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.address-fields .delivery-instructions__add:hover,
+.address-fields .delivery-instructions__add:focus-visible {
+  text-decoration: underline;
+}
