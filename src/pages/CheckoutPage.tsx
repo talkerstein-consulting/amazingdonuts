@@ -29,6 +29,7 @@ import CheckoutFix from "../shop/CheckoutFix";
 import CartCustomization from "../shop/CartCustomization";
 import BrandDatePicker from "../components/BrandDatePicker";
 import BrandTimePicker from "../components/BrandTimePicker";
+import BrandSelect from "../components/BrandSelect";
 import AddressAutocomplete, {
   type Address,
   type SavedAddress,
@@ -111,6 +112,37 @@ const blankAddress: Address = {
   postalCode: "",
   country: "CA",
 };
+/* What each field is checked against, and what it says when it fails —
+   under the field, in red, as soon as there is something wrong to point at.
+   Nothing is said about an empty field: `required` and the step's own
+   reason line cover "you have not answered", this covers "that answer is
+   not right", which is the one people cannot see for themselves. */
+const CANADIAN_POSTAL = /^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z] ?\d[ABCEGHJ-NPRSTV-Z]\d$/i;
+const isValidPostalCode = (value: string) => CANADIAN_POSTAL.test(value.trim());
+const isValidEmail = (value: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
+const postalError = (value: string) =>
+  value.trim() && !isValidPostalCode(value)
+    ? "That is not a Canadian postal code. It looks like M5V 2T6."
+    : "";
+const emailError = (value: string) =>
+  value.trim() && !isValidEmail(value)
+    ? "That email address is missing something. It needs an @ and a domain."
+    : "";
+const phoneError = (value: string) =>
+  value.trim() && !isValidNorthAmericanPhone(value)
+    ? `Enter a 10-digit Canadian or US number.${value.replace(/\D/g, "").replace(/^1/, "").length < 10 ? " This one is short." : ""}`
+    : "";
+const FieldError = ({ message }: { message: string }) =>
+  message ? (
+    <em className="field-error" role="alert">
+      {message}
+    </em>
+  ) : null;
+const ADDRESS_TYPES = [
+  { value: "home", label: "Home" },
+  { value: "work", label: "Work" },
+  { value: "other", label: "Other" },
+];
 const DEFAULT_SCHEDULE = {
   intervalMinutes: 30,
   deliveryStart: 6 * 60 + 30,
@@ -296,7 +328,7 @@ function Checkout() {
   const addressDraftComplete =
     Boolean(addressDraft.addressLine1.trim()) &&
     Boolean(addressDraft.locality.trim()) &&
-    addressDraft.postalCode.replace(/\s/g, "").length >= 6;
+    isValidPostalCode(addressDraft.postalCode);
   /* `item` opens a saved card; `undefined` opens the one-off address already
      on the order; `null` opens a blank card. */
   const openAddressEditor = (item?: SavedAddress | null) => {
@@ -417,7 +449,7 @@ function Checkout() {
     Boolean(
       asGuest &&
       contact?.firstName &&
-      /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contact.email) &&
+      isValidEmail(contact.email) &&
       validPhone,
     );
   /* Artwork is uploaded against a user before the order exists — see
@@ -433,8 +465,7 @@ function Checkout() {
     schedule,
   );
   const addressComplete =
-    Boolean(address.addressLine1) &&
-    address.postalCode.replace(/\s/g, "").length >= 6;
+    Boolean(address.addressLine1) && isValidPostalCode(address.postalCode);
   const fulfillmentComplete =
     ready &&
     Boolean(scheduledAt) &&
@@ -461,8 +492,10 @@ function Checkout() {
   const identityReason = asGuest
     ? !guest.name.trim()
       ? "Add your name."
-      : !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guest.email.trim())
-        ? "Add an email address for the receipt."
+      : !isValidEmail(guest.email)
+        ? guest.email.trim()
+          ? "Fix the email address."
+          : "Add an email address for the receipt."
         : !phone
           ? "Add the number we can reach you on."
           : !validPhone
@@ -480,7 +513,7 @@ function Checkout() {
           ? "Enter the delivery address."
           : "Choose a delivery address, or add one."
         : fulfillment === "delivery" && !addressComplete
-          ? "The delivery address needs a full postal code."
+          ? "The delivery address needs a valid postal code."
           : "";
   const loadSession = () =>
     api("/storefront/session")
@@ -654,7 +687,7 @@ function Checkout() {
       !scheduledAt ||
       (fulfillment === "delivery" &&
         (!address.addressLine1 ||
-          address.postalCode.replace(/\s/g, "").length < 6))
+          !isValidPostalCode(address.postalCode)))
     ) {
       setQuote(undefined);
       setQuoteError(phone && !validPhone ? "Enter a valid Canadian or US phone number." : "");
@@ -1080,10 +1113,12 @@ function Checkout() {
                         }
                         onBlur={() => validPhone && setPhoneEditing(false)}
                         autoComplete="tel"
+                        aria-invalid={Boolean(phoneError(phone))}
                         enterKeyHint="done"
                         autoFocus={phoneEditing}
                         required
                       />
+                      <FieldError message={phoneError(phone)} />
                     </label>
                   )}
                 </div>
@@ -1151,8 +1186,10 @@ function Checkout() {
                             setGuest({ ...guest, email: event.target.value })
                           }
                           autoComplete="email"
+                          aria-invalid={Boolean(emailError(guest.email))}
                           required
                         />
+                        <FieldError message={emailError(guest.email)} />
                       </label>
                       {/* The three Square actually needs from a guest, together.
                 `OrderFulfillmentRecipient` takes `display_name` and
@@ -1176,8 +1213,10 @@ function Checkout() {
                             )
                           }
                           autoComplete="tel"
+                          aria-invalid={Boolean(phoneError(phone))}
                           required
                         />
+                        <FieldError message={phoneError(phone)} />
                       </label>
                       {/* The one thing a guest cannot do, said where the choice is made
                 rather than at the button after everything else is filled in. */}
@@ -1495,7 +1534,9 @@ function Checkout() {
                                 })
                               }
                               autoComplete="postal-code"
+                              aria-invalid={Boolean(postalError(addressDraft.postalCode))}
                             />
+                            <FieldError message={postalError(addressDraft.postalCode)} />
                           </label>
                           <label>
                             <span>Label</span>
@@ -1505,19 +1546,17 @@ function Checkout() {
                               placeholder="Home, Work, Studio..."
                             />
                           </label>
-                          <label>
+                          <div className="checkout-select-field">
                             <span>Type</span>
-                            <select
+                            <BrandSelect
                               value={addressType}
-                              onChange={(event) =>
-                                setAddressType(event.target.value as typeof addressType)
+                              options={ADDRESS_TYPES}
+                              onChange={(value) =>
+                                setAddressType(value as typeof addressType)
                               }
-                            >
-                              <option value="home">Home</option>
-                              <option value="work">Work</option>
-                              <option value="other">Other</option>
-                            </select>
-                          </label>
+                              ariaLabel="Address type"
+                            />
+                          </div>
                           <label className="no-contact address-editor__default">
                             <input
                               type="checkbox"
@@ -1615,8 +1654,10 @@ function Checkout() {
                             })
                           }
                           autoComplete="postal-code"
+                          aria-invalid={Boolean(postalError(address.postalCode))}
                           required
                         />
+                        <FieldError message={postalError(address.postalCode)} />
                       </label>
                     </>
                   )}

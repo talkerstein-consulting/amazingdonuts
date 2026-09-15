@@ -344,3 +344,31 @@
 .address-fields .delivery-instructions__add:focus-visible {
   text-decoration: underline;
 }
+
+/* The address-type select is a BrandSelect, which is the time picker's
+   dropdown wearing the product panel's clothes — display type at 22px and a
+   five-across grid, for choosing a size. In a form it is a field: body type
+   at field height, one option per row, the tick back on the chosen one. */
+.checkout-select-field .brand-select__trigger {
+  min-height: 52px;
+  padding: 0 16px;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  font-weight: 500;
+}
+
+.checkout-select-field .brand-select__panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+}
+
+.checkout-select-field .brand-select__panel button {
+  grid-template-columns: minmax(0, 1fr) 18px;
+  text-align: left;
+}
+
+.checkout-select-field .brand-select__panel button svg { display: block; }
+
+/* The editor grid: the select field sits in a cell like the labels do. */
+.address-editor .checkout-select-field { margin-top: 16px; }
