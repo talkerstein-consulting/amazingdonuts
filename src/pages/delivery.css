@@ -213,7 +213,13 @@
 
 .address-card--new svg { width: 22px; height: 22px; }
 .address-card--new:hover { background: rgba(14, 62, 105, 0.05); }
-.address-card--new.is-active { outline-color: var(--orange); }
+/* Open, it is still the dotted card — just navy and solid enough to say so.
+   Not orange: orange is "the address this order goes to", and a blank
+   form is not that yet. */
+.address-card--new.is-active {
+  outline-color: var(--navy);
+  background: rgba(14, 62, 105, 0.05);
+}
 
 /* The editor opens under the cards and reuses the field grid. */
 .address-fields .address-editor {
