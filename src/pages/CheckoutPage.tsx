@@ -122,15 +122,19 @@ const isValidPostalCode = (value: string) => CANADIAN_POSTAL.test(value.trim());
 const isValidEmail = (value: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
 const postalError = (value: string) =>
   value.trim() && !isValidPostalCode(value)
-    ? "That is not a Canadian postal code. It looks like M5V 2T6."
+    ? value.replace(/\s/g, "").length < 6
+      ? "Postal code is incomplete."
+      : "Postal code is not valid."
     : "";
 const emailError = (value: string) =>
   value.trim() && !isValidEmail(value)
-    ? "That email address is missing something. It needs an @ and a domain."
+    ? "Email address is incomplete."
     : "";
 const phoneError = (value: string) =>
   value.trim() && !isValidNorthAmericanPhone(value)
-    ? `Enter a 10-digit Canadian or US number.${value.replace(/\D/g, "").replace(/^1/, "").length < 10 ? " This one is short." : ""}`
+    ? value.replace(/\D/g, "").replace(/^1/, "").length < 10
+      ? "Phone number is incomplete."
+      : "Phone number is not valid."
     : "";
 const FieldError = ({ message }: { message: string }) =>
   message ? (
