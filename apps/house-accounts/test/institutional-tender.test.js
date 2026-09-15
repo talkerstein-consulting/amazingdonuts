@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { isInstitutionalTender } from "../apps/worker/process-square.js";
 
 test("accepts only the configured institutional custom payment method",()=>{
-  assert.equal(isInstitutionalTender({source_type:"EXTERNAL",external_details:{source:"Amazing Donuts Account"}}),true);
+  assert.equal(isInstitutionalTender({source_type:"EXTERNAL",external_details:{source:"Institutional Account Credit"}}),true);
   assert.equal(isInstitutionalTender({source_type:"EXTERNAL",external_details:{source:"Other Gift Card or Certificate"}}),false);
   assert.equal(isInstitutionalTender({source_type:"EXTERNAL",external_details:{source:"DoorDash"}}),false);
   assert.equal(isInstitutionalTender({source_type:"CARD"}),false);

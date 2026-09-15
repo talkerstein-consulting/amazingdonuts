@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { institutionalAccountNote, institutionalPinNote, syncInstitutionalAccountBalance, syncInstitutionalBalanceNote, syncInstitutionalPinNote } from "../apps/api/square-customer-note.js";
+import { institutionalAccountNote, institutionalPinNote, syncInstitutionalAccountBalance, syncInstitutionalBalanceNote, syncInstitutionalPinByEmail, syncInstitutionalPinNote } from "../apps/api/square-customer-note.js";
 
 test("adds an institutional PIN without removing staff notes", () => {
   assert.equal(institutionalPinNote("Prefers email contact.", "4826"), "Prefers email contact.\nInstitutional authorization PIN: 4826");
@@ -21,6 +21,18 @@ test("syncs the PIN with the current Square customer version", async () => {
   };
   await syncInstitutionalPinNote(square, "customer-1", "2468");
   assert.deepEqual(updates, [{ id:"customer-1", body:{ note:"Staff note\nInstitutional authorization PIN: 2468", version:7 } }]);
+});
+
+test("syncs a reset PIN to every exact-email Square customer",async()=>{
+  const updates=[],square={
+    searchCustomers:async input=>{assert.equal(input.query.filter.email_address.exact,"buyer@example.com");return {customers:[{id:"customer-1"},{id:"customer-2"},{id:"customer-1"}]};},
+    retrieveCustomer:async id=>({customer:{note:`${id} note`,version:2}}),
+    updateCustomer:async(id,body)=>updates.push({id,body})
+  };
+  const customerIds=await syncInstitutionalPinByEmail(square,"Buyer@Example.com","7391",["organization","customer-1"]);
+  assert.deepEqual(customerIds,["organization","customer-1","customer-2"]);
+  assert.deepEqual(updates.map(update=>update.id).sort(),["customer-1","customer-2","organization"]);
+  assert.ok(updates.every(update=>update.body.note.endsWith("Institutional authorization PIN: 7391")));
 });
 
 test("prints available credit directly after the PIN",()=>{

@@ -32,7 +32,7 @@ const api = createApp({ pool, square, config: {
   squareEnvironment,
   squareApplicationId: process.env.SQUARE_APPLICATION_ID || "",
   squareLocationId: process.env.SQUARE_LOCATION_ID || "",
-  institutionalTenderNames: (process.env.SQUARE_INSTITUTIONAL_TENDER_NAMES || "Amazing Donuts Account").split(",").map(value => value.trim()).filter(Boolean),
+  institutionalTenderNames: (process.env.SQUARE_INSTITUTIONAL_TENDER_NAMES || "Institutional Account Credit").split(",").map(value => value.trim()).filter(Boolean),
   delivery: deliveryConfig(),
   deploymentMode: "local",
   mixedEnvironmentTestMode: false,

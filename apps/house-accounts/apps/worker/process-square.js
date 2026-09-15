@@ -4,7 +4,7 @@ import { syncInstitutionalAccountBalance } from "../api/square-customer-note.js"
 
 const normalizeTender=(value)=>String(value||"").trim().toLowerCase();
 
-export function isInstitutionalTender(payment, acceptedSources=["Amazing Donuts Account"]){
+export function isInstitutionalTender(payment, acceptedSources=["Institutional Account Credit"]){
   if(payment?.source_type!=="EXTERNAL")return false;
   const source=normalizeTender(payment.external_details?.source);
   return acceptedSources.some((name)=>normalizeTender(name)===source);
