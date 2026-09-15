@@ -219,6 +219,9 @@
 .address-card--new.is-active {
   outline-color: var(--navy);
   background: rgba(14, 62, 105, 0.05);
+  /* `.address-card.is-active` paints the orange ring as an inset shadow
+     under the dashes; this card has no ring, open or shut. */
+  box-shadow: none;
 }
 
 /* The editor opens under the cards and reuses the field grid. */
