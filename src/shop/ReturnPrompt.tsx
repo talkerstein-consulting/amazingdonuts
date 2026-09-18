@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
-import { PRODUCTS, type Product } from '../data/products';
+import type { Product } from '../data/products';
 import { BrandButton } from '../components/brand';
 import { useShop, money } from '../lib/shop';
-import { flyToCart } from '../lib/fly-to-cart';
 import { useFulfillmentChoice, type FulfillmentPreference } from '../lib/fulfillment';
 import { formatPickup, usePickup } from '../lib/pickup';
 
@@ -25,24 +24,25 @@ const SHOWN_KEY = 'amazing-return-prompt-shown';
  * A bag is also the offer that needs no persuading: it is already theirs, and
  * the action is to finish rather than to start.
  *
- * Two triggers, because the two platforms leave differently:
+ * Two triggers:
  *
  *   - the pointer crossing out of the top of the window, which on a desktop is
  *     someone reaching for the tab strip, the address bar or the close button.
  *     Only upwards — a pointer leaving through the sides or the bottom is
  *     someone reaching for a scrollbar or another window, and treating that as
  *     an exit fires the prompt at people who never left;
- *   - the tab being hidden, which is the only signal a phone gives. They see it
- *     on return rather than on leaving, which is the more useful half anyway.
+ *   - prolonged inactivity, including on touch devices where there is no
+ *     pointer exit signal. A brief tab switch is not abandonment.
  *
  * Guard rails, because an exit prompt is the easiest thing on a site to make
  * hateful. It fires once per visit and never again; it needs either a bag or a
  * product actually browsed, so a first-time visitor who has done neither is
- * never interrupted; it waits out the first few seconds, so an accidental
+ * never interrupted; it waits out the first thirty seconds, so an accidental
  * pointer flick on arrival is not an exit; and it stands down while any other
  * panel is open, since a modal over a modal is a trap.
  */
-const DWELL_MS = 8000;
+const EXIT_DWELL_MS = 30000;
+const INACTIVITY_MS = 120000;
 
 /**
  * What the prompt says about getting the order, per how they said they wanted
@@ -81,12 +81,11 @@ function fulfillmentLine(
 }
 
 export default function ReturnPrompt() {
-  const { openProduct, openCart, add, lines, count, subtotal, product: openPanel, cartOpen } =
+  const { openProduct, openCart, add, lines, count, subtotal, product: openPanel, cartOpen, products } =
     useShop();
   const [saved, setSaved] = useState<Product | null>(null);
   const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(false);
-  const cardRef = useRef<HTMLDivElement | null>(null);
   /* How they said they wanted it, and the booked slot if there is one — the
      two things `fulfillmentLine` needs to say something specific. */
   const choice = useFulfillmentChoice();
@@ -95,6 +94,7 @@ export default function ReturnPrompt() {
   /* Read once and held here, so the triggers below stay synchronous — they run
      on pointer and visibility events, which must not do storage work. */
   const armed = useRef(false);
+  const lastBagChange = useRef(Date.now());
 
   /* The bag wins whenever there is one. Read at fire time rather than captured
      on mount: somebody can add a donut during the dwell, and the prompt should
@@ -106,13 +106,20 @@ export default function ReturnPrompt() {
     try {
       if (sessionStorage.getItem(SHOWN_KEY)) return;
       const id = localStorage.getItem(LAST_KEY);
-      setSaved(id ? PRODUCTS.find((p) => p.id === id) ?? null : null);
+      setSaved(id ? products.find((p) => p.id === id) ?? null : null);
     } catch {
       /* No storage: the bag can still be offered, since that is React state. */
     }
-    const timer = setTimeout(() => setReady(true), DWELL_MS);
+  }, [products]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setReady(true), EXIT_DWELL_MS);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    lastBagChange.current = Date.now();
+  }, [count]);
 
   /* Armed once the dwell is out AND there is something worth offering. Both
      are checked here rather than in the trigger so the trigger stays cheap. */
@@ -140,23 +147,28 @@ export default function ReturnPrompt() {
   useEffect(() => {
     /* Anything else on screen wins. The panel and the bag are things the
        visitor opened; this is not. */
-    if (openPanel || cartOpen) return;
+    if (openPanel || cartOpen || open) return;
 
     const onOut = (event: MouseEvent) => {
-      // `relatedTarget` is null only when the pointer has left the document.
-      if (event.clientY <= 0 && !event.relatedTarget) fire();
+      if (event.clientY <= 0 && !event.relatedTarget && Date.now() - lastBagChange.current >= EXIT_DWELL_MS) fire();
     };
-    const onHide = () => {
-      if (document.visibilityState === 'hidden') fire();
+    const activity = () => {
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => {
+        if (document.visibilityState === 'visible' && Date.now() - lastBagChange.current >= INACTIVITY_MS) fire();
+      }, INACTIVITY_MS);
     };
+    let idleTimer = 0;
+    activity();
 
     document.addEventListener('mouseout', onOut);
-    document.addEventListener('visibilitychange', onHide);
+    for (const name of ['pointerdown', 'keydown', 'scroll', 'pointermove']) window.addEventListener(name, activity, { passive: true });
     return () => {
       document.removeEventListener('mouseout', onOut);
-      document.removeEventListener('visibilitychange', onHide);
+      window.clearTimeout(idleTimer);
+      for (const name of ['pointerdown', 'keydown', 'scroll', 'pointermove']) window.removeEventListener(name, activity);
     };
-  }, [fire, openPanel, cartOpen]);
+  }, [fire, openPanel, cartOpen, open, count]);
 
   useEffect(() => {
     if (!open) return;
@@ -204,7 +216,7 @@ export default function ReturnPrompt() {
               <X size={18} strokeWidth={2.6} />
             </button>
 
-            <div className="return-prompt__bed" ref={cardRef}>
+            <div className="return-prompt__bed">
               {hasBag ? (
                 /* The bag's own contents, overlapped like a handful rather than
                    laid out in a row: it is one thing — their order — not three
@@ -275,7 +287,6 @@ export default function ReturnPrompt() {
                     <BrandButton
                       onClick={() => {
                         add(saved!, 1, { openCart: false });
-                        flyToCart(cardRef.current, saved!.img);
                         setOpen(false);
                       }}
                     >

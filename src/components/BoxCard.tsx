@@ -1,6 +1,8 @@
 import { BrandButton, C } from './brand';
 import { useShop } from '../lib/shop';
 import { HALF_DOZEN_BOX_ID, type Product } from '../data/products';
+import ProductPrice from './ProductPrice';
+import { fallbackProductImage } from '../lib/product-image';
 
 /**
  * The two build-your-own boxes, as proposition cards rather than product tiles.
@@ -39,9 +41,7 @@ export default function BoxCard({ product }: { product: Product }) {
             button it made a label too long for the card's copy column, which
             wrapped "Build a half dozen" onto three lines — and a price is a
             fact about the box, not part of what the button does. */}
-        <span className="box-card__price" style={{ color: half ? C.navy : 'rgba(247,238,224,.9)' }}>
-          {product.price}
-        </span>
+        <ProductPrice product={product} className="box-card__price" style={{ color: half ? C.navy : 'rgba(247,238,224,.9)' }} />
         <BrandButton
           variant="outline"
           className={`box-card__cta${half ? '' : ' box-card__cta--onDark'}`}
@@ -51,7 +51,7 @@ export default function BoxCard({ product }: { product: Product }) {
         </BrandButton>
       </div>
 
-      <img src={product.img} alt={product.name} loading="lazy" className="box-card__photo" />
+      <img src={product.img} alt={product.name} loading="lazy" className="box-card__photo" onError={(event) => fallbackProductImage(event, product.id)} />
     </article>
   );
 }

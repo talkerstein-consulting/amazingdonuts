@@ -3,6 +3,8 @@ import { Badge, C, F, SQUIRCLE } from './brand';
 import { tagFor } from '../data/product-tags';
 import type { Product } from '../data/products';
 import AddControl from './AddControl';
+import ProductPrice from './ProductPrice';
+import { fallbackProductImage } from '../lib/product-image';
 
 /**
  * One product, as the catalogue draws it: photo bed, add knob, tag, name,
@@ -62,6 +64,7 @@ export default function ProductTile({
             src={product.img}
             alt={product.name}
             loading="lazy"
+            onError={(event) => fallbackProductImage(event, product.id)}
             style={{
               width: '100%',
               height: '100%',
@@ -119,7 +122,7 @@ export default function ProductTile({
         >
           {product.name}
         </h4>
-        <span className="product-tile__price" style={{ fontFamily: F.text, fontWeight: 700, fontSize: 14, color: C.price }}>{product.price}</span>
+        <ProductPrice product={product} className="product-tile__price" style={{ fontFamily: F.text, fontWeight: 700, fontSize: 14, color: C.price }} />
       </button>
     </div>
   );

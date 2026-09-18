@@ -3,6 +3,8 @@ import {
   ArrowLeft,
   Building2,
   CreditCard,
+  ChevronDown,
+  Gift,
   LockKeyhole,
   Pencil,
   Plus,
@@ -13,6 +15,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { ShopProvider, money, useShop, lineKeyOf } from "../lib/shop";
+import { BrandButton } from "../components/brand";
 import AuthModal from "../shop/AuthModal";
 import CommerceLogo from "./CommerceLogo";
 import "../index.css";
@@ -23,10 +26,12 @@ import "./delivery.css";
 import {
   customizationComplete,
   PRINT_PRODUCTS,
+  LAB_PRODUCTS,
   type Customization,
 } from "../lib/custom-order";
 import CheckoutFix from "../shop/CheckoutFix";
 import CartCustomization from "../shop/CartCustomization";
+import { fallbackProductImage } from "../lib/product-image";
 import BrandDatePicker from "../components/BrandDatePicker";
 import BrandTimePicker from "../components/BrandTimePicker";
 import BrandSelect from "../components/BrandSelect";
@@ -55,6 +60,7 @@ import {
 } from "../lib/pickup";
 import { SHOP_ADDRESS } from "../lib/routes";
 import {
+  readFulfillmentChoice,
   readFulfillmentPreference,
   writeFulfillmentPreference,
 } from "../lib/fulfillment";
@@ -70,6 +76,7 @@ type Session = {
     status: string;
     credit: { available: number };
     creditEnabled: boolean;
+    cardNeedsReplacement?: boolean;
     card?: { brand?: string; last4?: string };
   };
 };
@@ -192,12 +199,26 @@ const nextOpen = (date: Date) => {
   return localValue(date);
 };
 const tomorrow = () => nextOpen(new Date(Date.now() + 86400000));
+const torontoWallTime = (date: Date) => {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", weekday: "short", hourCycle: "h23",
+  }).formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return { value: `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`, weekday: parts.weekday, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+};
 const printMinimum = () => {
   const threshold = Date.now() + 7 * 86400000,
     d = new Date(threshold);
   d.setHours(9, 0, 0, 0);
   if (d.getTime() < threshold) d.setDate(d.getDate() + 1);
   return nextOpen(d);
+};
+const labMinimum = () => {
+  const threshold = Date.now() + 86400000;
+  const day = new Date(threshold);
+  day.setHours(9, 0, 0, 0);
+  if (day.getTime() < threshold) day.setDate(day.getDate() + 1);
+  return nextOpen(day);
 };
 type WalletState = "blocked" | "loading" | "ready" | "unavailable";
 const walletCapabilities = (): { apple: WalletState; google: WalletState } => {
@@ -207,12 +228,9 @@ const walletCapabilities = (): { apple: WalletState; google: WalletState } => {
     }
   ).ApplePaySession;
   const apple = Boolean(appleSession?.canMakePayments?.());
-  const google =
-    typeof window.PaymentRequest === "function" &&
-    /(?:Chrome|Chromium|CriOS|Edg)\//.test(navigator.userAgent);
   return {
     apple: apple ? "blocked" : "unavailable",
-    google: google ? "blocked" : "unavailable",
+    google: "blocked",
   };
 };
 const slotsFor = (
@@ -228,6 +246,7 @@ const slotsFor = (
           : ([schedule.deliveryStart, schedule.deliveryEnd] as [number, number])
         : PICKUP_HOURS[date.getDay()];
   if (!window) return [];
+  const earliest = torontoWallTime(new Date(Date.now() + 10 * 60000)).value;
   return Array.from(
     { length: Math.floor((window[1] - window[0]) / schedule.intervalMinutes) },
     (_, index) => {
@@ -238,7 +257,22 @@ const slotsFor = (
         label = `${timeLabel(start)} – ${timeLabel(start + schedule.intervalMinutes)}`;
       return { value, label };
     },
-  );
+  ).filter((slot) => `${dateValue}T${slot.value}` >= earliest);
+};
+const isFridayDate = (value: string) => new Date(`${value}T12:00:00Z`).getUTCDay() === 5;
+const firstFridaySlot = (minimum: string, type: "pickup" | "delivery", schedule: typeof DEFAULT_SCHEDULE) => {
+  const date = new Date(`${minimum.slice(0, 10)}T12:00:00Z`);
+  let firstFriday = "";
+  for (let i = 0; i < 15; i += 1) {
+    const value = date.toISOString().slice(0, 10);
+    if (isFridayDate(value)) {
+      firstFriday ||= value;
+      const slot = slotsFor(value, type, schedule).find(slot => `${value}T${slot.value}` >= minimum);
+      if (slot) return `${value}T${slot.value}`;
+    }
+    date.setUTCDate(date.getUTCDate() + 1);
+  }
+  return `${firstFriday}T09:00`;
 };
 async function api(path: string, options?: RequestInit) {
   const response = await fetch(`/api/house${path}`, {
@@ -259,6 +293,7 @@ async function api(path: string, options?: RequestInit) {
 }
 function Checkout() {
   const { lines, subtotal, customize, clear, products } = useShop();
+  const itemCount = lines.reduce((total, line) => total + line.qty, 0);
   const customReady = lines.every((line) =>
     customizationComplete(line.product.id, line.qty, line.customization),
   );
@@ -269,8 +304,11 @@ function Checkout() {
   const requiresPrintLeadTime = lines.some((line) =>
     PRINT_PRODUCTS.has(line.product.id),
   );
-  const scheduledMinimum = requiresPrintLeadTime ? printMinimum() : tomorrow();
+  const requiresLabLeadTime = lines.some((line) => LAB_PRODUCTS.has(line.product.id));
+  const requiresFridayOnly = lines.some((line) => /\(\s*friday\s+only\s*\)/i.test(line.product.name));
+  const scheduledMinimum = requiresPrintLeadTime ? printMinimum() : requiresLabLeadTime ? labMinimum() : torontoWallTime(new Date()).value;
   const [session, setSession] = useState<Session>();
+  const [initializing, setInitializing] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
   /* Guest first, and by default.
 
@@ -288,6 +326,11 @@ function Checkout() {
      a box; a surname is a field a stranger fills in because a form asked, and
      Square wants `display_name`, which one name satisfies. */
   const [guest, setGuest] = useState({ name: "", email: "" });
+  const reminderCartId = useRef<string>("");
+  if (!reminderCartId.current) {
+    reminderCartId.current = localStorage.getItem("amazing-cart-reminder-id") || crypto.randomUUID();
+    localStorage.setItem("amazing-cart-reminder-id", reminderCartId.current);
+  }
   /* Empty until one is picked. It defaulted to 'card', which mounted the Square
      card iframe on arrival and made "choose how to pay" a decision nobody was
      asked to make — the intake was simply already there. */
@@ -306,6 +349,7 @@ function Checkout() {
     const chosen = readPickup();
     return chosen ? `${chosen.date}T${chosen.time}` : tomorrow();
   });
+  const [asap, setAsap] = useState(false);
   const [phone, setPhone] = useState("");
   const [phoneEditing, setPhoneEditing] = useState(false);
   /* Answered steps fold to a line with a Change link, the way Amazon's do,
@@ -313,6 +357,9 @@ function Checkout() {
      step that cannot be summarised yet stays open regardless. */
   const [identityOpen, setIdentityOpen] = useState(true);
   const [fulfillmentOpen, setFulfillmentOpen] = useState(false);
+  const [fulfillmentConfirmed, setFulfillmentConfirmed] = useState(false);
+  const paymentStepRef = useRef<HTMLDivElement>(null);
+  const priorFulfillment = useRef(readFulfillmentChoice());
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [address, setAddress] = useState<Address>(blankAddress);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
@@ -353,6 +400,10 @@ function Checkout() {
   };
   const saveAddressDraft = async () => {
     if (!addressPanel || !addressDraftComplete) return;
+    if (addressPanel.mode !== 'edit' && savedAddresses.some(item => sameAddress(item, addressDraft))) {
+      setAddressError('This address is already saved. Select it instead of adding a duplicate.');
+      return;
+    }
     setAddressBusy(true);
     setAddressError("");
     try {
@@ -417,12 +468,18 @@ function Checkout() {
   const [config, setConfig] = useState<any>();
   const [quote, setQuote] = useState<any>();
   const [quoteError, setQuoteError] = useState("");
+  const [promoCode, setPromoCode] = useState(() => localStorage.getItem('amazing-promo-code') || '');
+  const [promoDraft, setPromoDraft] = useState(promoCode);
+  const [bagSummaryOpen, setBagSummaryOpen] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
   const [success, setSuccess] = useState<any>();
   const [confirmPayment, setConfirmPayment] = useState(false);
   const [saveCardForAccount, setSaveCardForAccount] = useState(false);
+  const [managingCard, setManagingCard] = useState(false);
+  const [cardConsent, setCardConsent] = useState(false);
+  const [cardReady, setCardReady] = useState(false);
   const card = useRef<SquareCard | undefined>(undefined);
   const applePay = useRef<SquareWallet | undefined>(undefined);
   const googlePay = useRef<SquareWallet | undefined>(undefined);
@@ -434,6 +491,11 @@ function Checkout() {
     !asGuest && session?.houseAccount?.status === "active"
       ? session.houseAccount.card
       : undefined;
+  const activeHouseAccount = !asGuest && session?.houseAccount?.status === "active";
+  const canPayOnAccount = Boolean(activeHouseAccount && savedCard && session?.houseAccount?.creditEnabled);
+  useEffect(() => {
+    if (method === "house_account" && !canPayOnAccount) setMethod("");
+  }, [method, canPayOnAccount]);
   const contact =
     session?.user ??
     (asGuest
@@ -463,24 +525,40 @@ function Checkout() {
   const guestBlockedByPrint = asGuest && requiresPrintLeadTime;
   const ready = identified && !guestBlockedByPrint;
   const schedule = config?.delivery?.schedule || DEFAULT_SCHEDULE;
+  const fridaySelection = requiresFridayOnly ? firstFridaySlot(scheduledMinimum, fulfillment, schedule) : "";
+  const minimumDate = requiresFridayOnly ? fridaySelection.slice(0, 10) : scheduledMinimum.slice(0, 10);
+  const asapCandidate = torontoWallTime(new Date(Date.now() + 12 * 60000));
+  const asapWindow = fulfillment === "delivery"
+    ? (asapCandidate.weekday === "Sat" ? null : [schedule.deliveryStart, schedule.deliveryEnd])
+    : ({ Sun: [480, 780], Mon: [450, 960], Tue: [450, 960], Wed: [450, 960], Thu: [450, 960], Fri: [450, 840] } as Record<string, number[]>)[asapCandidate.weekday];
+  const asapAvailable = !requiresPrintLeadTime && !requiresLabLeadTime && (!requiresFridayOnly || asapCandidate.weekday === "Fri") && Boolean(asapWindow && asapCandidate.minutes >= asapWindow[0] && asapCandidate.minutes + 10 <= asapWindow[1]);
   const fulfillmentTimes = slotsFor(
     scheduledAt.slice(0, 10),
     fulfillment,
     schedule,
   );
   const addressComplete =
-    Boolean(address.addressLine1) && isValidPostalCode(address.postalCode);
+    Boolean(address.addressLine1.trim() && address.locality.trim()) && isValidPostalCode(address.postalCode);
+  const deliveryZoneValid = fulfillment !== "delivery" || !config?.delivery?.postalPrefixes?.length ||
+    config.delivery.postalPrefixes.some((prefix: string) => address.postalCode.replace(/\s/g, "").toUpperCase().startsWith(prefix.toUpperCase()));
   const fulfillmentComplete =
     ready &&
+    lines.length > 0 &&
+    validPhone &&
+    customReady &&
     Boolean(scheduledAt) &&
-    fulfillmentTimes.some((slot) => slot.value === scheduledAt.slice(11, 16)) &&
-    (fulfillment === "pickup" || addressComplete);
+    (asap || scheduledAt >= scheduledMinimum) &&
+    (!requiresFridayOnly || (isFridayDate(scheduledAt.slice(0, 10)) && scheduledAt >= fridaySelection)) &&
+    (asap ? asapAvailable : fulfillmentTimes.some((slot) => slot.value === scheduledAt.slice(11, 16))) &&
+    (fulfillment !== "delivery" || (config?.delivery?.enabled !== false && subtotal * 100 >= (config?.delivery?.minimumAmount || 0))) &&
+    (fulfillment === "pickup" || (addressComplete && deliveryZoneValid));
   const scheduledLabel = () => {
     const [date] = scheduledAt.split("T");
     const [year, month, day] = date.split("-").map(Number);
     const slot = fulfillmentTimes.find(
       (item) => item.value === scheduledAt.slice(11, 16),
     );
+    if (asap) return "As soon as possible · about 10 minutes";
     return `${new Date(year, month - 1, day).toLocaleDateString("en-CA", {
       weekday: "short",
       month: "long",
@@ -490,6 +568,8 @@ function Checkout() {
   const chosenSavedAddress = savedAddresses.find((item) =>
     sameAddress(item, address),
   );
+  const canCollapseFulfillment = Boolean(session?.user && savedAddresses.length && priorFulfillment.current === fulfillment && (fulfillment === "pickup" ? readPickup() : chosenSavedAddress));
+  const fulfillmentAccepted = fulfillmentComplete && !fulfillmentOpen && (fulfillmentConfirmed || canCollapseFulfillment) && (!asGuest || !identityOpen);
   /* Why a step cannot close yet, said on the step, next to the button that
      would close it. The place-order button says the same things, but from
      the other column, where the eye is not. */
@@ -508,16 +588,36 @@ function Checkout() {
               ? "Custom-printed items need an account. Sign in to keep them."
               : ""
     : "";
-  const fulfillmentReason = !ready
+  const fulfillmentReason = !lines.length
+    ? "Add something to your bag first."
+    : !ready
     ? "Finish your details above first."
-    : !fulfillmentTimes.length
+    : !validPhone
+      ? "Add a valid phone number in your details above."
+    : !customReady
+      ? "Finish the custom items in your bag first."
+    : fulfillment === "delivery" && config?.delivery?.enabled === false
+      ? "Delivery is unavailable. Choose pickup."
+    : fulfillment === "delivery" && subtotal * 100 < (config?.delivery?.minimumAmount || 0)
+      ? `Delivery requires an order subtotal of at least ${money(config.delivery.minimumAmount / 100)}.`
+    : requiresFridayOnly && !asap && !isFridayDate(scheduledAt.slice(0, 10))
+      ? "Friday-only items must be picked up or delivered on a Friday."
+    : !asap && scheduledAt < scheduledMinimum
+      ? "Choose a later date or time for these items."
+    : asap && !asapAvailable
+      ? "As soon as possible is unavailable now. Schedule a time instead."
+    : !asap && !fulfillmentTimes.length
       ? `No ${fulfillment} windows on that day. Pick another date.`
+    : !asap && !fulfillmentTimes.some((slot) => slot.value === scheduledAt.slice(11, 16))
+      ? "Choose an available time window."
       : fulfillment === "delivery" && !address.addressLine1
         ? asGuest || !savedAddresses.length
           ? "Enter the delivery address."
           : "Choose a delivery address, or add one."
         : fulfillment === "delivery" && !addressComplete
           ? "The delivery address needs a valid postal code."
+          : !deliveryZoneValid
+          ? "Please choose another address in the Bathurst delivery area or switch to pickup."
           : "";
   const loadSession = () =>
     api("/storefront/session")
@@ -542,11 +642,45 @@ function Checkout() {
       })
       .catch((cause) => setError(cause.message));
   useEffect(() => {
-    void loadSession();
-    void api("/storefront/config")
-      .then(setConfig)
-      .catch((cause) => setError(cause.message));
+    void Promise.all([
+      loadSession(),
+      api("/storefront/config")
+        .then(setConfig)
+        .catch((cause) => setError(cause.message)),
+    ]).finally(() => setInitializing(false));
   }, []);
+  useEffect(() => {
+    if (!session) return;
+    if (!lines.length) {
+      const previousCartId = reminderCartId.current;
+      reminderCartId.current = crypto.randomUUID();
+      localStorage.setItem("amazing-cart-reminder-id", reminderCartId.current);
+      void api("/public/storefront/cart-reminders", {
+        method: "POST",
+        body: JSON.stringify({ cartId: previousCartId, items: [] }),
+      }).catch(() => {});
+      return;
+    }
+    const email = (session.user?.email || guest.email).trim();
+    if (!isValidEmail(email)) return;
+    const items = lines.map(line => ({ name: line.product.name, quantity: line.qty }));
+    const save = () => {
+      void api("/public/storefront/cart-reminders", {
+        method: "POST",
+        keepalive: true,
+        body: JSON.stringify({ cartId: reminderCartId.current, email, items }),
+      }).catch(() => {});
+    };
+    const saveOnHide = () => { if (document.hidden) save(); };
+    const timer = window.setTimeout(save, 700);
+    document.addEventListener("visibilitychange", saveOnHide);
+    window.addEventListener("pagehide", save);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", saveOnHide);
+      window.removeEventListener("pagehide", save);
+    };
+  }, [session, guest.email, lines]);
   useEffect(() => {
     if (config?.delivery?.enabled === false && fulfillment === "delivery") {
       setFulfillment("pickup");
@@ -561,10 +695,12 @@ function Checkout() {
      silently arrived here booked for 9:00. The slot effect below still
      guarantees the time is one the counter actually offers that day. */
   useEffect(() => {
-    if (scheduledAt.slice(0, 10) < scheduledMinimum.slice(0, 10))
-      setScheduledAt(scheduledMinimum);
-  }, [scheduledAt, scheduledMinimum]);
+    if (asap) return;
+    if (scheduledAt.slice(0, 10) < minimumDate || (requiresFridayOnly && (!isFridayDate(scheduledAt.slice(0, 10)) || scheduledAt < fridaySelection || !fulfillmentTimes.length)))
+      setScheduledAt(requiresFridayOnly ? fridaySelection : scheduledMinimum);
+  }, [scheduledAt, scheduledMinimum, minimumDate, requiresFridayOnly, fridaySelection, fulfillmentTimes, asap]);
   useEffect(() => {
+    if (asap) return;
     if (
       fulfillmentTimes.length &&
       !fulfillmentTimes.some((slot) => slot.value === scheduledAt.slice(11, 16))
@@ -572,9 +708,17 @@ function Checkout() {
       setScheduledAt(
         `${scheduledAt.slice(0, 10)}T${fulfillmentTimes[0].value}`,
       );
-  }, [scheduledAt, fulfillmentTimes]);
+  }, [scheduledAt, fulfillmentTimes, asap]);
   useEffect(() => {
-    if (!config?.applicationId || method !== "card" || !ready) return;
+    if (asap && !asapAvailable) setAsap(false);
+  }, [asap, asapAvailable]);
+  useEffect(() => {
+    if (!asap || busy) return;
+    const timer = window.setInterval(() => setScheduledAt(torontoWallTime(new Date(Date.now() + 12 * 60000)).value), 60000);
+    return () => window.clearInterval(timer);
+  }, [asap, busy]);
+  useEffect(() => {
+    if (!config?.applicationId || method !== "card" || !fulfillmentAccepted) return;
     let cancelled = false;
     const mount = async () => {
       await ensureSquare(config.environment);
@@ -584,17 +728,19 @@ function Checkout() {
         config.locationId,
       ).card();
       await card.current.attach("#square-card");
+      if (!cancelled) setCardReady(true);
     };
     void mount().catch((cause) => setError(cause.message));
     return () => {
       cancelled = true;
+      setCardReady(false);
       void card.current?.destroy().catch(() => {});
       card.current = undefined;
     };
-  }, [config, method, ready]);
+  }, [config, method, fulfillmentAccepted]);
   useEffect(() => {
     const capability = walletCapabilities();
-    if (!config?.applicationId || !ready || !validPhone || quoteError || !quote?.order?.total) {
+    if (!config?.applicationId || !fulfillmentAccepted || quoteError || !quote?.order?.total) {
       setWallets(capability);
       return;
     }
@@ -657,7 +803,7 @@ function Checkout() {
       applePay.current = undefined;
       googlePay.current = undefined;
     };
-  }, [config, quote?.order?.currency, quote?.order?.total, quoteError, ready, validPhone]);
+  }, [config, quote?.order?.currency, quote?.order?.total, quoteError, fulfillmentAccepted]);
   const items = () =>
     lines.map((line) => ({ name: line.product.name, quantity: line.qty }));
   const boxCustomizations = () => lines.filter(line => line.customization?.kind === "box").map(line => ({
@@ -669,9 +815,17 @@ function Checkout() {
     productName: line.product.name, kind: "lab" as const,
     elements: line.customization.elements.map(({label,value}) => ({label,value}))
   }] : []);
+  const printQuoteCustomizations = () => lines.flatMap(line => line.customization?.kind === "print" ? [{
+    productName: line.product.name,
+    kind: "print" as const,
+    icingFlavour: line.customization.icingFlavour,
+    sprinkleColours: line.customization.sprinkleColours,
+    artworks: line.customization.artworks.map(({ count }) => ({ count })),
+  }] : []);
   const fulfillmentBody = () => ({
     type: fulfillment,
     scheduledAt: torontoISOString(scheduledAt),
+    asap,
     recipient: {
       displayName:
         `${contact?.firstName || ""} ${contact?.lastName || ""}`.trim(),
@@ -705,7 +859,8 @@ function Checkout() {
         signal: controller.signal,
         body: JSON.stringify({
           items: items(),
-          customizations: [...boxCustomizations(), ...labCustomizations()],
+          promoCode,
+          customizations: [...boxCustomizations(), ...labCustomizations(), ...printQuoteCustomizations()],
           fulfillment: fulfillmentBody(),
         }),
       })
@@ -735,6 +890,7 @@ function Checkout() {
     address,
     deliveryInstructions,
     noContact,
+    promoCode,
   ]);
   /* Guests never reach the upload branch — `guestBlockedByPrint` stops the
      order before this runs — but the guard is here too, because the endpoint
@@ -803,13 +959,22 @@ function Checkout() {
   ) => {
     event?.preventDefault();
     if (submitting.current && !alreadyLocked) return;
+    if (managingCard) return;
     if (!identified) {
       if (!asGuest) setAuthOpen(true);
       return;
     }
     if (!lines.length || !customReady || !quote) return;
+    if (!fulfillmentAccepted) {
+      setError("Complete pickup or delivery before choosing payment.");
+      return;
+    }
     if (!method && !presetSource) {
       setError("Choose how you would like to pay.");
+      return;
+    }
+    if (method === "house_account" && !canPayOnAccount) {
+      setError("Add a card on file before using Pay on account.");
       return;
     }
     if (
@@ -899,7 +1064,9 @@ function Checkout() {
             asGuest
               ? {
                   idempotencyKey: crypto.randomUUID(),
+                  cartId: reminderCartId.current,
                   items: items(),
+                  promoCode,
                   customizations,
                   fulfillment: fulfillmentBody(),
                   paymentMethod: "card",
@@ -913,7 +1080,9 @@ function Checkout() {
                 }
               : {
                   idempotencyKey: crypto.randomUUID(),
+                  cartId: reminderCartId.current,
                   items: items(),
+                  promoCode,
                   customizations,
                   fulfillment: fulfillmentBody(),
                   paymentMethod:
@@ -926,6 +1095,9 @@ function Checkout() {
         },
       );
       clear();
+      localStorage.removeItem('amazing-promo-code');
+      localStorage.removeItem("amazing-cart-reminder-id");
+      reminderCartId.current = crypto.randomUUID();
       setSuccess({ ...result.order, delivery: result.delivery });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Checkout failed.");
@@ -935,7 +1107,7 @@ function Checkout() {
     }
   };
   const payWithWallet = (wallet: SquareWallet | undefined) => {
-    if (!wallet || submitting.current || busy || !ready || !validPhone || !quote || quoteError) return;
+    if (!wallet || submitting.current || busy || !fulfillmentAccepted || !quote || quoteError) return;
     submitting.current = true;
     setBusy(true);
     setError("");
@@ -1009,17 +1181,53 @@ function Checkout() {
       setBusy(false);
     }
   };
+  const saveAccountCard = async () => {
+    if (!session?.user || !card.current || busy || !cardConsent) return;
+    setBusy(true);
+    setError("");
+    try {
+      const token = await card.current.tokenize({
+        intent: "STORE",
+        customerInitiated: true,
+        sellerKeyedIn: false,
+        billingContact: {
+          givenName: session.user.firstName,
+          familyName: session.user.lastName,
+          email: session.user.email,
+        },
+      });
+      if (token.status !== "OK" || !token.token) throw new Error(token.errors?.[0]?.message || "Card authorization failed.");
+      await api("/storefront/house-card", {
+        method: "POST",
+        body: JSON.stringify({
+          sourceId: token.token,
+          consent: true,
+          replace: Boolean(savedCard),
+          cardholderName: `${session.user.firstName} ${session.user.lastName}`,
+        }),
+      });
+      await loadSession();
+      setManagingCard(false);
+      setCardConsent(false);
+      setMethod("saved_card");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Card could not be saved.");
+    } finally {
+      setBusy(false);
+    }
+  };
   if (success)
     return (
       <main className="commerce-shell">
         <section className="commerce-success">
           <ShoppingBag />
-          <p>Order confirmed</p>
-          <h1>Your bag is on the bakery's list.</h1>
+          <p>{success.simulated ? "Local test order" : "Order confirmed"}</p>
+          <h1>{success.simulated ? "Your test order is ready to review." : "Your bag is on the bakery's list."}</h1>
           <strong>Order #{success.id.slice(-8)}</strong>
           <span>
             {money(success.total / 100)} · {fulfillment}
           </span>
+          {success.simulated && <small>No real order was placed or charged.</small>}
           {success.delivery && (
             <small>Delivery is awaiting assignment by the bakery.</small>
           )}
@@ -1030,24 +1238,14 @@ function Checkout() {
       </main>
     );
   const payable = quote?.order?.total / 100;
+  if (initializing) return <main className="commerce-shell checkout-loading" role="status" aria-live="polite"><span className="account-loading__spinner" /><p>Preparing secure checkout...</p></main>;
   return (
     <main className="commerce-shell">
-      <header className="commerce-top">
+      <header className="commerce-top checkout-top">
         <a href="/shop/">
           <ArrowLeft /> <span>Back to the shop</span>
         </a>
-        <CommerceLogo />
-        {session?.user ? (
-          <a href="/account/">My account</a>
-        ) : (
-          <button
-            type="button"
-            className="commerce-top__signin"
-            onClick={() => setAuthOpen(true)}
-          >
-            Sign in
-          </button>
-        )}
+        <CommerceLogo /><details className="checkout-security"><summary>Secure checkout <ChevronDown size={16} /></summary><div role="note">We secure your payment and personal information when you share or save it with us. We don’t share payment details with third-party sellers or sell your information. <a href="/privacy-policy/">Privacy notice</a></div></details>
       </header>
       <div className={`checkout-grid${busy ? " is-processing-payment" : ""}`} aria-busy={busy}>
         {busy && (
@@ -1061,13 +1259,6 @@ function Checkout() {
           <div className="commerce-heading">
             <p>Secure checkout</p>
             <h1>Finish your order</h1>
-            <span>
-              <LockKeyhole />{" "}
-              <span>
-                Card details are encrypted and handled by Square. We never see
-                them.
-              </span>
-            </span>
           </div>
           {/* Three panels, in the order they are answered: who you are, how you
           want it, how you are paying. Each is numbered, and each is disabled
@@ -1126,7 +1317,7 @@ function Checkout() {
                     </label>
                   )}
                 </div>
-                <a href="/account/">Manage account</a>
+                <a href="/account/" className="manage-account-button">Manage account</a>
               </section>
             ) : identified && !identityOpen ? (
               <section className="signed-row step-summary">
@@ -1232,14 +1423,14 @@ function Checkout() {
                         </p>
                       )}
                       <div className="step-continue-row">
-                        <button
+                        <BrandButton
                           type="button"
                           className="step-continue"
                           disabled={Boolean(identityReason)}
                           onClick={() => setIdentityOpen(false)}
                         >
                           Continue
-                        </button>
+                        </BrandButton>
                         {identityReason && <small>{identityReason}</small>}
                       </div>
                     </div>
@@ -1284,7 +1475,7 @@ function Checkout() {
           </div>
 
           <div className="checkout-step" data-step="2">
-            {fulfillmentComplete && !fulfillmentOpen ? (
+            {fulfillmentAccepted ? (
               <section className="signed-row step-summary">
                 <div>
                   <strong>
@@ -1338,19 +1529,23 @@ function Checkout() {
                   <Truck /> Delivery
                 </button>
               </div>
-              {fulfillment === "delivery" && config?.delivery && (
-                <p className="delivery-policy">
-                  Local delivery is {money(config.delivery.feeAmount / 100)} and
-                  free on merchandise orders of{" "}
-                  {money(config.delivery.freeThreshold / 100)} or more.{" "}
-                  {money(config.delivery.minimumAmount / 100)} minimum.
-                </p>
-              )}
+              {fulfillment === "delivery" && config?.delivery && subtotal < config.delivery.minimumAmount / 100 && <p className="delivery-minimum">Delivery requires an order subtotal of at least {money(config.delivery.minimumAmount / 100)}.</p>}
               <h2 className="schedule-legend">
                 {fulfillment === "pickup"
                   ? "When are you collecting?"
                   : "When should we deliver?"}
               </h2>
+              <div className="schedule-mode segment" aria-label="Fulfillment timing">
+                <button type="button" className={asap ? "active" : ""} disabled={!asapAvailable}
+                  onClick={() => { setScheduledAt(asapCandidate.value); setAsap(true); }}>
+                  As soon as possible
+                </button>
+                <button type="button" className={!asap ? "active" : ""}
+                  onClick={() => { setAsap(false); setScheduledAt(requiresFridayOnly ? fridaySelection : tomorrow()); }}>
+                  Schedule a time
+                </button>
+              </div>
+              {!asapAvailable && <small className="schedule-notice">{requiresPrintLeadTime ? "Custom-printed items need at least one week." : requiresLabLeadTime ? "Donut Lab orders need at least one day." : requiresFridayOnly ? "Friday-only items can be collected or delivered on Fridays." : "As soon as possible is available during opening hours."}</small>}
               <div className="fulfillment-schedule">
                 {fulfillment === "pickup" && (
                   <p className="pickup-where">
@@ -1362,17 +1557,17 @@ function Checkout() {
                     </span>
                   </p>
                 )}
-                <div className="checkout-date-field">
+                {!asap && <div className="checkout-date-field">
                   <span>Date</span>
                   <BrandDatePicker
                     value={scheduledAt.slice(0, 10)}
-                    min={scheduledMinimum.slice(0, 10)}
+                    min={minimumDate}
                     onChange={(value) => setScheduledAt(`${value}T09:00`)}
                     ariaLabel="Choose a pickup or delivery date"
-                    disabledDay={(day) => day.getDay() === 6}
+                    disabledDay={(day) => requiresFridayOnly ? day.getDay() !== 5 : day.getDay() === 6}
                   />
-                </div>
-                <div className="checkout-time-field">
+                </div>}
+                {!asap && <div className="checkout-time-field">
                   <span>Time window</span>
                   <BrandTimePicker
                     value={
@@ -1386,12 +1581,14 @@ function Checkout() {
                       )
                     }
                   />
-                </div>
+                </div>}
+                {asap && <p className="asap-summary">{fulfillment === "pickup" ? "Ready for pickup in about 10 minutes." : "Prepared in about 10 minutes; delivery follows."} We will confirm your order.</p>}
                 {requiresPrintLeadTime && (
                   <small>
                     Custom-printed items require at least one week's notice.
                   </small>
                 )}
+                {requiresFridayOnly && <small>Friday-only items in your bag are available for Friday pickup or delivery.</small>}
                 <small className="schedule-hours">
                   {fulfillment === "pickup"
                     ? `${HOURS_SUMMARY} Windows are ${SLOT_MINUTES} minutes long.`
@@ -1400,6 +1597,7 @@ function Checkout() {
               </div>
               {fulfillment === "delivery" && (
                 <div className="address-fields">
+                  {!deliveryZoneValid && addressComplete && <p className="checkout-error" role="alert">Please choose another address in the Bathurst delivery area or switch to pickup.</p>}
                   {/* A signed-in customer picks from cards, the way Amazon's
                   "Your Addresses" page works: every saved address is a card
                   with its full lines on it, the one in use is ringed, a pencil
@@ -1700,22 +1898,34 @@ function Checkout() {
                 </div>
               )}
               <div className="step-continue-row">
-                <button
+                <BrandButton
                   type="button"
                   className="step-continue"
                   disabled={!fulfillmentComplete}
-                  onClick={() => setFulfillmentOpen(false)}
+                  onClick={() => {
+                    setFulfillmentConfirmed(true);
+                    setFulfillmentOpen(false);
+                    requestAnimationFrame(() => paymentStepRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+                  }}
                 >
                   Continue to payment
-                </button>
+                </BrandButton>
                 {fulfillmentReason && <small>{fulfillmentReason}</small>}
               </div>
             </fieldset>
             )}
           </div>
 
-          <div className="checkout-step" data-step="3">
-            <fieldset className="payment-panel" disabled={!ready || busy}>
+          <div className="checkout-step" data-step="3" ref={paymentStepRef}>
+            {!fulfillmentAccepted ? (
+              <section className="signed-row step-summary payment-locked" aria-label="Payment locked">
+                <div>
+                  <strong><CreditCard /> Payment</strong>
+                  <span>Complete pickup or delivery above to choose how to pay.</span>
+                </div>
+              </section>
+            ) : (
+            <fieldset className="payment-panel" disabled={busy}>
               <legend>Payment</legend>
               {/* Apple Pay and Google Pay are choices in the list, not a strip above
             it labelled "express checkout". They are ways to pay, exactly as a
@@ -1774,7 +1984,7 @@ function Checkout() {
                   <button
                     type="button"
                     className={`saved-card${method === "saved_card" ? " active" : ""}`}
-                    onClick={() => setMethod("saved_card")}
+                    onClick={() => { setManagingCard(false); setMethod("saved_card"); }}
                   >
                     <CreditCard />
                     <span>
@@ -1785,24 +1995,32 @@ function Checkout() {
                     </span>
                   </button>
                 )}
+                {activeHouseAccount && <button type="button" className="manage-card-inline" onClick={() => { setManagingCard(true); setMethod("card"); }}>
+                  {savedCard ? "Update card on file" : "Add card on file"}
+                </button>}
                 <div className="payment-choice">
                   <button
                     type="button"
                     className={method === "card" ? "active" : ""}
-                    onClick={() => setMethod("card")}
+                    onClick={() => { setManagingCard(false); setMethod("card"); }}
                     aria-expanded={method === "card"}
                     aria-controls="card-payment-fields"
                   >
                     <CreditCard />
                     <span>
                       <strong>{savedCard ? "Use a different card" : "Credit or debit card"}</strong>
-                      <small>Securely processed by Square</small>
+                      <small>Secure card payment</small>
                     </span>
                   </button>
                   {method === "card" && (
                     <div id="card-payment-fields" className="payment-choice__fields">
                       <div id="square-card" className="square-card" />
-                      {!asGuest && session?.houseAccount?.status === "active" && !session.houseAccount.card && (
+                      {managingCard && <div className="manage-card-inline__form">
+                        <label className="save-card-choice"><input type="checkbox" checked={cardConsent} onChange={(event) => setCardConsent(event.target.checked)} /><span>I authorize Amazing Donuts to save this card and charge outstanding statements when due.</span></label>
+                        <button type="button" disabled={!cardConsent || busy || !cardReady} onClick={() => void saveAccountCard()}>{busy ? "Saving card..." : savedCard ? "Save replacement card" : "Save card on file"}</button>
+                        <button type="button" onClick={() => { setManagingCard(false); setCardConsent(false); setMethod(savedCard ? "saved_card" : ""); }}>Cancel</button>
+                      </div>}
+                      {!managingCard && !asGuest && session?.houseAccount?.status === "active" && !session.houseAccount.card && (
                         <label className="save-card-choice">
                           <input
                             type="checkbox"
@@ -1820,13 +2038,14 @@ function Checkout() {
                     </div>
                   )}
                 </div>
-                {!asGuest &&
-                  session?.houseAccount?.status === "active" &&
-                  session.houseAccount.creditEnabled && (
+                {activeHouseAccount && session?.houseAccount && (
+                  <>
                     <button
                       type="button"
                       className={method === "house_account" ? "active" : ""}
                       onClick={() => setMethod("house_account")}
+                      disabled={!canPayOnAccount}
+                      aria-describedby={!canPayOnAccount ? "account-card-required" : undefined}
                     >
                       <Building2 />
                       <span>
@@ -1838,7 +2057,15 @@ function Checkout() {
                         </small>
                       </span>
                     </button>
-                  )}
+                    {!canPayOnAccount && (
+                      <p id="account-card-required" className="account-card-required">
+                        {session.houseAccount.cardNeedsReplacement
+                          ? "The saved card could not be verified. Replace it under Manage account before using account credit."
+                          : "First add a card on file to use Pay on account. Choose a credit or debit card and save it for this institutional account."}
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
 
               {method === "house_account" && (
@@ -1871,47 +2098,36 @@ function Checkout() {
                   details.
                 </p>
               )}
+              <BrandButton className="place-order payment-submit" block type="submit" disabled={!fulfillmentAccepted || !lines.length || !quote || !method || busy || managingCard}>
+                {busy ? "Confirming payment..." : guestBlockedByPrint ? "Sign in to order printed items"
+                  : managingCard ? "Save or cancel your card update"
+                  : phone && !validPhone ? "Enter a valid phone number"
+                  : !identified ? "Add your name, email and number"
+                  : !customReady ? `Finish the highlighted item${blockedCount === 1 ? "" : "s"}`
+                  : !method ? "Choose how to pay"
+                  : quote ? `Confirm payment · ${money(payable)}`
+                  : quoteError ? "Check your order details" : "Calculating total..."}
+              </BrandButton>
             </fieldset>
+            )}
           </div>
         </form>
         <div className="checkout-side">
-          {/* Outside the form element, attached to it by `form`: the button belongs
-          under the total it quotes, and the total lives in this column. */}
-          <button
-            className="place-order"
-            form="checkout"
-            disabled={
-              !ready ||
-              !validPhone ||
-              !lines.length ||
-              !customReady ||
-              !quote ||
-              !method ||
-              busy
-            }
-          >
-            {busy
-              ? "Confirming payment..."
-              : guestBlockedByPrint
-                ? "Sign in to order printed items"
-                : phone && !validPhone
-                  ? "Enter a valid phone number"
-                : !identified
-                  ? "Add your name, email and number"
-                  : !customReady
-                    ? `Finish the highlighted item${blockedCount === 1 ? "" : "s"}`
-                    : !method
-                      ? "Choose how to pay"
-                      : quote
-                        ? `Place order · ${money(payable)}`
-                        : quoteError
-                          ? "Check your order details"
-                          : "Calculating Square total..."}
-          </button>
           {/* What all three steps are about. */}
           <aside className="order-summary">
             <p>Your bag</p>
-            <h2>{lines.reduce((total, line) => total + line.qty, 0)} items</h2>
+            <h2>{itemCount} {itemCount === 1 ? "item" : "items"}</h2>
+            <button type="button" className="order-summary__toggle" aria-expanded={bagSummaryOpen} onClick={() => setBagSummaryOpen((open) => !open)}>
+              <span>{itemCount} {itemCount === 1 ? "item" : "items"}</span>
+              <strong>{money(quote ? payable : subtotal)} <ChevronDown size={18} aria-hidden="true" /></strong>
+            </button>
+            <div className="promo-code">
+              <label htmlFor="checkout-promo">Promo code</label>
+              <div><input id="checkout-promo" value={promoDraft} onChange={event => setPromoDraft(event.target.value)} maxLength={40} autoComplete="off" /><button type="button" onClick={() => { const code=promoDraft.trim().toUpperCase(); setPromoCode(code); if(code)localStorage.setItem('amazing-promo-code',code); else localStorage.removeItem('amazing-promo-code'); }}>Apply</button></div>
+              {promoCode && !quoteError && quote && <small>Code {promoCode} applied to your order.</small>}
+            </div>
+            <div className={`order-summary__content${bagSummaryOpen ? ' is-open' : ''}`}>
+            {lines.length > 0 && <div className={`delivery-progress${subtotal >= 200 ? ' is-complete' : ''}`} aria-label="Free delivery progress"><div><Gift size={19} /><strong>{subtotal >= 200 ? 'Free delivery unlocked' : `${money(200 - subtotal)} away from free delivery`}</strong></div><progress value={Math.min(subtotal, 200)} max={200} /><p>{subtotal >= 200 ? 'Your bag qualifies for free delivery.' : 'Add more to your bag for free delivery.'}</p></div>}
             {lines.map((line) => {
               /* The line that is holding the order up, marked on the line itself.
      The place-order button knew one of these existed and said so, but it
@@ -1931,7 +2147,7 @@ function Checkout() {
                   key={lineKeyOf(line)}
                 >
                   <div className="summary-line">
-                    <img src={line.product.img} alt="" />
+                    <img src={line.product.img} alt="" onError={(event) => fallbackProductImage(event, line.product.id)} />
                     <span>
                       <strong>{line.product.name}</strong>
                       <small>Qty {line.qty}</small>
@@ -1942,15 +2158,15 @@ function Checkout() {
                           line.qty,
                       )}
                     </b>
+                    {line.customization && !blocked && (
+                      <details className="summary-item__details"><summary>Item details <ChevronDown size={16} aria-hidden="true" /></summary><CartCustomization
+                        productId={line.product.id}
+                        qty={line.qty}
+                        value={line.customization}
+                        readOnly
+                      /></details>
+                    )}
                   </div>
-                  {line.customization && !blocked && (
-                    <CartCustomization
-                      productId={line.product.id}
-                      qty={line.qty}
-                      value={line.customization}
-                      onChange={(next) => customize(lineKeyOf(line), next)}
-                    />
-                  )}
                   {blocked && (
                     <CheckoutFix
                       productId={line.product.id}
@@ -1963,7 +2179,7 @@ function Checkout() {
               );
             })}
             <div className="summary-breakdown">
-              <span>Merchandise</span>
+              <span>Subtotal</span>
               <b>
                 {quote
                   ? money(
@@ -1981,9 +2197,10 @@ function Checkout() {
                   </b>
                 </>
               )}
+              {quote?.order?.discount > 0 && <><span>Discount</span><b>-{money(quote.order.discount / 100)}</b></>}
               {quote && (
                 <>
-                  <span>HST</span>
+                  <span>{quote.order.taxes?.length === 1 && quote.order.taxes[0].percentage ? `${quote.order.taxes[0].name || 'Tax'} (${quote.order.taxes[0].percentage}%)` : 'Tax'}</span>
                   <b>{money(quote.order.tax / 100)}</b>
                 </>
               )}
@@ -1992,11 +2209,8 @@ function Checkout() {
               <span>{quote ? "Total" : "Estimated subtotal"}</span>
               <strong>{money(quote ? payable : subtotal)}</strong>
             </div>
-            <small>
-              {quote?.delivery
-                ? "The bakery assigns the driver after payment. Square does not dispatch the courier."
-                : "Square confirms catalog pricing, HST, discounts, and the final total before payment."}
-            </small>
+            {quote?.delivery && <small>The bakery assigns the driver after payment.</small>}
+            </div>
           </aside>
           {(quoteError || error) && (
             <p className="checkout-error" role="alert">
@@ -2028,11 +2242,11 @@ function Checkout() {
             <p>Confirm payment</p>
             <h2 id="payment-confirm-title">How would you like to pay?</h2>
             <span>
-              {session?.houseAccount?.creditEnabled
+              {canPayOnAccount
                 ? "Your card can be charged now, or this order can use your approved account credit."
                 : "Pay this order now without saving it, or save the card and use account credit."}
             </span>
-            {!session?.houseAccount?.creditEnabled ? (
+            {!canPayOnAccount ? (
               <label>
                 <span>Institutional account PIN</span>
                 <input
@@ -2050,7 +2264,7 @@ function Checkout() {
               <button type="button" onClick={() => void place(undefined, true)}>
                 Pay this order now · {money(payable)}
               </button>
-              {session?.houseAccount?.creditEnabled ? (
+              {canPayOnAccount ? (
                 <button
                   type="button"
                   onClick={() => {

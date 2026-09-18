@@ -11,18 +11,25 @@ import Footer from '../components/Footer';
 import AuthModal from '../shop/AuthModal';
 import CartDrawer from '../shop/CartDrawer';
 
-type Page = { eyebrow: string; title: string; intro: string; sections: { title: string; body: string }[] };
+type Page = { eyebrow: string; title: string; intro: string; sourceHref?: string; sections: { title: string; body: string }[] };
 
 const PAGES: Record<string, Page> = {
   '/allergy-free/': {
-    eyebrow: 'Menu & certification',
-    title: 'Allergies & Kashruth',
-    intro: 'Review allergen guidance and kosher certification together before placing an order.',
+    eyebrow: 'Bakery information',
+    title: 'Allergy free',
+    intro: 'Amazing Donuts has been a peanut-free, tree-nut-free and sesame-free bakery since 1997.',
     sections: [
-      { title: 'Available options', body: 'Selected products are marked nut free, dairy free or sesame free in the shop. Use those product badges as your starting point.' },
-      { title: 'Shared kitchen', body: 'Our products are prepared in a working bakery that handles common allergens. Please email orders@amazingdonuts.com before ordering if cross-contact is a concern.' },
-      { title: 'COR 483', body: 'Our certification is displayed throughout the site and on the bakery information provided with your order.' },
-      { title: 'Pareve & Yoshon', body: 'Pareve and yoshon information is shown with the relevant products. Email orders@amazingdonuts.com if you need confirmation for a specific order.' }
+      { title: 'Ingredients and handling', body: 'We pay close attention to ingredient sourcing and bakery handling. Product badges identify additional qualities such as dairy free where applicable.' },
+      { title: 'Before you order', body: 'For a specific allergy or an ingredient question, contact orders@amazingdonuts.com before placing your order. Our team can confirm the current product details.' }
+    ]
+  },
+  '/kashruth/': {
+    eyebrow: 'Bakery information',
+    title: 'Kashruth',
+    intro: 'Amazing Donuts is certified kosher by the COR Kashrus Council of Canada.',
+    sections: [
+      { title: 'Made on site', body: 'Our baked goods are prepared in our Toronto bakery under COR supervision.' },
+      { title: 'Pareve, Pas Yisroel and Kemach Yoshon', body: 'These are the bakery-wide standards stated by Amazing Donuts. Contact orders@amazingdonuts.com for confirmation about a specific product or order.' }
     ]
   },
   '/privacy-policy/': {
@@ -31,8 +38,22 @@ const PAGES: Record<string, Page> = {
     intro: 'We collect only the information needed to run the website, fulfil orders and support customer accounts.',
     sections: [
       { title: 'Information we use', body: 'Account, contact, order and payment-related information is used to provide the services you request, communicate about orders and maintain your account.' },
+      { title: 'Bag reminders for returning customers', body: 'If you purchased from us within the past two years, we may save your email address and bag items to send one reminder after at least 24 hours of inactivity. We do not send it if you complete the order or unsubscribe. Bag item details are cleared after a reminder, completed order, unsubscribe or 30 days. Each reminder includes an unsubscribe link. We do not email first-time abandoned carts.' },
       { title: 'Payments and security', body: 'Card details are handled by Square and are not stored directly on this website. We may retain order and account records when required for operations, security or legal obligations.' },
       { title: 'Questions', body: 'Contact orders@amazingdonuts.com with privacy questions or requests concerning your personal information.' }
+    ]
+  },
+  '/privacy-policy-terms/': {
+    eyebrow: 'Your information',
+    title: 'Privacy policy & terms',
+    intro: 'How we use your information and the terms that apply when ordering online.',
+    sourceHref: 'https://amazingdonuts.com/privacy-policy-terms/',
+    sections: [
+      { title: 'Information and payments', body: 'We use the contact, account and order details you provide to process purchases and support your account. Square handles card payments; this website does not store card numbers.' },
+      { title: 'Cookies and usage data', body: 'The full policy describes the website data and cookie categories used to operate, measure and improve the service, including essential and analytics technologies.' },
+      { title: 'Your information', body: 'The full policy explains data retention, sharing with service providers, security, deletion requests and how to contact the bakery about your privacy rights.' },
+      { title: 'Ordering', body: 'Prices, discounts, taxes, delivery availability and the final total are confirmed at checkout. Food purchases are final sale. If there is a problem with an order, please contact the bakery promptly.' },
+      { title: 'Email and contact', body: 'Order messages and eligible bag reminders may be sent to your email address. Reminder emails include an unsubscribe link. For privacy or order questions, contact orders@amazingdonuts.com.' }
     ]
   },
   '/shipping-returns/': {
@@ -40,9 +61,9 @@ const PAGES: Record<string, Page> = {
     title: 'Shipping & returns',
     intro: 'Fresh food has a short journey and a firm schedule. Review the details before checkout.',
     sections: [
-      { title: 'Pickup and delivery', body: 'Available dates, pickup windows, delivery fees and minimums are confirmed during checkout before payment.' },
+      { title: 'Pickup and delivery', body: 'Local pickup and delivery are available for eligible orders. Delivery is free on orders over $200. Available dates, windows, fees and minimums are confirmed during checkout before payment.' },
       { title: 'Food returns', body: 'Food items are final sale. If something is wrong with an order, contact the bakery promptly so the team can review it with you.' },
-      { title: 'Custom and scheduled orders', body: 'Lead times vary for printed, custom and bulk orders. The date accepted by the bakery is the date that governs the order.' }
+      { title: 'Custom and scheduled orders', body: 'Lead times vary for printed, custom and bulk orders. The date accepted by the bakery is the date that governs the order. We do not offer international shipping through this checkout.' }
     ]
   }
 };
@@ -65,6 +86,7 @@ export default function InformationPage() {
             <p style={{ margin: '10px 0 0', maxWidth: '68ch', fontSize: 'var(--type-body)', lineHeight: 1.55, color: 'rgba(14,62,105,.75)' }}>{section.body}</p>
           </section>)}
         </div>
+        {page.sourceHref && <p style={{ margin: '24px 0 0' }}><a href={page.sourceHref} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--navy)', fontWeight: 700, textDecoration: 'underline' }}>Read the full privacy policy and terms</a></p>}
       </main>
       <Footer ready />
     </div>

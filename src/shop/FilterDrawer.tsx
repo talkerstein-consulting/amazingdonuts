@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Check, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowLeft, Check, SlidersHorizontal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 /**
@@ -56,18 +56,20 @@ function Row({
   Icon,
   count,
   checked,
-  onSelect
+  onSelect,
+  multi = false
 }: {
   label: string;
   Icon?: LucideIcon;
   count?: number;
   checked: boolean;
   onSelect: () => void;
+  multi?: boolean;
 }) {
   return (
     <button
       type="button"
-      role="radio"
+      role={multi ? 'checkbox' : 'radio'}
       aria-checked={checked}
       onClick={onSelect}
       className={`filter-row${checked ? ' is-on' : ''}`}
@@ -192,7 +194,7 @@ export default function FilterDrawer<
   tier: T;
   onTier: (next: T) => void;
   flavours: FilterOption<F>[];
-  flavour: F;
+  flavour: F[];
   onFlavour: (next: F) => void;
   showing: number;
   onClear: () => void;
@@ -235,19 +237,19 @@ export default function FilterDrawer<
             transition={{ duration: 0.38, ease: EASE }}
           >
             <header className="filter-drawer__bar">
-              <span className="filter-drawer__title">Filter &amp; sort</span>
               <button
                 type="button"
                 onClick={onClose}
-                className="icon-btn"
-                aria-label="Close filters"
+                className="cabinet__back filter-drawer__back"
+                aria-label="Back to shop"
                 style={{ color: 'var(--cream)' }}
               >
-                <X size={24} />
+                <ArrowLeft size={18} strokeWidth={2.6} /> Back
               </button>
+              <span className="filter-drawer__title">Filter &amp; sort</span>
             </header>
 
-            <div className="filter-drawer__body">
+            <div className="filter-drawer__body" data-lenis-prevent>
               {/* Categories first. It is the group that decides what the grid is
                   a list OF; sort only decides the order of whatever that turns
                   out to be, so it reads as the second question even when it is
@@ -259,7 +261,13 @@ export default function FilterDrawer<
                   "a chocolate something" is a far commoner shape of intent than
                   "something in the cheaper half". Kind is the tiebreak once the
                   other two have done the narrowing, so it reads last. */}
-              <Group title="Flavour" options={flavours} value={flavour} onChange={onFlavour} />
+              <section className="filter-group" role="group" aria-label="Flavour">
+                <h3 className="filter-group__title">Flavour</h3>
+                {flavours.map((option) => (
+                  <Row key={option.id} label={option.label} Icon={option.icon} count={option.count}
+                    checked={flavour.includes(option.id)} multi onSelect={() => onFlavour(option.id)} />
+                ))}
+              </section>
               {/* Classic and Special were a row of their own that only existed
                   while Donuts was picked. In here they are a filter like any
                   other and apply across every category — the split is a price

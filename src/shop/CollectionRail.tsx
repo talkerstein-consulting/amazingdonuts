@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { CATEGORIES, SHOP_PRODUCTS, type Category, type Product } from '../data/products';
+import { ChevronLeft, ChevronRight, Package } from 'lucide-react';
+import { INTERNAL_PRODUCT_IDS, type Category, type Product } from '../data/products';
 import { tagFor } from '../data/product-tags';
+import { useShop } from '../lib/shop';
 
 /**
  * The categories, as a row of tabs under the banner.
@@ -65,8 +66,8 @@ import { tagFor } from '../data/product-tags';
  * as whichever counter that item belongs to — and the two cards are neighbours,
  * so the row opened on the same photograph twice.
  */
-const faceFor = (category: Category | null, taken: Set<string>): Product => {
-  const scope = category ? SHOP_PRODUCTS.filter((p) => p.category === category) : SHOP_PRODUCTS;
+const faceFor = (products: Product[], category: Category | null, taken: Set<string>): Product | undefined => {
+  const scope = category ? products.filter((p) => p.category === category) : products;
   const rank = (p: Product) => {
     const tag = tagFor(p.id);
     return tag === 'seller' ? 0 : tag === 'popular' ? 1 : 2;
@@ -74,7 +75,7 @@ const faceFor = (category: Category | null, taken: Set<string>): Product => {
   const ordered = [...scope].sort((a, b) => rank(a) - rank(b));
   // Falls back to the counter's own best if every candidate is spoken for,
   // which a one-product counter would do.
-  return ordered.find((p) => !taken.has(p.id)) ?? ordered[0] ?? SHOP_PRODUCTS[0];
+  return ordered.find((p) => !taken.has(p.id)) ?? ordered[0] ?? products[0];
 };
 
 export default function CollectionRail({
@@ -100,6 +101,8 @@ export default function CollectionRail({
    */
   showAll?: boolean;
 }) {
+  const { products: catalogProducts, categories } = useShop();
+  const products = catalogProducts.filter(product => !INTERNAL_PRODUCT_IDS.has(product.id));
   const rail = useRef<HTMLDivElement | null>(null);
   /* Which arrows to draw. A rail that fits its content needs neither, and an
      arrow pointing at nothing is worse than no arrow. */
@@ -161,16 +164,16 @@ export default function CollectionRail({
     el.scrollBy({ left: direction * el.clientWidth * 0.8, behavior: 'smooth' });
   };
 
-  const countFor = (category: Category) => SHOP_PRODUCTS.filter((p) => p.category === category).length;
+  const countFor = (category: Category) => products.filter((p) => p.category === category).length;
 
   /* Counters first, then Shop all, so Shop all is the one that has to work
      around the others rather than claiming a counter's own best seller and
      leaving that counter with its second choice. The row is then put back in
      display order. */
   const taken = new Set<string>();
-  const counters = CATEGORIES.map((category) => {
-    const face = faceFor(category, taken);
-    taken.add(face.id);
+  const counters = categories.map((category) => {
+    const face = faceFor(products, category, taken);
+    if (face) taken.add(face.id);
     return {
       id: category as Category | null,
       label: category,
@@ -180,7 +183,7 @@ export default function CollectionRail({
   });
 
   const cards = showAll
-    ? [{ id: null, label: 'Shop all', count: SHOP_PRODUCTS.length, face: faceFor(null, taken) }, ...counters]
+    ? [{ id: null, label: 'Shop all', count: products.length, face: faceFor(products, null, taken) }, ...counters]
     : counters;
 
   const arrows = (inline: boolean) => (
@@ -245,7 +248,7 @@ export default function CollectionRail({
               className={`collection-card${on ? ' is-on' : ''}`}
             >
               <span className="collection-card__bed">
-                <img src={card.face.img} alt="" loading="lazy" />
+                {card.face ? <img src={card.face.img} alt="" loading="lazy" /> : <Package size={28} aria-hidden="true" />}
               </span>
               <span className="collection-card__text">
                 <span className="collection-card__name">{card.label}</span>

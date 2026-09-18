@@ -27,6 +27,21 @@
      return load's wipe to the right. */
   will-change: height, transform;
 }
+.pre__rolling-donut {
+  position: absolute;
+  top: calc(50% + 30px);
+  left: -80px;
+  width: clamp(54px, 8vw, 92px);
+  height: auto;
+  animation: pre-roll 1.25s ease-in-out both;
+}
+@keyframes pre-roll {
+  from { transform: translateX(0) rotate(0deg); opacity: 0; }
+  12% { opacity: 1; }
+  85% { opacity: 1; }
+  to { transform: translateX(calc(100vw + 160px)) rotate(1080deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .pre__rolling-donut { display: none; } }
 
 /* One letter of the wordmark.
 

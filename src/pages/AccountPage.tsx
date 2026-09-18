@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type InputHTMLAttributes } from "react";
-import { ArrowLeft, Building2, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, ReceiptText, RefreshCw, Truck, UserRound, X } from "lucide-react";
+import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { ArrowLeft, Building2, ChevronDown, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, Pencil, ReceiptText, RefreshCw, Trash2, Truck, UserRound, X } from "lucide-react";
 import { customizationFor } from "../lib/custom-order";
 import AuthModal from "../shop/AuthModal";
 import "../index.css";
@@ -10,13 +10,15 @@ import AddressAutocomplete, { type Address, type SavedAddress } from "../compone
 import ProductTile from "../components/ProductTile";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import PickupBanner from "../components/PickupBanner";
 import { NavThemeProvider } from "../lib/nav-theme";
 import SquircleDefs from "../components/brand/SquircleDefs";
+import { BrandButton } from "../components/brand";
 import CartDrawer from "../shop/CartDrawer";
 import ProductPanel from "../shop/ProductPanel";
 import { ShopProvider, useBoxQty, useShop } from "../lib/shop";
 import { formatNorthAmericanPhone } from "../lib/phone";
+import { PRODUCTS } from "../data/products";
+import { fallbackProductImage } from "../lib/product-image";
 
 const cash = (n: number, c = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency: c }).format(Number(n || 0) / 100);
 const organizationRoles: Record<string, [string, string][]> = {
@@ -123,7 +125,6 @@ export default function AccountPage() {
             to the cart with no bag on screen was an add going nowhere the
             visitor could see. */}
         <Header onSignIn={() => setAuthOpen(true)} />
-        <PickupBanner />
         <AccountShell />
         <Footer ready />
         <ProductPanelHost />
@@ -160,6 +161,7 @@ function AccountShell() {
     return hash === "wishlist" || hash === "profile" || hash === "house" ? hash : "orders";
   });
   const [message, setMessage] = useState("");
+  const [loadingAccount, setLoadingAccount] = useState(true);
   const load = () =>
     api("/storefront/session")
       .then(async (next) => {
@@ -171,7 +173,8 @@ function AccountShell() {
           setCreditAccount(creditBody.account);
         } else setAuthOpen(true);
       })
-      .catch((error) => setMessage(error.message));
+      .catch((error) => setMessage(error.message))
+      .finally(() => setLoadingAccount(false));
   useEffect(() => {
     if (!resetToken) void load();
     const refresh = () => { if (!resetToken) void load(); };
@@ -194,6 +197,23 @@ function AccountShell() {
     return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
   }, [session?.user?.id, view]);
   useEffect(() => {
+    if (!session?.houseAccount || view !== "house") return;
+    let cancelled = false, busy = false;
+    const refresh = async () => {
+      if (document.hidden || busy) return;
+      busy = true;
+      try {
+        const [next, creditBody] = await Promise.all([api("/storefront/session"), api("/portal/account")]);
+        if (!cancelled) { setSession(next); setCreditAccount(creditBody.account); }
+      } catch { /* Keep the last known account details visible during a temporary outage. */ }
+      finally { busy = false; }
+    };
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+  }, [session?.houseAccount?.id, view]);
+  useEffect(() => {
     const sync = () => {
       const next = location.hash.slice(1);
       if (next === "orders" || next === "wishlist" || next === "profile" || next === "house") setView(next);
@@ -202,6 +222,7 @@ function AccountShell() {
     return () => window.removeEventListener("hashchange", sync);
   }, []);
   if (resetToken) return <PasswordReset token={resetToken} />;
+  if (loadingAccount) return <main className="commerce-shell account-loading" role="status" aria-live="polite"><span className="account-loading__spinner" /><p>Loading your account...</p></main>;
   if (!session?.user)
     return (
       <main className="commerce-shell account-gate">
@@ -212,7 +233,7 @@ function AccountShell() {
           <UserRound />
           <h1>Your Amazing Donuts account</h1>
           <p>Sign in to see orders, manage your details, and apply for institutional credit.</p>
-          <button onClick={() => setAuthOpen(true)}>Sign in or create account</button>
+          <BrandButton onClick={() => setAuthOpen(true)}>Sign in or create account</BrandButton>
         </section>
         <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSuccess={load} />
       </main>
@@ -265,8 +286,7 @@ function AccountShell() {
           </button>
           {session.houseAccount && (
             <div className="house-credit">
-              <Building2 />
-              <strong>{session.houseAccount.organizationName}</strong>
+              <div className="house-credit__heading"><Building2 /><strong>{session.houseAccount.organizationName}</strong></div>
               <span>{cash(session.houseAccount.credit.available)} available</span>
             </div>
           )}
@@ -349,14 +369,31 @@ function PasswordReset({token}:{token:string}){
 }
 
 function Orders({ orders }: { orders: any[] }) {
+  const { products, add, openCart } = useShop();
+  const [reorderMessage, setReorderMessage] = useState('');
+  const productFor = (name: string) => products.find(item => item.name.toLowerCase() === String(name || '').toLowerCase());
+  const imageProductFor = (name: string) => productFor(name) || PRODUCTS.find(item => item.name.toLowerCase() === String(name || '').toLowerCase());
+  const orderAgain = (order: any) => {
+    let added = 0;
+    let unavailable = 0;
+    for (const line of order.line_items || []) {
+      const product = productFor(line.name);
+      if (product?.available !== false && product && !needsConfiguring(product.id) && add(product, Number(line.quantity) || 1, {openCart:false})) added++;
+      else unavailable++;
+    }
+    setReorderMessage(unavailable ? `${unavailable} item${unavailable === 1 ? '' : 's'} need a new selection or are no longer available.` : '');
+    if (added) openCart();
+  };
   const statusLabel = (order: any) => /refund/i.test(order.paymentStatus || "") ? order.paymentStatus : order.fulfillmentStatus || "Order received";
-  const paymentLabel = (order: any) => order.payment_method === "house_account" ? "Pay on account" : order.payment_method === "cash" ? "Cash" : order.payment_method === "card" ? "Card" : "Payment";
+  const paymentLabel = (order: any) => order.payment_method === "house_account" ? "Pay on account" : order.payment_method === "cash" ? "Cash" : order.payment_method === "card" ? "Card" : "";
+  const orderMeta = (order: any) => [paymentLabel(order), order.paymentStatus, order.fulfillment?.type === 'pickup' ? 'Pickup' : order.fulfillment?.type === 'delivery' ? 'Delivery' : ''].filter(Boolean).join(' · ');
   return (
     <>
       <div className="commerce-heading">
         <p>Order history</p>
         <h1>Your orders</h1>
       </div>
+      {reorderMessage && <p className="account-message" role="status">{reorderMessage}</p>}
       {orders.length ? (
         <div className="customer-orders">
           {orders.map((order) => (
@@ -364,25 +401,27 @@ function Orders({ orders }: { orders: any[] }) {
               <header>
                 <div>
                   <span>{day(order.ordered_at)}</span>
-                  <strong>Order #{order.square_order_id.slice(-8)}</strong>
+                  <strong>{order.simulated ? "Local test order" : "Order"} #{String(order.square_order_id || order.id || '').slice(-8)}</strong>
                 </div>
                 <em>{statusLabel(order)}</em>
               </header>
               <div>
-                {(order.line_items || []).map((line: any) => (
-                  <p key={line.uid || line.name}>
+                {(order.line_items || []).map((line: any) => {
+                  const imageProduct = imageProductFor(line.name);
+                  return <p key={line.uid || line.name}>
                     <span>
+                      {imageProduct && <img className="order-line-image" src={imageProduct.img} alt="" onError={(event) => fallbackProductImage(event, imageProduct.id)} />}
                       {line.name} × {line.quantity}
                     </span>
                     <b>{cash(line.total_money?.amount, order.currency)}</b>
-                  </p>
-                ))}
+                  </p>;
+                })}
               </div>
               {order.breakdown && <dl className="order-breakdown">
-                <div><dt>Merchandise</dt><dd>{cash(order.breakdown.merchandise, order.currency)}</dd></div>
+                <div><dt>Subtotal</dt><dd>{cash(order.breakdown.merchandise, order.currency)}</dd></div>
                 {order.breakdown.discount > 0 && <div><dt>Discount</dt><dd>-{cash(order.breakdown.discount, order.currency)}</dd></div>}
                 {order.fulfillment?.type === "delivery" && <div><dt>Delivery fee</dt><dd>{cash(order.breakdown.deliveryFee, order.currency)}</dd></div>}
-                <div><dt>HST</dt><dd>{cash(order.breakdown.tax, order.currency)}</dd></div>
+                <div><dt>{order.taxes?.length === 1 && order.taxes[0].percentage ? `${order.taxes[0].name || 'Tax'} (${order.taxes[0].percentage}%)` : 'Tax'}</dt><dd>{cash(order.breakdown.tax, order.currency)}</dd></div>
                 {order.breakdown.tip > 0 && <div><dt>Tip</dt><dd>{cash(order.breakdown.tip, order.currency)}</dd></div>}
                 <div><dt>Total</dt><dd>{cash(order.breakdown.total, order.currency)}</dd></div>
               </dl>}
@@ -391,11 +430,13 @@ function Orders({ orders }: { orders: any[] }) {
               {order.liveStatusAvailable === false && <p className="order-schedule">Live updates temporarily unavailable.</p>}
               <footer>
                 <span>
-                  {paymentLabel(order)} · {order.paymentStatus}{order.fulfillment?.type ? ` · ${order.fulfillment.type}` : ""}
+                  {orderMeta(order) || 'Order received'}
                 </span>
                 <strong>{cash(order.total, order.currency)}</strong>
               </footer>
-              {order.delivery && <p className="delivery-test-status"><Truck/> Uber Direct {order.delivery.environment === "sandbox" ? "test" : "delivery"}: {String(order.delivery.status).replace(/_/g," ")}{order.delivery.trackingUrl&&<a href={order.delivery.trackingUrl} target="_blank" rel="noreferrer">Track test delivery</a>}</p>}
+              {order.receiptUrl && /^https:\/\/([^/]+\.)?squareup\.com\//i.test(order.receiptUrl) && <a className="order-receipt" href={order.receiptUrl} target="_blank" rel="noopener noreferrer"><Download size={17} /> Open Square receipt</a>}
+              {order.delivery && <p className="delivery-test-status"><Truck/> {order.delivery.provider === "uber_direct" ? `Uber Direct${order.delivery.environment === "sandbox" ? " test" : ""}` : order.delivery.provider === "own_driver" ? (order.delivery.assignedDriverName || "Amazing Donuts driver") : "Awaiting driver assignment"}: {String(order.delivery.statusLabel || order.delivery.status || 'Awaiting dispatch').replace(/_/g," ")}{order.delivery.trackingUrl&&<a href={order.delivery.trackingUrl} target="_blank" rel="noreferrer">Track delivery</a>}</p>}
+              <button type="button" className="account-edit-action order-again" onClick={() => orderAgain(order)}>Order again</button>
             </article>
           ))}
         </div>
@@ -404,7 +445,6 @@ function Orders({ orders }: { orders: any[] }) {
           <ReceiptText />
           <h2>No orders yet</h2>
           <p>Your completed website orders will appear here.</p>
-          <a href="/shop/">Start an order</a>
         </div>
       )}
     </>
@@ -422,22 +462,35 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
   const [isDefault,setIsDefault]=useState(true);
   const [placesEnabled,setPlacesEnabled]=useState(false);
   const [message,setMessage]=useState("");
+  const [editing,setEditing]=useState(false);
   const [deleteOpen,setDeleteOpen]=useState(false),[deleteConfirmation,setDeleteConfirmation]=useState(""),[deleteError,setDeleteError]=useState(""),[deleting,setDeleting]=useState(false);
   const loadAddresses=()=>api('/storefront/addresses').then(body=>setAddresses(body.addresses||[]));
   useEffect(()=>{void loadAddresses();void api('/storefront/config').then(body=>setPlacesEnabled(Boolean(body.placesEnabled)))},[]);
   const selectAddress=(item:SavedAddress)=>{setSelectedId(item.id);setAddress({addressLine1:item.addressLine1,addressLine2:item.addressLine2,locality:item.locality,administrativeDistrictLevel1:item.administrativeDistrictLevel1,postalCode:item.postalCode,country:item.country});setLabel(item.label);setAddressType(item.addressType);setIsDefault(item.isDefault);setMessage("");};
   const resetAddress=()=>{setSelectedId(null);setAddress(blank);setLabel("Other");setAddressType('other');setIsDefault(addresses.length===0);setMessage("");};
+  const removeAddress=async(item:SavedAddress)=>{if(!window.confirm(`Delete ${item.label} address?`))return;try{await api(`/storefront/addresses/${item.id}`,{method:'DELETE'});if(selectedId===item.id)resetAddress();await loadAddresses();setMessage(`${item.label} address deleted.`);}catch(cause){setMessage(cause instanceof Error?cause.message:'Address could not be deleted.');}};
   return (
     <>
       <div className="commerce-heading">
         <p>Account details</p>
         <h1>Your profile</h1>
+        {!editing && <button type="button" className="account-edit-action" onClick={() => {setEditing(true);if(addresses.length&&!selectedId)selectAddress(addresses[0]);}}>Edit profile</button>}
       </div>
-      {addresses.length>0&&<div className="saved-addresses" aria-label="Saved addresses">{addresses.map(item=><button type="button" className={selectedId===item.id?'active':''} key={item.id} onClick={()=>selectAddress(item)}><strong>{item.label}</strong><span>{item.addressLine1}{item.addressLine2?`, ${item.addressLine2}`:''}</span><small>{item.locality} {item.postalCode}{item.isDefault?' · Default':''}</small></button>)}<button type="button" className="saved-addresses__add" onClick={resetAddress}>+ Add another</button></div>}
-      <form
+      {!editing && <div className="profile-summary"><strong>{[profile.first_name || session.user?.firstName, profile.last_name || session.user?.lastName].filter(Boolean).join(" ") || "Account details"}</strong><span>{profile.email || session.user?.email}</span><span>{formatNorthAmericanPhone(profile.default_phone || profile.phone || "")}</span></div>}
+      <div className="saved-addresses" aria-label="Saved addresses">{addresses.map(item=><div className={`saved-addresses__card${selectedId===item.id&&editing?' active':''}`} key={item.id}><div><strong>{item.label}{item.isDefault?' · Default':''}</strong><span>{item.addressLine1}{item.addressLine2?`, ${item.addressLine2}`:''}</span><small>{item.locality} {item.postalCode}</small></div><div className="saved-addresses__actions"><button type="button" aria-label={`Edit ${item.label}`} onClick={()=>{selectAddress(item);setEditing(true);}}><Pencil size={17}/></button><button type="button" aria-label={`Delete ${item.label}`} onClick={()=>void removeAddress(item)}><Trash2 size={17}/></button></div></div>)}<button type="button" className="saved-addresses__add" onClick={()=>{resetAddress();setEditing(true);}}>+ Add address</button></div>
+      {!editing && message && <p className="profile-message" role="status">{message}</p>}
+      {editing && <form
         className="profile-form"
         onSubmit={async (event) => {
           event.preventDefault();
+          const normalized = (value: unknown) => String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+          if (address.addressLine1 && addresses.some((item) => item.id !== selectedId &&
+            normalized(item.addressLine1) === normalized(address.addressLine1) &&
+            normalized(item.addressLine2) === normalized(address.addressLine2) &&
+            normalized(item.postalCode).replace(/\s/g, "") === normalized(address.postalCode).replace(/\s/g, ""))) {
+            setMessage("This address is already saved. Select it from your addresses instead.");
+            return;
+          }
           const data = Object.fromEntries(new FormData(event.currentTarget));
           await api("/storefront/profile", {
             method: "PATCH",
@@ -451,9 +504,10 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
             }),
           });
           if(address.addressLine1&&address.postalCode){await api(selectedId?`/storefront/addresses/${selectedId}`:'/storefront/addresses',{method:selectedId?'PATCH':'POST',body:JSON.stringify({...address,label,addressType,isDefault})});await loadAddresses();}
-          setMessage("Profile and address saved.");onSaved();
+          setMessage("Profile and address saved.");setEditing(false);onSaved();
         }}
       >
+        <fieldset disabled={!editing} className="account-edit-fields">
         <label>
           <span>First name</span>
           <input name="firstName" defaultValue={profile.first_name} required />
@@ -489,10 +543,12 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
         <label><span>Address label</span><input value={label} onChange={event=>setLabel(event.target.value)} placeholder="Home, Work, Studio..." required={Boolean(address.addressLine1)}/></label>
         <label><span>Address type</span><select value={addressType} onChange={event=>setAddressType(event.target.value as typeof addressType)}><option value="home">Home</option><option value="work">Work</option><option value="other">Other</option></select></label>
         <label className="profile-default"><input type="checkbox" checked={isDefault} onChange={event=>setIsDefault(event.target.checked)}/><span>Use as my default address</span></label>
-        {selectedId&&<button className="profile-delete" type="button" onClick={async()=>{await api(`/storefront/addresses/${selectedId}`,{method:'DELETE'});resetAddress();await loadAddresses();}}>Delete address</button>}
+        {selectedId&&<button className="profile-delete" type="button" onClick={()=>{const item=addresses.find(saved=>saved.id===selectedId);if(item)void removeAddress(item);}}>Delete address</button>}
         {message&&<p className="profile-message" role="status">{message}</p>}
-        <button>Save profile</button>
-      </form>
+        <BrandButton type="submit">Save profile</BrandButton>
+        <button type="button" className="account-edit-cancel" onClick={() => setEditing(false)}>Cancel</button>
+        </fieldset>
+      </form>}
       <section className="delete-account">
         <div><p>Account access</p><h3>Delete account</h3><span>Permanently remove your login, Square customer profile, saved addresses, and wishlist. Completed transaction records are retained in anonymized form.</span></div>
         {!deleteOpen?<button type="button" onClick={()=>setDeleteOpen(true)}>Delete account</button>:<div className="delete-account__confirm"><label><span>Type DELETE to confirm</span><input value={deleteConfirmation} onChange={event=>setDeleteConfirmation(event.target.value)} autoComplete="off"/></label>{deleteError&&<p role="alert">{deleteError}</p>}<div><button type="button" onClick={()=>{setDeleteOpen(false);setDeleteConfirmation("");setDeleteError("");}}>Cancel</button><button type="button" disabled={deleteConfirmation!=="DELETE"||deleting} onClick={async()=>{setDeleting(true);setDeleteError("");try{await api('/storefront/account',{method:'DELETE',body:JSON.stringify({confirmation:deleteConfirmation})});location.assign('/shop/');}catch(cause){setDeleteError(cause instanceof Error?cause.message:'Account could not be deleted.');setDeleting(false);}}}>{deleting?'Deleting...':'Permanently delete'}</button></div></div>}
@@ -519,6 +575,12 @@ function HouseAccount({ session, account, application, statementToken, onStateme
       return priority[left.status]-priority[right.status]||new Date(left.due_at||left.period_end).getTime()-new Date(right.due_at||right.period_end).getTime();
     })[0];
   const featuredStatement=(linkedStatement&&actionableStatuses.includes(linkedStatement.status)?linkedStatement:null)||outstandingStatement||linkedStatement;
+  const latestStatement=account?.statements?.[0];
+  const currentStatement=account?.currentStatement;
+  const cardSummary=<div className="house-card-summary">
+    <p title={session.houseAccount?.card ? `${session.houseAccount.card.brand || "Card"} ending in ${session.houseAccount.card.last4} is on file.` : undefined}><CreditCard /> {session.houseAccount?.card ? `${session.houseAccount.card.brand || "Card"} •••• ${session.houseAccount.card.last4}` : "No card on file"}</p>
+    {session.houseAccount?.role === "account_admin" && session.houseAccount.card && !replacingCard ? <button type="button" onClick={() => setReplacingCard(true)}><RefreshCw /> Change card</button> : null}
+  </div>;
   if (session.houseAccount)
     return (
       <>
@@ -527,25 +589,19 @@ function HouseAccount({ session, account, application, statementToken, onStateme
           <h1>Your institutional account</h1>
         </div>
         <div className="house-application-status">
-          <Building2 />
-          <h2>{session.houseAccount.organizationName}</h2>
+          <div className="house-application-status__title"><Building2 /><h2>{session.houseAccount.organizationName}</h2></div>
           <p>
             Your account is {session.houseAccount.status}. You currently have <strong>{cash(session.houseAccount.credit.available)}</strong> available.
           </p>
-          {session.houseAccount.card ? (
-            <div className="house-card-summary">
-              <p>
-                <CreditCard /> {session.houseAccount.card.brand || "Card"} ending in {session.houseAccount.card.last4} is on file.
-              </p>
-              {session.houseAccount.role === "account_admin" && !replacingCard ? <button type="button" onClick={() => setReplacingCard(true)}><RefreshCw /> Change card</button> : null}
-            </div>
-          ) : (
-            <p>A card on file is required before credit purchases are enabled.</p>
-          )}
+          <div className="house-account-facts">
+            <p><span>Next statement</span><strong>{currentStatement?.next_statement_date ? day(currentStatement.next_statement_date) : "Scheduled by bakery"}</strong></p>
+            <p><span>Last statement</span><strong>{latestStatement ? cash(latestStatement.closing_balance,latestStatement.currency) : "None issued yet"}</strong></p>
+            <p><span>Payment status</span><strong>{latestStatement ? String(latestStatement.status).replace(/_/g," ") : "No payment due"}</strong></p>
+          </div>
         </div>
         {featuredStatement?<StatementPaymentPanel statement={{...featuredStatement,orders:(account?.orders||[]).filter((order:any)=>order.payment_method==="house_account"&&Number(order.balance_due)>0)}} session={session} onPaid={onStatementPaid}/>:null}
         {statementToken&&account&&!linkedStatement?<div className="statement-link-error" role="alert"><ReceiptText/><div><strong>We could not match this payment link</strong><span>The invoice may belong to another institutional account or the link may no longer be valid.</span></div></div>:null}
-        {session.houseAccount.role === "account_admin" && account ? <OrganizationSettings account={account} /> : null}
+        {session.houseAccount.role === "account_admin" && account ? <OrganizationSettings account={account} cardSummary={cardSummary} /> : cardSummary}
         {session.houseAccount.role === "account_admin" && (!session.houseAccount.card || replacingCard) ? <SaveHouseCard session={session} replacing={Boolean(session.houseAccount.card)} onCancel={session.houseAccount.card ? () => {
           const url = new URL(location.href);
           url.searchParams.delete("replace-card");
@@ -559,25 +615,8 @@ function HouseAccount({ session, account, application, statementToken, onStateme
           onStatementPaid();
         }} /> : null}
         <CustomerMemberManager session={session} account={account} onChanged={onStatementPaid} />
-        {account?.orders?.some((order:any)=>order.payment_method==="house_account"&&Number(order.balance_due)>0)?<div className="customer-orders"><h2>Outstanding credit orders</h2><div className="account-table-scroll"><table className="account-data-table outstanding-order-table"><thead><tr><th>Date</th><th>Order</th><th>Channel</th><th className="money-column">Balance</th><th className="action-column">Payment</th></tr></thead><tbody>{account.orders.filter((order:any)=>order.payment_method==="house_account"&&Number(order.balance_due)>0).map((order:any)=><tr key={order.id}><td>{day(order.ordered_at)}</td><td><strong>{order.receipt_number||String(order.square_order_id).slice(-8)}</strong></td><td>{order.source==="pos"?"In store":"Online"}</td><td className="money-column">{cash(order.balance_due,order.currency)}</td><td className="action-column"><PayOrder order={order} session={session} onPaid={onStatementPaid}/></td></tr>)}</tbody></table></div></div>:null}
-        {account?.ledger?.length ? (
-          <div className="customer-orders">
-            <h2>Credit activity</h2>
-            <div className="account-table-scroll"><table className="account-data-table activity-data-table"><thead><tr><th>Date</th><th>Order details</th><th className="money-column">Amount</th></tr></thead><tbody>{account.ledger.map((entry: any) => <tr key={entry.id}><td>{day(entry.effective_at)}</td><td><strong>{entry.description}</strong></td><td className="money-column">{cash(entry.amount, entry.currency)}</td></tr>)}</tbody></table></div>
-          </div>
-        ) : null}
-        {account?.statements?.length ? (
-          <div className="customer-orders">
-            <h2>Statements</h2>
-            <div className="account-table-scroll"><table className="account-data-table statement-data-table"><thead><tr><th>Period</th><th>Statement</th><th>Status</th><th className="money-column">Balance</th><th className="action-column">Download</th><th className="action-column">Payment</th></tr></thead><tbody>{account.statements.map((statement: any) => {const payable={...statement,orders:statementOrders(account.orders,statement)};return <tr key={statement.id}><td>{day(statement.period_end)}</td><td><strong>{statement.statement_number}</strong></td><td><span className={`statement-status statement-status--${statement.status}`}>{statement.status}</span></td><td className="money-column">{cash(statement.balance_due??statement.closing_balance, statement.currency)}</td><td className="action-column"><a className="table-icon-action" href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer" aria-label={`Download ${statement.statement_number}`} title="Download PDF"><Download/></a></td><td className="action-column">{!["paid", "void"].includes(statement.status)&&statement.id!==featuredStatement?.id ? <PayStatement statement={payable} session={session} /> : <span className="table-action-empty">—</span>}</td></tr>})}</tbody></table></div>
-          </div>
-        ) : (
-          <div className="no-orders">
-            <ReceiptText />
-            <h2>No statements yet</h2>
-            <p>Statements issued by the bakery will appear here.</p>
-          </div>
-        )}
+        <InstitutionalActivity account={account} />
+        <InstitutionalStatements account={account} session={session} featuredStatement={featuredStatement} />
       </>
     );
   if (application)
@@ -706,9 +745,48 @@ function HouseAccount({ session, account, application, statementToken, onStateme
   );
 }
 
-function OrganizationSettings({account}:{account:any}){
-  const [message,setMessage]=useState(""),address=account.metadata?.address||{};
-  return <section className="organization-settings"><div className="section-heading"><p>Organization profile</p><h2>Account details</h2><span>Keep invoice, contact, and authorization details current.</span></div><form className="house-application-form" onSubmit={async event=>{event.preventDefault();setMessage("");const data=new FormData(event.currentTarget);try{await api("/storefront/house-settings",{method:"PATCH",body:JSON.stringify({organizationName:data.get("organizationName"),organizationType:data.get("organizationType"),billingContact:data.get("billingContact"),billingEmail:data.get("billingEmail"),phone:data.get("phone"),organizationPin:data.get("organizationPin"),address:{addressLine1:data.get("addressLine1"),addressLine2:data.get("addressLine2"),locality:data.get("locality"),administrativeDistrictLevel1:data.get("province"),postalCode:data.get("postalCode"),country:"CA"}})});setMessage("Organization details updated.");}catch(cause){setMessage(cause instanceof Error?cause.message:"Details could not be updated.");}}}>
+function InstitutionalActivity({account}:{account:any}){
+  const orders=(account?.orders||[]).filter((order:any)=>order.payment_method==="house_account");
+  const orderFor=(entry:any)=>orders.find((order:any)=>[order.id,order.square_order_id,order.receipt_number]
+    .filter(Boolean).some(reference=>String(entry.source_id||entry.description||"").includes(String(reference))));
+  const matched=new Set((account?.ledger||[]).map(orderFor).filter(Boolean).map((order:any)=>order.id));
+  const rows=[
+    ...(account?.ledger||[]).map((entry:any)=>({key:entry.id,date:entry.effective_at,description:entry.description,amount:Number(entry.amount),currency:entry.currency,order:orderFor(entry)})),
+    ...orders.filter((order:any)=>!matched.has(order.id)).map((order:any)=>({key:order.id,date:order.ordered_at,description:`Order ${order.receipt_number||String(order.square_order_id||order.id).slice(-8)}`,amount:Number(order.total),currency:order.currency,order})),
+  ].sort((left:any,right:any)=>new Date(right.date).getTime()-new Date(left.date).getTime());
+  return <div className="customer-orders institutional-activity">
+    <h2>Account activity</h2>
+    <p>Purchases, payments, and adjustments on your institutional account.</p>
+    {rows.length?<div className="account-table-scroll"><table className="account-data-table activity-data-table"><thead><tr><th>Date</th><th>Activity</th><th>Status</th><th className="money-column">Amount</th></tr></thead><tbody>{rows.map((row:any)=><tr key={row.key}><td>{day(row.date)}</td><td><strong>{row.description}</strong></td><td>{row.order?Number(row.order.balance_due)>0?"Unpaid":"Paid":row.amount<0?"Credit":"Charge"}</td><td className="money-column">{cash(row.amount,row.currency)}</td></tr>)}</tbody></table></div>:<p>No account activity yet.</p>}
+  </div>;
+}
+
+function InstitutionalStatements({account,session,featuredStatement}:{account:any;session:any;featuredStatement:any}){
+  const current=account?.currentStatement;
+  const statements=account?.statements||[];
+  const records=[...(current?[{...current,id:"current",status:"draft"}]:[]),...statements];
+  return <div className="customer-orders institutional-statements">
+    <h2>Statements</h2>
+    <p>The current statement updates as account activity changes. Payment becomes due only after it is issued.</p>
+    <div className="statement-records">{records.map((statement:any)=>{
+      const draft=statement.status==="draft";
+      const settled=["paid","void"].includes(statement.status);
+      const featured=statement.id===featuredStatement?.id;
+      const payable=draft?null:{...statement,orders:statementOrders(account.orders,statement)};
+      const pdfUrl=draft?"/api/house/storefront/current-statement.pdf":`/api/house/statements/${statement.id}.pdf`;
+      return <section className="statement-record" key={statement.id} aria-label={statement.statement_number}>
+        <div className="statement-record__heading"><div><h3>{statement.statement_number}</h3>{draft?<p>Updates as activity posts</p>:null}</div><span className={`statement-status statement-status--${statement.status}`}>{draft?"Live preview":String(statement.status).replace(/_/g," ")}</span></div>
+        <dl className="statement-record__facts"><div><dt>Period</dt><dd>{day(statement.period_start)} – {day(statement.period_end)}</dd></div><div><dt>{draft?"Current balance":"Balance due"}</dt><dd>{cash(statement.balance_due??statement.closing_balance,statement.currency)}</dd></div><div><dt>Payment</dt><dd>{draft?"Not yet due":settled?statement.status==="paid"?"Paid":"Void":featured?"Options above":"Available"}</dd></div></dl>
+        <div className="statement-record__actions"><a href={pdfUrl} target="_blank" rel="noreferrer"><Download size={18}/> Download PDF</a>{!draft&&!settled&&!featured&&payable?<PayStatement statement={payable} session={session}/>:null}</div>
+      </section>;
+    })}</div>
+  </div>;
+}
+
+function OrganizationSettings({account,cardSummary}:{account:any;cardSummary:ReactNode}){
+  const [message,setMessage]=useState(""),[editing,setEditing]=useState(false),address=account.metadata?.address||{};
+  return <section className="organization-settings"><div className="section-heading"><p>Organization profile</p><h2>Account details</h2></div>{!editing?<div className="organization-profile-card"><strong>{account.organization_name}</strong><span>{account.billing_contact} · {account.billing_email}</span><span>{[address.addressLine1,address.addressLine2,address.locality,address.postalCode].filter(Boolean).join(', ') || 'No organization address saved'}</span><div className="organization-profile-card__actions"><div><button type="button" className="account-edit-action" onClick={()=>setEditing(true)}><Pencil size={17}/> Edit account details</button></div>{cardSummary}</div></div>:<form className="house-application-form" onSubmit={async event=>{event.preventDefault();setMessage("");const data=new FormData(event.currentTarget);try{await api("/storefront/house-settings",{method:"PATCH",body:JSON.stringify({organizationName:data.get("organizationName"),organizationType:data.get("organizationType"),billingContact:data.get("billingContact"),billingEmail:data.get("billingEmail"),phone:data.get("phone"),organizationPin:data.get("organizationPin"),address:{addressLine1:data.get("addressLine1"),addressLine2:data.get("addressLine2"),locality:data.get("locality"),administrativeDistrictLevel1:data.get("province"),postalCode:data.get("postalCode"),country:"CA"}})});setMessage("Organization details updated.");setEditing(false);}catch(cause){setMessage(cause instanceof Error?cause.message:"Details could not be updated.");}}}>
+    <fieldset disabled={!editing} className="account-edit-fields">
     <label><span>Organization name</span><input name="organizationName" defaultValue={account.organization_name} required/></label>
     <label><span>Organization type</span><select name="organizationType" defaultValue={account.metadata?.organizationType||"Other business"}>{Object.keys(organizationRoles).map(type=><option key={type}>{type}</option>)}</select></label>
     <label><span>Billing contact</span><input name="billingContact" defaultValue={account.billing_contact} required/></label>
@@ -720,14 +798,16 @@ function OrganizationSettings({account}:{account:any}){
     <label><span>City</span><input name="locality" defaultValue={address.locality||"Toronto"} autoComplete="address-level2"/></label>
     <label><span>Province</span><input name="province" defaultValue={address.administrativeDistrictLevel1||"ON"} autoComplete="address-level1"/></label>
     <label><span>Postal code</span><input name="postalCode" defaultValue={address.postalCode||""} autoComplete="postal-code"/></label>
-    {message?<p className="profile-message wide" role="status">{message}</p>:null}<button className="wide">Save account details</button>
-  </form></section>;
+    {message?<p className="profile-message wide" role="status">{message}</p>:null}<BrandButton type="submit" block className="wide">Save account details</BrandButton><BrandButton type="button" variant="outline" block className="account-edit-cancel wide" onClick={()=>setEditing(false)}>Cancel</BrandButton>
+    </fieldset>
+  </form>}{!editing&&message?<p className="profile-message" role="status">{message}</p>:null}</section>;
 }
 
 function CustomerMemberManager({ session, account, onChanged }: { session: any; account: any; onChanged:()=>void }) {
   const initialType = organizationRoles[session.houseAccount.organizationType] ? session.houseAccount.organizationType : "Other business";
-  const [organizationType, setOrganizationType] = useState(initialType);
+  const organizationType = initialType;
   const [message, setMessage] = useState("");
+  const [addOpen,setAddOpen]=useState(false);
   const [editingId,setEditingId]=useState<string|null>(null);
   const [increaseOpen,setIncreaseOpen]=useState(false);
   const availableCredit=Number(account?.credit?.available||0);
@@ -737,8 +817,9 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
       <Building2 />
       <h2>Organization members</h2>
       <p>{canManage?"Add people who already have an Amazing Donuts website account. ":"Everyone authorized to use this institutional account is listed below. "}Every member draws from the same {cash(availableCredit)} currently available to the organization.</p>
-      {canManage?<form
-        className="house-application-form"
+      {canManage&&!addOpen?<button type="button" className="account-edit-action" onClick={()=>setAddOpen(true)}>Add member</button>:null}
+      {canManage&&addOpen?<form
+        className="house-application-form member-add-form"
         onSubmit={async (event) => {
           event.preventDefault();
           setMessage("");
@@ -746,6 +827,7 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
           try {
             await api("/storefront/house-members", { method: "POST", body: JSON.stringify({ email: data.get("email"), organizationType, organizationRole: data.get("organizationRole"), role: data.get("role"), purchaseLimit: data.get("purchaseLimit") ? Math.round(Number(data.get("purchaseLimit")) * 100) : null, pin:data.get("pin") }) });
             setMessage("Member added.");
+            setAddOpen(false);
             event.currentTarget.reset();
             onChanged();
           } catch (cause) {
@@ -754,22 +836,14 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
         }}
       >
         <label>
-          <span>1. Organization type</span>
-          <select value={organizationType} onChange={(event) => setOrganizationType(event.target.value)}>
-            {Object.keys(organizationRoles).map((type) => (
-              <option key={type}>{type}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>2. Member role</span>
-          <select name="organizationRole">
+          <span>Member role</span>
+          <div className="member-edit-select"><select name="organizationRole">
             {organizationRoles[organizationType].map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
-          </select>
+          </select><ChevronDown aria-hidden="true" size={18}/></div>
         </label>
         <label>
           <span>Member email</span>
@@ -777,11 +851,11 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
         </label>
         <label>
           <span>Permissions</span>
-          <select name="role">
+          <div className="member-edit-select"><select name="role">
             <option value="purchaser">Can purchase</option>
-            <option value="account_admin">Account administrator</option>
+            <option value="account_admin">Account admin</option>
             <option value="viewer">View only</option>
-          </select>
+          </select><ChevronDown aria-hidden="true" size={18}/></div>
         </label>
         <label>
           <span>Purchase limit</span>
@@ -792,7 +866,7 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
           <span>Personal authorization PIN</span>
           <PinField name="pin" required />
         </label>
-        <button>Add member</button>
+        <div className="member-add-actions wide"><BrandButton type="button" variant="outline" onClick={()=>setAddOpen(false)}>Cancel</BrandButton><BrandButton type="submit">Add member</BrandButton></div>
         {message ? <p className="wide">{message}</p> : null}
       </form>:null}
       {account?.purchasers?.length ? (
@@ -814,12 +888,12 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
                 </div>
               </header>
               {canManage&&editingId===member.id?<form className="member-edit-form" onSubmit={async event=>{event.preventDefault();setMessage("");const data=new FormData(event.currentTarget);try{await api(`/storefront/house-members/${member.id}`,{method:"PATCH",body:JSON.stringify({organizationRole:data.get("organizationRole"),role:data.get("role"),purchaseLimit:data.get("purchaseLimit")?Math.round(Number(data.get("purchaseLimit"))*100):null,status:data.get("status"),pin:data.get("pin")})});setEditingId(null);setMessage("Member updated.");onChanged();}catch(cause){setMessage(cause instanceof Error?cause.message:"Member could not be updated.");}}}>
-                <label><span>Member role</span><select name="organizationRole" defaultValue={member.organization_role}>{organizationRoles[organizationType].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
-                <label><span>Permissions</span><select name="role" defaultValue={member.role}><option value="purchaser">Can purchase</option><option value="account_admin">Account administrator</option><option value="viewer">View only</option></select></label>
+                <label><span>Member role</span><div className="member-edit-select"><select name="organizationRole" defaultValue={member.organization_role}>{organizationRoles[organizationType].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><ChevronDown aria-hidden="true" size={18}/></div></label>
+                <label><span>Permissions</span><div className="member-edit-select"><select name="role" defaultValue={member.role}><option value="purchaser">Can purchase</option><option value="account_admin">Account admin</option><option value="viewer">View only</option></select><ChevronDown aria-hidden="true" size={18}/></div></label>
                 <label><span>Purchase limit</span><MoneyField name="purchaseLimit" min="0" max={(availableCredit/100).toFixed(2)} step="1" defaultValue={member.purchase_limit==null?"":Number(member.purchase_limit)/100}/><small>Maximum {cash(availableCredit)} currently available account-wide.</small></label>
                 <label><span>Reset PIN <small>Optional</small></span><PinField name="pin" placeholder="Leave unchanged"/></label>
-                <label><span>Status</span><select name="status" defaultValue={member.status}><option value="active">Active</option><option value="disabled">Disabled</option></select></label>
-                <div className="member-edit-actions"><button type="button" onClick={()=>setEditingId(null)}>Cancel</button><button>Save member</button></div>
+                <label><span>Status</span><div className="member-edit-select"><select name="status" defaultValue={member.status}><option value="active">Active</option><option value="disabled">Disabled</option></select><ChevronDown aria-hidden="true" size={18}/></div></label>
+                <div className="member-edit-actions"><BrandButton type="button" variant="outline" onClick={()=>setEditingId(null)}>Cancel</BrandButton><BrandButton type="submit">Save member</BrandButton></div>
               </form>:<footer><span>{member.role==="account_admin"?"Account administrator":member.role==="viewer"?"View only":"Can purchase"}{member.purchase_limit!=null?` · ${cash(member.purchase_limit)} personal cap`:" · Up to account availability"}</span>{canManage?<button type="button" onClick={()=>setEditingId(member.id)}>Edit member</button>:null}</footer>}
             </article>;
           })}
@@ -929,7 +1003,7 @@ function StatementPaymentPanel({statement,session,onPaid}:{statement:any;session
   return <section className="statement-payment-panel" aria-labelledby="statement-payment-title"><header><div><span>{settled?'Invoice receipt':'Invoice payment'}</span><h2 id="statement-payment-title">{settled?'Invoice':'Pay'} {statement.statement_number}</h2><p>{statement.organization_name||'Institutional account'} · {statusDetail}</p></div><strong>{cash(statement.balance_due??statement.closing_balance,statement.currency)}</strong></header><div className="statement-payment-summary"><div><span>Statement period</span><b>{day(statement.period_start)} – {day(statement.period_end)}</b></div><div><span>Status</span><b>{statusDetail}</b></div><a href={`/api/house/statements/${statement.id}.pdf`} target="_blank" rel="noreferrer"><ReceiptText/> Download invoice</a></div>{settled?<div className="statement-payment-success"><CreditCard/><div><strong>{statement.status==='paid'?'Payment received':'No payment required'}</strong><span>{statement.status==='paid'?'This invoice has been paid.':'This invoice has been voided.'}</span></div></div>:<PayStatement statement={statement} session={session} expanded onPaid={onPaid}/>}</section>;
 }
 
-function PayOrder({order,session,onPaid}:{order:any;session:any;onPaid:()=>void}){
+export function PayOrder({order,session,onPaid}:{order:any;session:any;onPaid:()=>void}){
   const card=useRef<SquareCard|undefined>(undefined),savedCard=session.houseAccount?.card;
   const [open,setOpen]=useState(false),[useAnotherCard,setUseAnotherCard]=useState(!savedCard),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(""),[amount,setAmount]=useState((Number(order.balance_due)/100).toFixed(2));
   useEffect(()=>{if(!open)return;const close=(event:KeyboardEvent)=>{if(event.key==="Escape")setOpen(false)};document.addEventListener("keydown",close);return()=>document.removeEventListener("keydown",close)},[open]);
@@ -947,7 +1021,6 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
     [ready,setReady]=useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [orderId,setOrderId]=useState(""),
     [amount,setAmount]=useState(((Number(statement.balance_due??statement.closing_balance))/100).toFixed(2)),
     [paid, setPaid] = useState(false);
   useEffect(()=>{
@@ -991,13 +1064,12 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
         <CreditCard /> Pay now
       </button>
     );
-  const payableOrders=(statement.orders||[]).filter((order:any)=>Number(order.balance_due)>0),selectedOrder=payableOrders.find((order:any)=>order.id===orderId),maximum=Number(selectedOrder?.balance_due??statement.balance_due??statement.closing_balance),amountCents=Math.round(Number(amount)*100);
+  const maximum=Number(statement.balance_due??statement.closing_balance),amountCents=Math.round(Number(amount)*100);
   const finishPayment=async(sourceId:string)=>{
     setBusy(true);setError("");
     try{
       if(!Number.isFinite(amountCents)||amountCents<1||amountCents>maximum)throw new Error(`Enter an amount between $0.01 and ${cash(maximum,statement.currency)}.`);
-      const path=orderId?`/storefront/orders/${orderId}/pay`:`/storefront/statements/${statement.id}/pay`;
-      await api(path,{method:"POST",body:JSON.stringify({sourceId,idempotencyKey:crypto.randomUUID(),amount:amountCents})});
+      await api(`/storefront/statements/${statement.id}/pay`,{method:"POST",body:JSON.stringify({sourceId,idempotencyKey:crypto.randomUUID(),amount:amountCents})});
       setPaid(true);onPaid?.();
     }catch(cause){setError(cause instanceof Error?cause.message:"Payment failed.");}
     finally{setBusy(false);}
@@ -1005,7 +1077,6 @@ function PayStatement({ statement, session, expanded = false, onPaid }: { statem
   const paymentForm=(
     <div className="statement-payment">
       <div className="statement-payment-options">
-        <label><span>Apply payment to</span><select value={orderId} onChange={event=>{const value=event.target.value;setOrderId(value);const order=payableOrders.find((item:any)=>item.id===value);setAmount((Number(order?.balance_due??statement.balance_due??statement.closing_balance)/100).toFixed(2));}}><option value="">Entire statement balance</option>{payableOrders.map((order:any)=><option key={order.id} value={order.id}>Order {order.receipt_number||order.square_order_id} · {day(order.ordered_at)} · {cash(order.balance_due,order.currency)}</option>)}</select></label>
         <label><span>Payment amount</span><div className="statement-payment-amount"><b>$</b><input type="number" min="0.01" step="0.01" max={(maximum/100).toFixed(2)} value={amount} onChange={event=>setAmount(event.target.value)}/></div></label>
       </div>
       {savedCard&&!useAnotherCard?<>

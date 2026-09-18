@@ -4,7 +4,6 @@ import { ArrowLeft, ChevronRight, Dices, RefreshCw, Upload } from 'lucide-react'
 import { useShop } from '../lib/shop';
 import { LAB_PRODUCT_ID } from '../data/products';
 import { LAB_ELEMENT_PRICE } from '../lib/custom-order';
-import { pulseCart } from '../lib/fly-to-cart';
 import SprinkleLayer from './SprinkleLayer';
 import {
   BASES, ICINGS, FILLINGS, SPRINKLES, RULES,
@@ -16,6 +15,7 @@ import {
 } from './builder-data';
 import './stable-builder.css';
 import './claw-sequence.css';
+import { pulseCart } from '../lib/fly-to-cart';
 
 /* v2: the stored build is keyed by version so that changing the defaults
    actually changes what people see. Anyone carrying a v1 build would otherwise
@@ -29,7 +29,6 @@ import './claw-sequence.css';
 /* The lab's own catalogue line, and what one element adds to it. */
 
 /** The claw sequence's own length — see `claw-sequence.css`, which owns it. */
-const CART_OPEN_DELAY_MS = 650;
 
 /**
  * How many donuts sit on each row of the stack, bottom row last.
@@ -129,14 +128,15 @@ function hydrate(): State {
       baseId: base.id,
       icingId: takesIcing ? (saved.icingId === 'red-glaze' ? 'red' : (saved.icingId ?? INITIAL.icingId)) : 'none',
       fillingId: saved.fillingId ?? INITIAL.fillingId,
-      /* Sliced to one: a build saved before the lab went single-sprinkle may
-         hold several, and restoring all of them would put the builder straight
-         back into a state it no longer lets you reach. */
       sprinkleIds: takesIcing
-        ? [
-            (Array.isArray(saved.sprinkleIds) ? saved.sprinkleIds[0] : saved.sprinkleId) ??
-              INITIAL.sprinkleIds[0]
-          ]
+        ? (() => {
+            const ids: unknown[] = Array.isArray(saved.sprinkleIds) ? saved.sprinkleIds : [saved.sprinkleId];
+            const valid = [...new Set(ids)].filter((id): id is string =>
+              typeof id === 'string' &&
+              SPRINKLES.some((option) => option.id === id && !option.bare)
+            );
+            return valid.includes('rainbow') ? ['rainbow'] : valid.length ? valid : ['none'];
+          })()
         : ['none']
     };
   } catch {
@@ -182,18 +182,15 @@ function reducer(state: State, action: Action): State {
     case 'filling':
       return { ...state, fillingId: action.id, added: false, qty: 1 };
     case 'sprinkle': {
-      /* One sprinkle, not a set. It used to accumulate — every tap added
-         another topping and the preview stacked all of them — which is not
-         something the counter can make: a donut gets one finish. Tapping the
-         chosen one again clears it back to none, so the rail still has a way
-         out without a separate control.
-
-         `sprinkleIds` stays an array rather than becoming a single id: the
-         stored build from a previous visit may hold several, and the art layer
-         already reads a list. It simply never holds more than one now. */
-      const chosen = state.sprinkleIds[0];
-      const next = action.id === 'none' || action.id === chosen ? 'none' : action.id;
-      return { ...state, sprinkleIds: [next], added: false, qty: 1 };
+      if (action.id === 'none') return { ...state, sprinkleIds: ['none'], added: false, qty: 1 };
+      if (action.id === 'rainbow') {
+        return { ...state, sprinkleIds: state.sprinkleIds.includes('rainbow') ? ['none'] : ['rainbow'], added: false, qty: 1 };
+      }
+      const selected = state.sprinkleIds.filter((id) => id !== 'none' && id !== 'rainbow');
+      const next = selected.includes(action.id)
+        ? selected.filter((id) => id !== action.id)
+        : [...selected, action.id];
+      return { ...state, sprinkleIds: next.length ? next : ['none'], added: false, qty: 1 };
     }
     case 'print':
       return { ...state, print: action.print, added: false, qty: 1 };
@@ -413,10 +410,10 @@ type Tile = {
 
 export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: boolean }) {
   const [s, dispatch] = useReducer(reducer, undefined, hydrate);
-  const { add, openCart, products } = useShop();
+  const { add, products } = useShop();
+  const [bagError, setBagError] = useState('');
   const railRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const drawerTimerRef = useRef<number | null>(null);
   /* 0–1 while the file is being read, null when idle. Transient UI, so it is
      local state rather than part of the build the reducer owns. */
   const [readPct, setReadPct] = useState<number | null>(null);
@@ -430,14 +427,19 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
   const base = byId(BASES, s.baseId);
   const icing = byId(ICINGS, s.icingId);
   const filling = byId(FILLINGS, s.fillingId);
-  const selectedSprinkles = s.sprinkleIds.map((id) => byId(SPRINKLES, id));
-  const sprinkle: Sprinkle = selectedSprinkles.some((item) => item.bare)
-    ? byId(SPRINKLES, 'none')
-    : {
-        id: selectedSprinkles.map((item) => item.id).join('-'),
-        name: selectedSprinkles.map((item) => item.name).join(', '),
-        colors: selectedSprinkles.flatMap((item) => item.colors)
-      };
+  const sprinkle: Sprinkle = useMemo(() => {
+    const selected = s.sprinkleIds.map((id) => byId(SPRINKLES, id));
+    if (selected.some((item) => item.bare)) return byId(SPRINKLES, 'none');
+    const cycle = Math.max(...selected.map((item) => item.colors.length)) * selected.length;
+    return {
+      id: selected.map((item) => item.id).join('-'),
+      name: selected.map((item) => item.name).join(', '),
+      colors: Array.from({ length: cycle }, (_, i) => {
+        const option = selected[i % selected.length];
+        return option.colors[Math.floor(i / selected.length) % option.colors.length];
+      })
+    };
+  }, [s.sprinkleIds]);
 
   const shapeItems = useMemo(() => buildShapeItems(BASES), []);
   const activeItem = itemForBase(s.baseId);
@@ -447,6 +449,10 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
   // step, an ungrouped shape drops the size step — so the index is clamped
   // here rather than at every write.
   const i = Math.min(s.i, steps.length - 1);
+  const firstStagePlayed = useRef(false);
+  const [sprinklePulse, setSprinklePulse] = useState(0);
+  const animateStageSprinkles = !s.added && (sprinklePulse > 0 || (i === 0 && !firstStagePlayed.current));
+  useEffect(() => { if (i === 0) firstStagePlayed.current = true; }, [i]);
   const step: StepId = steps[i];
   const last = i === steps.length - 1;
 
@@ -475,10 +481,6 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
       /* Persistence is a nicety, never a requirement. */
     }
   }, [s.baseId, s.icingId, s.fillingId, s.sprinkleIds]);
-
-  useEffect(() => () => {
-    if (drawerTimerRef.current !== null) window.clearTimeout(drawerTimerRef.current);
-  }, []);
 
   useEffect(() => {
     if (!s.added) {
@@ -513,11 +515,13 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
   }, [i, steps.length]);
 
   const pick = (kind: 'base' | 'icing' | 'filling' | 'sprinkle', id: string) => {
+    setSprinklePulse(current => current + 1);
     dispatch({ type: kind, id });
     if (autoAdvance && kind !== 'sprinkle') dispatch({ type: 'goto', i: i + 1 });
   };
 
   const surprise = () => {
+    setSprinklePulse(current => current + 1);
     const pickOne = <T,>(list: T[]): T => list[Math.floor(Math.random() * list.length)];
     const b = pickOne(BASES);
     const icingId = RULES.takesIcing(b.id) ? pickOne(ICINGS.filter((x) => !x.bare)).id : 'none';
@@ -533,6 +537,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
   };
 
   const onNext = () => {
+    setBagError('');
     if (s.added) {
       dispatch({ type: 'reset' });
       return;
@@ -543,21 +548,26 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
     }
 
     const product = products.find((item) => item.id === LAB_PRODUCT_ID);
-    if (!product) return;
+    if (!product || product.available === false) {
+      setBagError('This Donut Lab item is not available in Square right now. Please try again later.');
+      return;
+    }
     const elements = steps
       .filter((sid) => sid !== 'quantity')
       .map((sid) => ({ label: STEP_LABEL[sid], value: stepValue(sid), price: LAB_ELEMENT_PRICE }))
       .filter((element) => element.value && element.value !== 'None' && element.value !== 'Upload');
+    const customization = { kind: 'lab' as const, elements };
     const committed = add(product, s.qty, {
       openCart: false,
-      customization: { kind: 'lab', elements }
+      customization
     });
-    if (!committed) return;
+    if (!committed) {
+      setBagError('This Donut Lab item could not be added. Please try again.');
+      return;
+    }
 
     dispatch({ type: 'add' });
     pulseCart();
-    if (drawerTimerRef.current !== null) window.clearTimeout(drawerTimerRef.current);
-    drawerTimerRef.current = window.setTimeout(openCart, CART_OPEN_DELAY_MS);
   };
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -642,7 +652,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
         dots: [],
         badge: String(o.count),
         layers: stack(base, icing, filling),
-        onClick: () => dispatch({ type: 'qty', count: o.count })
+        onClick: () => { setSprinklePulse(current => current + 1); dispatch({ type: 'qty', count: o.count }); }
       }));
     }
     if (step === 'icing') {
@@ -826,7 +836,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
                         <ArtLayer key={m} img={l.img} opacity={l.opacity} mask={l.mask} />
                       ))}
                       {topSrc && !sprinkle.bare && (
-                        <SprinkleLayer src={topSrc} sprinkle={sprinkle} />
+                        <SprinkleLayer src={topSrc} sprinkle={sprinkle} animate={false} />
                       )}
                     </span>
                   ))}
@@ -874,8 +884,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
                   }}
                 />
               )}
-              {/* Keyed on the palette so a new colour replays the drop. */}
-              <SprinkleLayer key={`${topSrc}|${sprinkle.id}`} src={topSrc} sprinkle={sprinkle} />
+              <SprinkleLayer key={sprinklePulse} src={topSrc} sprinkle={sprinkle} animate={animateStageSprinkles} />
             </div>
           </div>
           )}
@@ -1201,6 +1210,7 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
           </AnimatePresence>
         </div>
 
+        {bagError && <p className="sb-bag-error" role="alert">{bagError}</p>}
         {/* Action row. The bottom pad clears iOS home indicators and the
             Android URL bar — which is also why the band is sized in dvh. */}
         <div

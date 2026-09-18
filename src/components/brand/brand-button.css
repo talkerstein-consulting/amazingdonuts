@@ -1,12 +1,5 @@
-/* Brand system v5 button: label left, a navy donut knob on the right, and a
-   sprinkle burst out of the knob on click.
-
-   Two deliberate asymmetries, both from the spec:
-   - The chevron shuffle animates in and resets instantly. That is why the
-     transition lives on `.bbtn:hover .bbtn__track` rather than on the track
-     itself — leaving the button has no transition to run, so it snaps.
-   - Inline buttons grow by padding; full-width ones cannot (there is no room),
-     so they scale on the x axis instead. */
+/* Brand button: a stationary pill with a chevron shuffle on hover and a
+   sprinkle burst on click. The shuffle resets immediately on mouse leave. */
 
 .bbtn {
   /* Every measurement the button is built from, in one place. The knob used
@@ -37,7 +30,7 @@
   letter-spacing: 0;
   text-transform: uppercase;
   transform-origin: center;
-  transition: padding-left 140ms ease, transform 140ms ease, filter 140ms ease;
+  transition: filter 140ms ease;
 }
 
 /* The label, and the only part of the button allowed to give.
@@ -53,21 +46,9 @@
   text-align: left;
 }
 
-.bbtn:hover:not(:disabled) {
-  --bbtn-pad-l: 44px;
-}
-
-/* A full-width button has no slack to grow into, so it takes the scale instead.
-   1.025 on the x axis only — enough to register, not enough to distort the
-   label or the round knob noticeably. */
 .bbtn--block {
   width: 100%;
   justify-content: space-between;
-}
-
-.bbtn--block:hover:not(:disabled) {
-  --bbtn-pad-l: 30px;
-  transform: scaleX(1.025);
 }
 
 .bbtn:disabled {
@@ -191,8 +172,5 @@
   .bbtn__knob--pop {
     transition: none;
     animation: none;
-  }
-  .bbtn--block:hover:not(:disabled) {
-    transform: none;
   }
 }

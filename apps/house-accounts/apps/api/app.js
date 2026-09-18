@@ -7,20 +7,23 @@ import { adminCookieName, createSession, hashPassword, loadSession, logout, requ
 import { accountCredit, institutionalOrderStatus, postPayment, postRefund, postSale, reserveCredit } from "./ledger.js";
 import { isInstitutionalTender, processNextSquareEvent } from "../worker/process-square.js";
 import { statementPdf } from "./statements.js";
+import { currentStatementWindow } from "./statement-preview.js";
 import { transaction } from "./db.js";
-import { deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery, validateFulfillmentSchedule } from "./delivery.js";
+import { deliveryFee, deliveryServiceCharge, merchandiseSubtotal, validateDelivery, validateFridayOnlyItems, validateFulfillmentSchedule } from "./delivery.js";
 import { syncInstitutionalAccountBalance, syncInstitutionalPinByEmail, syncInstitutionalPinNote } from "./square-customer-note.js";
 import { OAuth2Client } from "google-auth-library";
 import { validUberSignature } from "./uber-direct.js";
-import { boxCustomizationSchema, boxForName, boxModifiers, squareBoxSelection } from "./donut-boxes.js";
+import { boxCustomizationSchema, boxForName, squareBoxLines } from "./donut-boxes.js";
 import { availableAtLocation, variationAtLocation, variationPrice } from "./catalog-availability.js";
-import { labCustomizationSchema, labOrderNote } from "./donut-lab.js";
+import { LAB_NAME, labCustomizationSchema, labOrderNote } from "./donut-lab.js";
 import { emailMessage } from "./email.js";
+import { reminderText, unsubscribeSignature, validUnsubscribeSignature } from "./cart-reminders.js";
 import { websiteTaxes, customerOrder } from "./order-presentation.js";
-import { ensureHouseCustomer, ensureProfileCustomer, assertHouseCard } from "./house-customer.js";
-import { deliveryPreflight } from "./delivery-preflight.js";
+import { normalizePromoCode, resolvePromoCode, squareDiscounts } from "./promo-codes.js";
+import { ensureHouseCustomer, ensureProfileCustomer, assertHouseCard, ensureHouseCardCustomer } from "./house-customer.js";
 import { attachGuestOrders, findOrCreateGuestCustomer, findSquareCustomers, guestFulfillmentReference, guestOrderReference } from "./guest-customer.js";
 import { squareCustomerOrderHistory } from './square-order-history.js';
+import { assertLocalStatusTransition, createDispatchCapability, createDriverCapability, deliveryStatusLabel, dispatchTokenHash, LOCAL_DELIVERY_STATUSES, normalizedDeliveryStatus, withDispatchInstructions } from "./delivery-dispatch.js";
 
 const loginSchema = z.object({ email:z.string().email(), password:z.string().min(8), tenant:z.string().min(2) });
 const forgotPasswordSchema=z.object({email:z.string().email(),tenantSlug:z.string().min(2).default("amazing-donuts")});
@@ -35,13 +38,19 @@ const applicationReviewSchema=z.object({status:z.enum(["approved","rejected"]),r
 const bulkReviewSchema=z.object({status:z.enum(["approved","rejected"]),reviewNotes:z.string().trim().max(2000).optional().default("")});
 const registerSchema=z.object({tenantSlug:z.string().min(2).default("amazing-donuts"),firstName:z.string().trim().min(1).max(80),lastName:z.string().trim().min(1).max(80),email:z.string().email(),phone:z.string().trim().max(40).refine(value=>!value||isValidNorthAmericanPhone(value),"Enter a valid Canadian or US phone number.").optional().default(""),password:z.string().min(8).max(200)});
 const cartSchema=z.array(z.object({name:z.string().trim().min(1).max(180),quantity:z.number().int().min(1).max(99)})).min(1).max(60);
-const fulfillmentSchema=z.object({type:z.enum(["pickup","delivery"]),scheduledAt:z.iso.datetime(),recipient:z.object({displayName:z.string().trim().min(2).max(120),email:z.string().email(),phone:z.string().trim().min(7).max(40).refine(value=>isValidNorthAmericanPhone(value),"Enter a valid Canadian or US phone number.")}),address:z.object({addressLine1:z.string().trim().min(2).max(180),addressLine2:z.string().trim().max(180).optional().default(""),locality:z.string().trim().min(2).max(100),administrativeDistrictLevel1:z.string().trim().min(2).max(80).default("ON"),postalCode:z.string().trim().min(3).max(20),country:z.string().trim().length(2).default("CA")}).optional(),deliveryInstructions:z.string().trim().max(500).optional().default(""),noContact:z.boolean().optional().default(false)}).superRefine((value,context)=>{if(value.type==="delivery"&&!value.address)context.addIssue({code:"custom",path:["address"],message:"A delivery address is required."});});
+const fulfillmentSchema=z.object({type:z.enum(["pickup","delivery"]),scheduledAt:z.iso.datetime(),asap:z.boolean().optional().default(false),recipient:z.object({displayName:z.string().trim().min(2).max(120),email:z.string().email(),phone:z.string().trim().min(7).max(40).refine(value=>isValidNorthAmericanPhone(value),"Enter a valid Canadian or US phone number.")}),address:z.object({addressLine1:z.string().trim().min(2).max(180),addressLine2:z.string().trim().max(180).optional().default(""),locality:z.string().trim().min(2).max(100),administrativeDistrictLevel1:z.string().trim().min(2).max(80).default("ON"),postalCode:z.string().trim().min(3).max(20),country:z.string().trim().length(2).default("CA")}).optional(),deliveryInstructions:z.string().trim().max(500).optional().default(""),noContact:z.boolean().optional().default(false)}).superRefine((value,context)=>{if(value.type==="delivery"&&!value.address)context.addIssue({code:"custom",path:["address"],message:"A delivery address is required."});});
 const artworkSchema=z.object({assetId:z.uuid(),count:z.number().int().min(1).max(99)});
+const quoteArtworkSchema=artworkSchema.omit({assetId:true});
 const customizationsSchema=z.array(z.discriminatedUnion("kind",[z.object({productName:z.string().min(1).max(180),kind:z.literal("print"),icingFlavour:z.enum(["Chocolate","Vanilla"]).optional(),icingFlavor:z.enum(["Chocolate","Vanilla"]).optional(),sprinkleColours:z.string().trim().max(120).default(""),artworks:z.array(artworkSchema).min(1).max(99)}),z.object({productName:z.string().min(1).max(180),kind:z.literal("glyph"),glyph:z.string().trim().min(1).max(120)}),boxCustomizationSchema,labCustomizationSchema])).max(60).default([]);
-const checkoutSchema=z.object({idempotencyKey:z.uuid(),items:cartSchema,customizations:customizationsSchema,fulfillment:fulfillmentSchema,paymentMethod:z.enum(["card","house_account"]),sourceId:z.string().min(6).max(300).optional(),authorizationPin:pinSchema.optional()});
+const quoteCustomizationsSchema=z.array(z.discriminatedUnion("kind",[z.object({productName:z.string().min(1).max(180),kind:z.literal("print"),icingFlavour:z.enum(["Chocolate","Vanilla"]).optional(),icingFlavor:z.enum(["Chocolate","Vanilla"]).optional(),sprinkleColours:z.string().trim().max(120).default(""),artworks:z.array(quoteArtworkSchema).min(1).max(99)}),z.object({productName:z.string().min(1).max(180),kind:z.literal("glyph"),glyph:z.string().trim().min(1).max(120)}),boxCustomizationSchema,labCustomizationSchema])).max(60).default([]);
+const promoCodeSchema=z.string().trim().max(40).regex(/^[a-zA-Z0-9_-]*$/).optional().default("");
+const checkoutSchema=z.object({idempotencyKey:z.uuid(),cartId:z.uuid().optional(),items:cartSchema,customizations:customizationsSchema,fulfillment:fulfillmentSchema,promoCode:promoCodeSchema,paymentMethod:z.enum(["card","house_account"]),sourceId:z.string().min(6).max(300).optional(),authorizationPin:pinSchema.optional()});
 const guestSchema=z.object({firstName:z.string().trim().min(1).max(80),lastName:z.string().trim().max(80).optional().default(""),email:z.string().email(),phone:z.string().trim().min(7).max(40).refine(value=>isValidNorthAmericanPhone(value),"Enter a valid Canadian or US phone number.")});
-const guestQuoteSchema=z.object({tenantSlug:z.string().min(2).default("amazing-donuts"),items:cartSchema,customizations:customizationsSchema,fulfillment:fulfillmentSchema});
-const guestCheckoutSchema=z.object({tenantSlug:z.string().min(2).default("amazing-donuts"),idempotencyKey:z.uuid(),items:cartSchema,customizations:customizationsSchema,fulfillment:fulfillmentSchema,paymentMethod:z.literal("card"),sourceId:z.string().min(6).max(300),guest:guestSchema});
+const guestQuoteSchema=z.object({tenantSlug:z.string().min(2).default("amazing-donuts"),items:cartSchema,customizations:quoteCustomizationsSchema,fulfillment:fulfillmentSchema,promoCode:promoCodeSchema});
+const guestCheckoutSchema=z.object({tenantSlug:z.string().min(2).default("amazing-donuts"),idempotencyKey:z.uuid(),cartId:z.uuid().optional(),items:cartSchema,customizations:customizationsSchema,fulfillment:fulfillmentSchema,promoCode:promoCodeSchema,paymentMethod:z.literal("card"),sourceId:z.string().min(6).max(300),guest:guestSchema});
+const cartReminderSchema=z.object({tenantSlug:z.string().min(2).default("amazing-donuts"),cartId:z.uuid(),email:z.string().email().optional(),items:z.array(z.object({name:z.string().trim().min(1).max(180),quantity:z.number().int().min(1).max(99)})).max(60)});
+const dispatchProviderSchema=z.object({provider:z.enum(["own_driver","uber_direct"]),driverName:z.string().trim().min(2).max(100).optional(),driverPhone:z.string().trim().max(40).optional()}).superRefine((value,context)=>{if(value.provider==="own_driver"&&!value.driverPhone)context.addIssue({code:"custom",path:["driverPhone"],message:"Enter the driver's phone number."});if(value.driverPhone&&!isValidNorthAmericanPhone(value.driverPhone))context.addIssue({code:"custom",path:["driverPhone"],message:"Enter a valid Canadian or US phone number."});});
+const dispatchStatusSchema=z.object({status:z.enum(LOCAL_DELIVERY_STATUSES)});
 const uploadSchema=z.object({fileName:z.string().trim().min(1).max(180),dataUrl:z.string().max(1900000)});
 const profileSchema=z.object({firstName:z.string().trim().min(1).max(80),lastName:z.string().trim().min(1).max(80),phone:z.string().trim().max(40).refine(value=>!value||isValidNorthAmericanPhone(value),"Enter a valid Canadian or US phone number.").optional().default(""),address:z.record(z.string(),z.string()).optional().default({})});
 const deleteCustomerAccountSchema=z.object({confirmation:z.literal("DELETE")});
@@ -68,22 +77,22 @@ const wishlistProductSchema=z.string().regex(/^[a-z0-9][a-z0-9-]{0,119}$/);
 const organizationRoles={School:["principal","office_manager","teacher","staff"],Shul:["rabbi","president","administrator","staff"],Caterer:["owner","operations_manager","sales_coordinator","staff"],"Event planner":["owner","lead_planner","coordinator","staff"],"Corporate or office":["owner_executive","office_manager","department_manager","employee"],"Other business":["owner","manager","staff"]};
 
 export function createApp({ pool, square, uberDirect, config }) {
-  assertDeliveryEnvironment(config,uberDirect);
   const app = express();
   app.use(helmet({
     contentSecurityPolicy:false,
     crossOriginOpenerPolicy:{policy:"same-origin-allow-popups"}
   }));
   app.use(express.json({ limit:"2mb", verify:(request,_response,buffer)=>{ request.rawBody=buffer; } }));
-  app.use(deliveryPreflight(config, uberDirect));
   app.use(async (request,_response,next)=>{ try { [request.user,request.adminUser]=await Promise.all([loadSession(pool,request),loadSession(pool,request,adminCookieName)]); next(); } catch(error){ next(error); } });
 
   app.get("/api/health", (_request,response)=>response.json({ ok:true, service:"house-account-platform", version:"0.2.0",squareEnvironment:config.squareEnvironment,uberDirectMode:config.uberDirectMode,testMode:Boolean(config.mixedEnvironmentTestMode) }));
-  app.get("/api/admin/uber-direct/status",async(request,response,next)=>{try{requireOwner(request);if(!uberDirect?.configured)return response.json({configured:false,mode:config.uberDirectMode||"sandbox",autoDispatch:false});await uberDirect.accessToken();response.json({configured:true,connected:true,mode:config.uberDirectMode||"sandbox",autoDispatch:Boolean(config.uberDirectAutoDispatch),testMode:Boolean(config.mixedEnvironmentTestMode),webhookUrl:`${config.siteUrl}/api/house/webhooks/uber`});}catch(error){next(error);}});
-  app.get("/api/auth/google/config",(_request,response)=>response.json({enabled:googleConfigured(config)}));
+  app.get("/api/admin/uber-direct/status",async(request,response,next)=>{try{requireOwner(request);if(!uberDirect?.configured)return response.json({configured:false,mode:config.uberDirectMode||"sandbox",autoDispatch:false});await uberDirect.accessToken();response.json({configured:true,connected:true,mode:config.uberDirectMode||"sandbox",autoDispatch:false,testMode:Boolean(config.mixedEnvironmentTestMode),webhookUrl:`${config.siteUrl}/api/house/webhooks/uber`});}catch(error){next(error);}});
+  app.get("/api/auth/google/config",(_request,response)=>response.json({enabled:googleConfigured(config),authorizeOrigin:process.env.VERCEL_ENV==="preview"?"https://amazing-donuts.vercel.app":null}));
   app.get("/api/auth/google/start",(request,response,next)=>{try{
     if(!googleConfigured(config))throw Object.assign(new Error("Google sign-in is not configured."),{status:503,code:"GOOGLE_AUTH_NOT_CONFIGURED"});
-    const nonce=randomBytes(24).toString("base64url"),returnTo=safeReturnTo(request.query.returnTo,config.siteUrl),expiresAt=Date.now()+10*60*1000,state=signGoogleState({nonce,returnTo,expiresAt},config.sessionSecret);
+    const previewOrigin=safePreviewOrigin(request.query.previewOrigin);
+    if(request.query.previewOrigin&&(!previewOrigin||process.env.VERCEL_ENV!=="production"))throw Object.assign(new Error("Invalid preview return host."),{status:400});
+    const nonce=randomBytes(24).toString("base64url"),returnTo=safeReturnTo(request.query.returnTo,config.siteUrl),expiresAt=Date.now()+10*60*1000,state=signGoogleState({nonce,returnTo,previewOrigin,expiresAt},config.sessionSecret);
     response.cookie("google_oauth_state",nonce,{httpOnly:true,secure:config.secureCookies,sameSite:"lax",path:"/",maxAge:10*60*1000});
     const authorize=new URL("https://accounts.google.com/o/oauth2/v2/auth");
     authorize.search=new URLSearchParams({client_id:config.googleClientId,redirect_uri:googleRedirectUri(config),response_type:"code",scope:"openid email profile",state,prompt:"select_account"}).toString();
@@ -100,8 +109,24 @@ export function createApp({ pool, square, uberDirect, config }) {
     const ticket=await new OAuth2Client(config.googleClientId).verifyIdToken({idToken:tokens.id_token,audience:config.googleClientId}),claims=ticket.getPayload();
     if(!claims?.sub||!claims.email||claims.email_verified!==true)throw new Error("Google did not provide a verified email address.");
     const user=await googleCustomerUser(pool,square,claims);await createSession(pool,response,user.id,user.tenant_id,config.secureCookies);
-    response.clearCookie("google_oauth_state",{httpOnly:true,secure:config.secureCookies,sameSite:"lax",path:"/"});response.redirect(state.returnTo);
+    response.clearCookie("google_oauth_state",{httpOnly:true,secure:config.secureCookies,sameSite:"lax",path:"/"});
+    if(state.previewOrigin){
+      const previewOrigin=safePreviewOrigin(state.previewOrigin);
+      if(!previewOrigin)throw new Error("Invalid preview return host.");
+      const token=randomBytes(32).toString("base64url");
+      await pool.query("INSERT INTO google_preview_handoffs(token_hash,user_id,tenant_id,target_origin,expires_at) VALUES($1,$2,$3,$4,now()+interval '5 minutes')",[createHash("sha256").update(token).digest("hex"),user.id,user.tenant_id,previewOrigin]);
+      response.set("Cache-Control","no-store").set("Referrer-Policy","no-referrer").redirect(`${previewOrigin}/api/house/auth/google/handoff?token=${encodeURIComponent(token)}&returnTo=${encodeURIComponent(state.returnTo)}`);
+    }else response.redirect(state.returnTo);
   }catch(error){console.error("Google sign-in failed",error);response.clearCookie("google_oauth_state",{httpOnly:true,secure:config.secureCookies,sameSite:"lax",path:"/"});response.redirect(`${fallback}?authError=${encodeURIComponent(error.message||"Google sign-in failed.")}`);}});
+  app.get("/api/auth/google/handoff",async(request,response,next)=>{try{
+    if(process.env.VERCEL_ENV!=="preview")throw Object.assign(new Error("Preview sign-in is unavailable."),{status:404});
+    const origin=safePreviewOrigin(`https://${request.get("host")}`),token=String(request.query.token||"");
+    if(!origin||!/^[-\w]{32,64}$/.test(token))throw Object.assign(new Error("Invalid preview sign-in link."),{status:400});
+    const claimed=await pool.query("UPDATE google_preview_handoffs SET used_at=now() WHERE token_hash=$1 AND target_origin=$2 AND used_at IS NULL AND expires_at>now() RETURNING user_id,tenant_id",[createHash("sha256").update(token).digest("hex"),origin]);
+    if(!claimed.rowCount)throw Object.assign(new Error("Preview sign-in link expired or already used."),{status:410});
+    await createSession(pool,response,claimed.rows[0].user_id,claimed.rows[0].tenant_id,config.secureCookies);
+    response.set("Cache-Control","no-store").set("Referrer-Policy","no-referrer").redirect(safeReturnTo(request.query.returnTo,origin));
+  }catch(error){next(error);}});
   app.get("/api/public/careers",async(request,response,next)=>{try{const slug=String(request.query.tenantSlug||"amazing-donuts"),tenant=await pool.query("SELECT id FROM tenants WHERE slug=$1 AND status='active'",[slug]);if(!tenant.rowCount)throw Object.assign(new Error("Careers page not found."),{status:404});const [settings,roles]=await Promise.all([pool.query("SELECT page_enabled FROM career_settings WHERE tenant_id=$1",[tenant.rows[0].id]),pool.query("SELECT id,slug,title,employment_type,shift,blurb,responsibilities,sort_order FROM career_roles WHERE tenant_id=$1 AND enabled=true ORDER BY sort_order,created_at",[tenant.rows[0].id])]);response.json({pageEnabled:settings.rows[0]?.page_enabled!==false,roles:roles.rows});}catch(error){next(error);}});
   app.post("/api/auth/login", async (request,response,next)=>{ try {
     const input=loginSchema.parse(request.body);
@@ -157,11 +182,17 @@ export function createApp({ pool, square, uberDirect, config }) {
   app.get("/api/storefront/session",async(request,response,next)=>{try{
     if(!request.user)return response.json({user:null,profile:null,houseAccount:null});
     const [profile,house]=await Promise.all([pool.query("SELECT cp.*,u.first_name,u.last_name,u.email,u.phone FROM customer_profiles cp JOIN users u ON u.id=cp.user_id WHERE cp.tenant_id=$1 AND cp.user_id=$2",[request.user.tenant_id,request.user.id]),pool.query("SELECT a.*,au.role AS membership_role,au.organization_role AS membership_organization_role FROM account_users au JOIN accounts a ON a.id=au.account_id WHERE au.user_id=$1 AND a.tenant_id=$2 AND au.status='active' ORDER BY a.created_at DESC LIMIT 1",[request.user.id,request.user.tenant_id])]);
-    const card=house.rowCount?await pool.query("SELECT card_brand,last_4,exp_month,exp_year FROM account_cards WHERE account_id=$1 AND status='active' LIMIT 1",[house.rows[0].id]):{rows:[]};
+    const card=house.rowCount?await pool.query("SELECT square_card_id,card_brand,last_4,exp_month,exp_year FROM account_cards WHERE account_id=$1 AND square_environment=$2 AND status='active' ORDER BY created_at DESC LIMIT 1",[house.rows[0].id,config.squareEnvironment]):{rows:[]};
+    let verifiedCard=Boolean(card.rows[0]);
+    if(verifiedCard&&config.squareEnvironment==="production"){
+      const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(request.user.tenant_id):square;
+      try{await ensureHouseCardCustomer(pool,tenantSquare,request.user.tenant_id,house.rows[0].id,card.rows[0].square_card_id);}
+      catch(error){if(error.code!=="CARD_ON_FILE_REQUIRED")throw error;verifiedCard=false;}
+    }
     let customer=null;
     if(profile.rows[0]){const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(request.user.tenant_id):square;const customerId=await ensureProfileCustomer(pool,tenantSquare,request.user.tenant_id,request.user.id);customer=(await tenantSquare.retrieveCustomer(customerId)).customer;}
     const squareAddressValue=customer?.address?{addressLine1:customer.address.address_line_1||"",addressLine2:customer.address.address_line_2||"",locality:customer.address.locality||"",administrativeDistrictLevel1:customer.address.administrative_district_level_1||"ON",postalCode:customer.address.postal_code||"",country:customer.address.country||"CA"}:null;
-    response.json({user:publicUser(request.user),profile:profile.rows[0]?{...profile.rows[0],default_phone:customer?.phone_number||profile.rows[0].default_phone,default_address:squareAddressValue||profile.rows[0].default_address}:null,houseAccount:house.rowCount?{id:house.rows[0].id,organizationName:house.rows[0].organization_name,status:house.rows[0].status,role:house.rows[0].membership_role,organizationRole:house.rows[0].membership_organization_role,organizationType:house.rows[0].metadata?.organizationType||"Other business",credit:await accountCredit(pool,house.rows[0].id),card:card.rows[0]?{brand:card.rows[0].card_brand,last4:card.rows[0].last_4,expMonth:card.rows[0].exp_month,expYear:card.rows[0].exp_year}:null,creditEnabled:Boolean(card.rows[0])}:null});
+    response.json({user:publicUser(request.user),profile:profile.rows[0]?{...profile.rows[0],default_phone:customer?.phone_number||profile.rows[0].default_phone,default_address:squareAddressValue||profile.rows[0].default_address}:null,houseAccount:house.rowCount?{id:house.rows[0].id,organizationName:house.rows[0].organization_name,status:house.rows[0].status,role:house.rows[0].membership_role,organizationRole:house.rows[0].membership_organization_role,organizationType:house.rows[0].metadata?.organizationType||"Other business",credit:await accountCredit(pool,house.rows[0].id),card:verifiedCard?{brand:card.rows[0].card_brand,last4:card.rows[0].last_4,expMonth:card.rows[0].exp_month,expYear:card.rows[0].exp_year}:null,cardNeedsReplacement:Boolean(card.rows[0]&&!verifiedCard),creditEnabled:config.squareEnvironment==="sandbox"||verifiedCard}:null});
   }catch(error){next(error);}});
   app.patch("/api/storefront/profile",async(request,response,next)=>{try{
     const user=requireUser(request),input=profileSchema.parse(request.body),phone=normalizeNorthAmericanPhone(input.phone);
@@ -201,8 +232,8 @@ export function createApp({ pool, square, uberDirect, config }) {
     await Promise.all([sendEmail(config,{to:user.email,subject:"We received your Amazing Donuts institutional account application",text:`Hi ${user.first_name},\n\nWe received the application for ${input.organizationName}. The bakery will review it and email you when it is approved or rejected.\n\nView your application: ${config.siteUrl}/account/`}),notifyOwners(config,"New institutional account application",`${input.organizationName}\n${user.first_name} ${user.last_name}\n${user.email}\nRequested credit: ${formatMoney(Math.round(input.requestedCreditLimit*100))}\nExpected order: ${formatMoney(Math.round(input.estimatedOrderTotal*100))}\n\nOrdering needs:\n${input.notes||"Not provided"}\n\nReview: ${config.siteUrl}/admin-dashboard/#requests`,{replyTo:user.email})]);
     response.status(201).json({application:publicHouseApplication(result.rows[0])});
   }catch(error){next(error);}});
-  app.get("/api/storefront/config",(_request,response)=>response.json({environment:config.squareEnvironment,applicationId:config.squareApplicationId,locationId:config.squareLocationId,currency:"CAD",placesEnabled:placesConfigured(config),testMode:Boolean(config.mixedEnvironmentTestMode),delivery:{enabled:config.delivery.enabled,postalPrefixes:config.delivery.postalPrefixes,minimumAmount:config.delivery.minimumAmount,feeAmount:config.delivery.feeAmount,freeThreshold:config.delivery.freeThreshold,provider:config.uberDirectAutoDispatch?"UBER_DIRECT_SANDBOX":config.delivery.provider,schedule:config.delivery.schedule}}));
-  app.get("/api/storefront/catalog",async(_request,response,next)=>{try{const objects=await catalogObjects(square),products=objects.filter(item=>item.type==="ITEM"&&!item.is_deleted).flatMap(item=>{const variation=variationAtLocation(item,config.squareLocationId),price=variationPrice(variation,config.squareLocationId);return variation?[{name:item.item_data.name,price:Number(price.amount),currency:price.currency||"CAD",available:availableAtLocation(item,variation,config.squareLocationId),...(boxForName(item.item_data.name)?{boxFlavours:boxModifiers(item,objects,config.squareLocationId).map(modifier=>modifier.modifier_data.name)}:{})}]:[];});response.set("Cache-Control","private, no-store, max-age=0").json({products,syncedAt:new Date().toISOString()});}catch(error){next(error);}});
+  app.get("/api/storefront/config",(_request,response)=>response.json({environment:config.squareEnvironment,applicationId:config.squareApplicationId,locationId:config.squareLocationId,currency:"CAD",placesEnabled:placesConfigured(config),testMode:Boolean(config.mixedEnvironmentTestMode),delivery:{enabled:config.delivery.enabled,postalPrefixes:config.delivery.postalPrefixes,feeTiers:config.delivery.feeTiers,minimumAmount:config.delivery.minimumAmount,feeAmount:config.delivery.feeAmount,freeThreshold:config.delivery.freeThreshold,provider:config.delivery.provider,schedule:config.delivery.schedule}}));
+  app.get("/api/storefront/catalog",async(_request,response,next)=>{try{const objects=await catalogObjects(square),products=await storefrontCatalogProductsWithDiscounts(square,objects,config.squareLocationId),categories=storefrontCatalogCategories(objects);response.set("Cache-Control","private, no-store, max-age=0").json({products,categories,syncedAt:new Date().toISOString()});}catch(error){next(error);}});
   app.get("/api/storefront/addresses",async(request,response,next)=>{try{const user=requireUser(request),result=await pool.query("SELECT id,label,address_type AS \"addressType\",address_line_1 AS \"addressLine1\",COALESCE(address_line_2,'') AS \"addressLine2\",locality,administrative_district_level_1 AS \"administrativeDistrictLevel1\",postal_code AS \"postalCode\",country,is_default AS \"isDefault\" FROM customer_addresses WHERE tenant_id=$1 AND user_id=$2 ORDER BY is_default DESC,created_at",[user.tenant_id,user.id]);response.json({addresses:result.rows});}catch(error){next(error);}});
   app.post("/api/storefront/addresses",async(request,response,next)=>{try{const user=requireUser(request),input=customerAddressSchema.parse(request.body),count=await pool.query("SELECT count(*)::int AS count FROM customer_addresses WHERE tenant_id=$1 AND user_id=$2",[user.tenant_id,user.id]);if(count.rows[0].count>=10)throw Object.assign(new Error("You can save up to ten addresses."),{status:409});const saved=await saveCustomerAddress(pool,user,input);response.status(201).json({address:saved});}catch(error){next(error);}});
   app.patch("/api/storefront/addresses/:id",async(request,response,next)=>{try{const user=requireUser(request),input=customerAddressSchema.parse(request.body),saved=await saveCustomerAddress(pool,user,input,request.params.id);response.json({address:saved});}catch(error){next(error);}});
@@ -214,20 +245,20 @@ export function createApp({ pool, square, uberDirect, config }) {
   app.post("/api/storefront/house-card",async(request,response,next)=>{try{
     const user=requireUser(request),input=saveCardSchema.parse(request.body),membership=await pool.query(`SELECT a.* FROM accounts a JOIN account_users au ON au.account_id=a.id WHERE au.user_id=$1 AND a.tenant_id=$2 AND au.status='active' AND a.status='active' LIMIT 1`,[user.id,user.tenant_id]);
     if(!membership.rowCount)throw Object.assign(new Error("An approved institutional account is required."),{status:403});
-    const account=membership.rows[0],existing=await pool.query("SELECT * FROM account_cards WHERE account_id=$1 AND status='active'",[account.id]);
+    const account=membership.rows[0],existing=await pool.query("SELECT * FROM account_cards WHERE account_id=$1 AND square_environment=$2 AND status='active'",[account.id,config.squareEnvironment]);
     const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
     account.square_customer_id=await ensureHouseCustomer(pool,tenantSquare,user.tenant_id,account.id);
     if(existing.rowCount){try{await assertHouseCard(tenantSquare,existing.rows[0].square_card_id,account.square_customer_id);}catch(error){if(error.code!=="CARD_ON_FILE_REQUIRED")throw error;await pool.query("UPDATE account_cards SET status='disabled' WHERE id=$1",[existing.rows[0].id]);existing.rows=[];existing.rowCount=0;}}
     if(existing.rowCount&&!input.replace)return response.json({card:publicCard(existing.rows[0])});
     const created=(await tenantSquare.createCard({idempotency_key:randomUUID(),source_id:input.sourceId,card:{customer_id:account.square_customer_id,cardholder_name:input.cardholderName}})).card;
     if(existing.rowCount){await tenantSquare.disableCard(existing.rows[0].square_card_id);await pool.query("UPDATE account_cards SET status='disabled' WHERE id=$1",[existing.rows[0].id]);}
-    const stored=(await pool.query(`INSERT INTO account_cards(tenant_id,account_id,user_id,square_card_id,card_brand,last_4,exp_month,exp_year,consented_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()) RETURNING *`,[user.tenant_id,account.id,user.id,created.id,created.card_brand||null,created.last_4||null,created.exp_month||null,created.exp_year||null])).rows[0];
+    const stored=(await pool.query(`INSERT INTO account_cards(tenant_id,account_id,user_id,square_card_id,card_brand,last_4,exp_month,exp_year,square_environment,consented_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,now()) RETURNING *`,[user.tenant_id,account.id,user.id,created.id,created.card_brand||null,created.last_4||null,created.exp_month||null,created.exp_year||null,config.squareEnvironment])).rows[0];
     await Promise.all([sendEmail(config,{to:user.email,subject:"Card saved for your Amazing Donuts institutional account",text:`Your ${created.card_brand||"card"} ending in ${created.last_4||""} is now on file. Institutional account credit is enabled. This card may be charged for statement balances under your authorization.`}),notifyOwners(config,"Institutional account card added",`${account.organization_name}\n${user.email}\n${created.card_brand||"Card"} ending ${created.last_4||""}`,{replyTo:user.email})]);
     response.status(201).json({card:publicCard(stored),creditEnabled:true});
   }catch(error){next(error);}});
-  app.post("/api/storefront/custom-assets",async(request,response,next)=>{try{const user=requireUser(request),input=uploadSchema.parse(request.body),match=input.dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);if(!match)throw Object.assign(new Error("The artwork must be a JPEG, PNG, or WebP image."),{status:400});const bytes=Buffer.from(match[2],"base64");if(bytes.length>1400000)throw Object.assign(new Error("The artwork file is too large."),{status:413});const asset=(await pool.query("INSERT INTO custom_order_assets(tenant_id,user_id,file_name,mime_type,file_data) VALUES($1,$2,$3,$4,$5) RETURNING id,file_name,mime_type",[user.tenant_id,user.id,input.fileName,match[1],bytes])).rows[0];response.status(201).json({asset});}catch(error){next(error);}});
+  app.post("/api/storefront/custom-assets",async(request,response,next)=>{try{const user=requireUser(request),input=uploadSchema.parse(request.body),match=input.dataUrl.match(/^data:(image\/jpeg);base64,([A-Za-z0-9+/=]+)$/);if(!match||!/\.jpe?g$/i.test(input.fileName))throw Object.assign(new Error("The artwork must be a JPG or JPEG image."),{status:400});const bytes=Buffer.from(match[2],"base64");if(bytes[0]!==0xff||bytes[1]!==0xd8||bytes[2]!==0xff)throw Object.assign(new Error("The artwork must be a valid JPEG image."),{status:400});if(bytes.length>1400000)throw Object.assign(new Error("The artwork file is too large."),{status:413});const asset=(await pool.query("INSERT INTO custom_order_assets(tenant_id,user_id,file_name,mime_type,file_data) VALUES($1,$2,$3,$4,$5) RETURNING id,file_name,mime_type",[user.tenant_id,user.id,input.fileName,match[1],bytes])).rows[0];response.status(201).json({asset});}catch(error){next(error);}});
   app.get("/api/custom-assets/:id",async(request,response,next)=>{try{const staff=Boolean(request.adminUser),user=staff?requireStaff(request):requireUser(request),result=await pool.query("SELECT * FROM custom_order_assets WHERE id=$1 AND tenant_id=$2 AND ($3::boolean OR user_id=$4)",[request.params.id,user.tenant_id,staff,user.id]);if(!result.rowCount)throw Object.assign(new Error("Artwork not found."),{status:404});const asset=result.rows[0];response.set({"Content-Type":asset.mime_type,"Content-Disposition":`attachment; filename="${String(asset.file_name).replace(/[\"\r\n]/g,"")}"`,"Cache-Control":"private, no-store"}).send(asset.file_data);}catch(error){next(error);}});
-  app.post("/api/storefront/quote",async(request,response,next)=>{try{const user=requireUser(request),input=z.object({items:cartSchema,customizations:customizationsSchema,fulfillment:fulfillmentSchema}).parse(request.body),tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square,{calculated}=await prepareSquareOrder(tenantSquare,config,input,user);response.json({order:publicOrder(calculated),delivery:publicDelivery(calculated,input,config.delivery)});}catch(error){next(error);}});
+  app.post("/api/storefront/quote",async(request,response,next)=>{try{const user=requireUser(request),input=z.object({items:cartSchema,customizations:quoteCustomizationsSchema,fulfillment:fulfillmentSchema,promoCode:promoCodeSchema}).parse(request.body),tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square,{calculated}=await prepareSquareOrder(pool,tenantSquare,config,input,user,user.tenant_id);response.json({order:publicOrder(calculated),delivery:publicDelivery(calculated,input,config.delivery)});}catch(error){next(error);}});
   app.post("/api/storefront/checkout",async(request,response,next)=>{let reservation=null;try{
     const user=requireUser(request),input=checkoutSchema.parse(request.body),tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
     const customerProfile=await pool.query("SELECT square_customer_id FROM customer_profiles WHERE tenant_id=$1 AND user_id=$2",[user.tenant_id,user.id]);
@@ -235,12 +266,13 @@ export function createApp({ pool, square, uberDirect, config }) {
     customerProfile.rows[0].square_customer_id=await ensureProfileCustomer(pool,tenantSquare,user.tenant_id,user.id);
     if(input.paymentMethod==="card"&&!input.sourceId)throw Object.assign(new Error("Card authorization is required."),{status:400});
     const assetIds=input.customizations.flatMap(item=>item.kind==="print"?item.artworks.map(art=>art.assetId):[]);if(assetIds.length){const owned=await pool.query("SELECT id FROM custom_order_assets WHERE tenant_id=$1 AND user_id=$2 AND storefront_order_id IS NULL AND id=ANY($3::uuid[])",[user.tenant_id,user.id,assetIds]);if(owned.rowCount!==new Set(assetIds).size)throw Object.assign(new Error("One or more artwork files are unavailable. Please upload them again."),{status:409});}
-    const {orderDraft,calculated}=await prepareSquareOrder(tenantSquare,config,input,user);
-    let account=null,customerId=customerProfile.rows[0].square_customer_id,paymentSource=input.sourceId;if(input.paymentMethod==="house_account"){const result=await pool.query(`SELECT a.*,ac.square_card_id,au.role AS purchaser_role,au.purchase_limit,au.purchaser_pin_hash FROM account_users au JOIN accounts a ON a.id=au.account_id JOIN account_cards ac ON ac.account_id=a.id AND ac.status='active' WHERE au.user_id=$1 AND a.tenant_id=$2 AND au.status='active' AND au.role<>'viewer' AND a.status='active' LIMIT 1`,[user.id,user.tenant_id]);if(!result.rowCount)throw Object.assign(new Error("An authorized purchaser and card on file are required for account credit."),{status:403,code:"CARD_ON_FILE_REQUIRED"});account=result.rows[0];const total=Number(calculated.total_money.amount),period=account.period_spend_frequency==="weekly"?"week":"month",spent=account.period_spend_limit==null?0:Number((await pool.query("SELECT COALESCE(SUM(total),0)::bigint AS total FROM orders WHERE account_id=$1 AND status NOT IN ('cancelled','refunded') AND ordered_at>=date_trunc($2,now())",[account.id,period])).rows[0].total);await assertHouseAuthorization({inputPin:input.authorizationPin,purchaserPinHash:account.purchaser_pin_hash,accountPinHash:account.account_code_hash,total,purchaseLimit:account.purchase_limit,periodSpendLimit:account.period_spend_limit,periodSpent:spent,periodFrequency:account.period_spend_frequency});customerId=account.square_customer_id;reservation=await reserveCredit(pool,{accountId:account.id,amount:total,idempotencyKey:input.idempotencyKey});}else if(input.sourceId==="SAVED_CARD"){const saved=await pool.query(`SELECT ac.square_card_id,a.square_customer_id FROM account_cards ac JOIN accounts a ON a.id=ac.account_id JOIN account_users au ON au.account_id=a.id WHERE ac.status='active' AND au.user_id=$1 AND a.tenant_id=$2 AND au.status='active' LIMIT 1`,[user.id,user.tenant_id]);if(!saved.rowCount)throw Object.assign(new Error("The saved card is unavailable."),{status:409,code:"SAVED_CARD_UNAVAILABLE"});paymentSource=saved.rows[0].square_card_id;customerId=saved.rows[0].square_customer_id;}
+    const dispatch=input.fulfillment.type==="delivery"?createDispatchCapability(config.siteUrl,input.fulfillment.scheduledAt):null;
+    const checkoutInput=dispatch?{...input,fulfillment:withDispatchInstructions(input.fulfillment,dispatch.url)}:input;
+    const {orderDraft,calculated}=await prepareSquareOrder(pool,tenantSquare,config,checkoutInput,user,user.tenant_id);
+    let account=null,customerId=customerProfile.rows[0].square_customer_id,paymentSource=input.sourceId;if(input.paymentMethod==="house_account"){const result=await pool.query(`SELECT a.*,ac.square_card_id,au.role AS purchaser_role,au.purchase_limit,au.purchaser_pin_hash FROM account_users au JOIN accounts a ON a.id=au.account_id LEFT JOIN LATERAL (SELECT square_card_id FROM account_cards WHERE account_id=a.id AND square_environment=$3 AND status='active' ORDER BY created_at DESC LIMIT 1) ac ON true WHERE au.user_id=$1 AND a.tenant_id=$2 AND au.status='active' AND au.role<>'viewer' AND a.status='active' LIMIT 1`,[user.id,user.tenant_id,config.squareEnvironment]);if(!result.rowCount)throw Object.assign(new Error("An authorized purchaser is required for institutional account credit."),{status:403,code:"HOUSE_ACCOUNT_REQUIRED"});account=result.rows[0];if(config.squareEnvironment==="production"&&!account.square_card_id)throw Object.assign(new Error("Add a card on file before using institutional account credit."),{status:403,code:"CARD_ON_FILE_REQUIRED"});const total=Number(calculated.total_money.amount),period=account.period_spend_frequency==="weekly"?"week":"month",spent=account.period_spend_limit==null?0:Number((await pool.query("SELECT COALESCE(SUM(total),0)::bigint AS total FROM orders WHERE account_id=$1 AND status NOT IN ('cancelled','refunded') AND ordered_at>=date_trunc($2,now())",[account.id,period])).rows[0].total);await assertHouseAuthorization({inputPin:input.authorizationPin,purchaserPinHash:account.purchaser_pin_hash,accountPinHash:account.account_code_hash,total,purchaseLimit:account.purchase_limit,periodSpendLimit:account.period_spend_limit,periodSpent:spent,periodFrequency:account.period_spend_frequency});customerId=config.squareEnvironment==="production"?await ensureHouseCardCustomer(pool,tenantSquare,user.tenant_id,account.id,account.square_card_id):await ensureHouseCustomer(pool,tenantSquare,user.tenant_id,account.id);reservation=await reserveCredit(pool,{accountId:account.id,amount:total,idempotencyKey:input.idempotencyKey});}else if(input.sourceId==="SAVED_CARD"){const saved=await pool.query(`SELECT ac.square_card_id,a.id AS account_id FROM account_cards ac JOIN accounts a ON a.id=ac.account_id JOIN account_users au ON au.account_id=a.id WHERE ac.status='active' AND ac.square_environment=$3 AND au.user_id=$1 AND a.tenant_id=$2 AND au.status='active' LIMIT 1`,[user.id,user.tenant_id,config.squareEnvironment]);if(!saved.rowCount)throw Object.assign(new Error("The saved card is unavailable."),{status:409,code:"SAVED_CARD_UNAVAILABLE"});paymentSource=saved.rows[0].square_card_id;customerId=await ensureHouseCustomer(pool,tenantSquare,user.tenant_id,saved.rows[0].account_id);}
     if(account){
-      customerId=await ensureHouseCustomer(pool,tenantSquare,user.tenant_id,account.id);
       account.square_customer_id=customerId;
-      await assertHouseCard(tenantSquare,account.square_card_id,customerId);
+      if(config.squareEnvironment==="production")await assertHouseCard(tenantSquare,account.square_card_id,customerId);
     }
     const created=(await tenantSquare.createOrder({idempotency_key:`order-${input.idempotencyKey}`,order:{...orderDraft,customer_id:customerId}})).order;
     let payment=null;
@@ -251,27 +283,28 @@ export function createApp({ pool, square, uberDirect, config }) {
     await transaction(pool,async client=>{
       const stored=(await client.query(`INSERT INTO storefront_orders(tenant_id,user_id,account_id,square_order_id,square_payment_id,square_invoice_id,payment_method,status,subtotal,tax,total,currency,fulfillment,line_items,customizations,raw_square) VALUES($1,$2,$3,$4,$5,NULL,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT(tenant_id,square_order_id) DO UPDATE SET customizations=EXCLUDED.customizations,square_payment_id=EXCLUDED.square_payment_id RETURNING id`,[user.tenant_id,user.id,account?.id||null,created.id,payment?.id||null,input.paymentMethod,payment?.status?.toLowerCase()||"completed",Number(created.total_money.amount)-Number(created.total_tax_money?.amount||0),Number(created.total_tax_money?.amount||0),Number(created.total_money.amount),created.total_money.currency,JSON.stringify(input.fulfillment),JSON.stringify(created.line_items||[]),JSON.stringify(input.customizations),JSON.stringify({order:created,payment})])).rows[0];
       storedOrderId=stored.id;
+      await client.query("UPDATE abandoned_carts SET completed_at=now(),items='[]'::jsonb WHERE tenant_id=$1 AND (user_id=$2 OR email=$3) AND completed_at IS NULL",[user.tenant_id,user.id,user.email.toLowerCase()]);
+      if(dispatch)await client.query(`INSERT INTO storefront_deliveries(tenant_id,storefront_order_id,provider,environment,status,dispatch_token_hash,dispatch_expires_at) VALUES($1,$2,'unassigned',$3,'dispatching_soon',$4,$5) ON CONFLICT(storefront_order_id) DO UPDATE SET dispatch_token_hash=EXCLUDED.dispatch_token_hash,dispatch_expires_at=EXCLUDED.dispatch_expires_at,updated_at=now()`,[user.tenant_id,stored.id,config.uberDirectMode||"sandbox",dispatch.tokenHash,dispatch.expiresAt]);
       if(assetIds.length)await client.query("UPDATE custom_order_assets SET storefront_order_id=$1 WHERE tenant_id=$2 AND user_id=$3 AND id=ANY($4::uuid[])",[stored.id,user.tenant_id,user.id,assetIds]);
       if(historyAccount){await client.query(`INSERT INTO orders(tenant_id,account_id,purchaser_user_id,square_order_id,square_payment_id,square_invoice_id,square_customer_id,source,payment_method,status,location_id,subtotal,tax,total,currency,ordered_at,fulfillment,line_items,raw_square) VALUES($1,$2,$3,$4,$5,NULL,$6,'online',$7,$8,$9,$10,$11,$12,$13,now(),$14,$15,$16) ON CONFLICT(tenant_id,square_order_id) DO UPDATE SET purchaser_user_id=EXCLUDED.purchaser_user_id,payment_method=EXCLUDED.payment_method`,[user.tenant_id,historyAccount.id,user.id,created.id,payment.id,historyAccount.square_customer_id,input.paymentMethod,institutionalOrderStatus(payment.status),config.squareLocationId,Number(created.total_money.amount)-Number(created.total_tax_money?.amount||0),Number(created.total_tax_money?.amount||0),Number(created.total_money.amount),created.total_money.currency,JSON.stringify(input.fulfillment),JSON.stringify(created.line_items||[]),JSON.stringify({order:created,payment})]);if(account){await postSale(client,{tenantId:user.tenant_id,accountId:account.id,orderId:created.id,amount:Number(created.total_money.amount),currency:created.total_money.currency,description:`Online order ${created.id}`,actorId:user.id});await client.query("UPDATE credit_reservations SET status='captured',updated_at=now() WHERE idempotency_key=$1",[input.idempotencyKey]);}}
     });
     if(account)await refreshInstitutionalBalance(pool,square,user.tenant_id,account.id);
     reservation=null;
-    let delivery=null;
-    if(input.fulfillment.type==="delivery"&&config.uberDirectAutoDispatch){delivery=await dispatchUberSandbox(pool,uberDirect,config,{storedOrderId,tenantId:user.tenant_id,user,input,created}).catch(async error=>{console.error("Uber Direct sandbox dispatch failed",error);await pool.query(`INSERT INTO storefront_deliveries(tenant_id,storefront_order_id,environment,status,raw_provider) VALUES($1,$2,'sandbox','dispatch_failed',$3) ON CONFLICT(storefront_order_id) DO UPDATE SET status='dispatch_failed',raw_provider=EXCLUDED.raw_provider,updated_at=now()`,[user.tenant_id,storedOrderId,JSON.stringify({error:error.message,code:error.code||"UBER_DIRECT_REQUEST_FAILED"})]);return {provider:"UBER_DIRECT",environment:"sandbox",status:"dispatch_failed"};});}
     await pool.query("UPDATE customer_profiles SET default_phone=$3,default_address=CASE WHEN $4::jsonb IS NULL THEN default_address ELSE $4::jsonb END,updated_at=now() WHERE tenant_id=$1 AND user_id=$2",[user.tenant_id,user.id,normalizeNorthAmericanPhone(input.fulfillment.recipient.phone),input.fulfillment.type==="delivery"?JSON.stringify(input.fulfillment.address):null]);
     await tenantSquare.updateCustomer(customerProfile.rows[0].square_customer_id,{phone_number:normalizeNorthAmericanPhone(input.fulfillment.recipient.phone),...(input.fulfillment.type==="delivery"&&input.fulfillment.address?{address:squareAddress(input.fulfillment.address)}:{})}).catch(error=>console.error("Square customer contact sync failed",error));
     const orderText=orderEmailSummary(created,input.fulfillment);
     await Promise.all([sendEmail(config,{to:user.email,subject:"Amazing Donuts order confirmed",text:`Thanks, ${user.first_name}.\n\n${orderText}\n\nView your orders: ${config.siteUrl}/account/`}),notifyOwners(config,"New website order",`${user.first_name} ${user.last_name}\n${user.email}\n${orderText}\n\nManage: ${config.siteUrl}/admin-dashboard/#orders`,{replyTo:user.email})]);
-    response.status(201).json({order:publicOrder(created),paymentMethod:input.paymentMethod,delivery:delivery||publicDelivery(created,input,config.delivery)});
+    response.status(201).json({order:publicOrder(created),paymentMethod:input.paymentMethod,delivery:publicDelivery(created,input,config.delivery)});
   }catch(error){if(reservation)await pool.query("UPDATE credit_reservations SET status='released',updated_at=now() WHERE id=$1 AND status='active'",[reservation.id]).catch(releaseError=>console.error("Credit reservation release failed",releaseError));next(error);}});
   app.get("/api/admin/orders",async(request,response,next)=>{try{
     const user=requireStaff(request);
     const result=await pool.query(`SELECT so.*,so.payment_method AS source,u.email,
       COALESCE((SELECT json_agg(json_build_object('id',a.id,'fileName',a.file_name,'mimeType',a.mime_type)) FROM custom_order_assets a WHERE a.storefront_order_id=so.id),'[]') AS assets,
-      CASE WHEN sd.id IS NULL THEN NULL ELSE jsonb_build_object('status',sd.status,'trackingUrl',sd.tracking_url) END AS delivery
+      CASE WHEN sd.id IS NULL THEN NULL ELSE jsonb_build_object('provider',sd.provider,'environment',sd.environment,'status',sd.status,'statusLabel',CASE WHEN sd.status='dispatching_soon' THEN 'Dispatching soon' WHEN sd.status='out_for_delivery' THEN 'Out for delivery' WHEN sd.status='arriving_soon' THEN 'Arriving soon' WHEN sd.status='delivered' THEN 'Delivered' ELSE initcap(replace(sd.status,'_',' ')) END,'trackingUrl',sd.tracking_url,'deliveryId',sd.external_delivery_id,'assignedDriverName',sd.assigned_driver_name,'lastEventAt',sd.last_event_at,'dispatchAvailable',sd.dispatch_completed_at IS NULL AND sd.dispatch_expires_at>now()) END AS delivery
       FROM storefront_orders so LEFT JOIN users u ON u.id=so.user_id
       LEFT JOIN storefront_deliveries sd ON sd.storefront_order_id=so.id
       WHERE so.tenant_id=$1 ORDER BY so.ordered_at DESC LIMIT 100`,[user.tenant_id]);
+    await refreshUberRows(pool,uberDirect,result.rows);
     let live=[];
     if(result.rows.length){try{
       const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
@@ -279,8 +312,53 @@ export function createApp({ pool, square, uberDirect, config }) {
     }catch(error){console.error("Admin order status refresh failed",error.message);}}
     response.set("Cache-Control","private, no-store").json({orders:result.rows.map(row=>customerOrder(row,live.find(order=>order.id===row.square_order_id)))});
   }catch(error){next(error);}});
+  app.get("/api/public/dispatch/:token",async(request,response,next)=>{try{
+    let record=await dispatchRecordByToken(pool,request.params.token);
+    record=await refreshUberDelivery(pool,uberDirect,record);
+    const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(record.tenant_id):square;
+    response.set("Cache-Control","private, no-store").json({dispatch:await publicDispatchRecord(tenantSquare,record)});
+  }catch(error){next(error);}});
+  app.post("/api/public/dispatch/:token/provider",async(request,response,next)=>{try{
+    assertDispatchOrigin(request,config);
+    const input=dispatchProviderSchema.parse(request.body),record=await dispatchRecordByToken(pool,request.params.token);
+    const dispatch=await chooseDeliveryProvider(pool,square,uberDirect,config,record,input),driverLink=input.provider==="own_driver"?await issueDriverLink(pool,config,{...record,provider:dispatch.provider,scheduled_at:dispatch.scheduledAt}):null;
+    response.json({dispatch,driverLink});
+  }catch(error){next(error);}});
+  app.post("/api/public/dispatch/:token/driver-link",async(request,response,next)=>{try{
+    assertDispatchOrigin(request,config);
+    const record=await dispatchRecordByToken(pool,request.params.token);
+    response.json({driverLink:await issueDriverLink(pool,config,record)});
+  }catch(error){next(error);}});
+  app.post("/api/public/dispatch/:token/status",async(request,response,next)=>{try{
+    assertDispatchOrigin(request,config);
+    const input=dispatchStatusSchema.parse(request.body),record=await dispatchRecordByToken(pool,request.params.token);
+    response.json({dispatch:await setLocalDeliveryStatus(pool,square,record,input.status)});
+  }catch(error){next(error);}});
+  app.post("/api/admin/orders/:id/dispatch/provider",async(request,response,next)=>{try{
+    const user=requireStaff(request),input=dispatchProviderSchema.parse(request.body),record=await dispatchRecordByOrder(pool,request.params.id,user.tenant_id);
+    const dispatch=await chooseDeliveryProvider(pool,square,uberDirect,config,record,input),driverLink=input.provider==="own_driver"?await issueDriverLink(pool,config,{...record,provider:dispatch.provider,scheduled_at:dispatch.scheduledAt}):null;
+    response.json({dispatch,driverLink});
+  }catch(error){next(error);}});
+  app.post("/api/admin/orders/:id/dispatch/driver-link",async(request,response,next)=>{try{
+    const user=requireStaff(request),record=await dispatchRecordByOrder(pool,request.params.id,user.tenant_id);
+    response.json({driverLink:await issueDriverLink(pool,config,record)});
+  }catch(error){next(error);}});
+  app.post("/api/admin/orders/:id/dispatch/status",async(request,response,next)=>{try{
+    const user=requireStaff(request),input=dispatchStatusSchema.parse(request.body),record=await dispatchRecordByOrder(pool,request.params.id,user.tenant_id);
+    response.json({dispatch:await setLocalDeliveryStatus(pool,square,record,input.status)});
+  }catch(error){next(error);}});
+  app.get("/api/public/driver/:token",async(request,response,next)=>{try{
+    const record=await driverRecordByToken(pool,request.params.token),tenantSquare=typeof square.forTenant==="function"?await square.forTenant(record.tenant_id):square;
+    response.set("Cache-Control","private, no-store").json({dispatch:await publicDispatchRecord(tenantSquare,record,{driver:true})});
+  }catch(error){next(error);}});
+  app.post("/api/public/driver/:token/status",async(request,response,next)=>{try{
+    assertDispatchOrigin(request,config);
+    const input=dispatchStatusSchema.parse(request.body),record=await driverRecordByToken(pool,request.params.token);
+    response.json({dispatch:await setLocalDeliveryStatus(pool,square,record,input.status,{driver:true})});
+  }catch(error){next(error);}});
   app.get("/api/storefront/orders",async(request,response,next)=>{try{
-    const user=requireUser(request),result=await pool.query(`SELECT so.id,so.square_order_id,so.payment_method,so.status,so.subtotal,so.tax,so.total,so.currency,so.fulfillment,so.line_items,so.ordered_at,so.raw_square,CASE WHEN sd.id IS NULL THEN NULL ELSE jsonb_build_object('provider',sd.provider,'environment',sd.environment,'status',sd.status,'trackingUrl',sd.tracking_url,'deliveryId',sd.external_delivery_id,'estimatedDeliveryAt',COALESCE(sd.raw_provider->'data'->>'dropoff_eta',sd.raw_provider->'delivery'->>'dropoff_eta',sd.raw_provider->>'dropoff_eta')) END AS delivery FROM storefront_orders so LEFT JOIN storefront_deliveries sd ON sd.storefront_order_id=so.id WHERE so.tenant_id=$1 AND so.user_id=$2 UNION ALL SELECT o.id,o.square_order_id,'house_account' AS payment_method,o.status,o.subtotal,o.tax,o.total,o.currency,o.fulfillment,o.line_items,o.ordered_at,o.raw_square,NULL::jsonb AS delivery FROM orders o JOIN account_users au ON au.account_id=o.account_id AND au.user_id=$2 WHERE o.tenant_id=$1 AND NOT EXISTS(SELECT 1 FROM storefront_orders so WHERE so.tenant_id=o.tenant_id AND so.square_order_id=o.square_order_id) ORDER BY ordered_at DESC LIMIT 100`,[user.tenant_id,user.id]);
+    const user=requireUser(request),result=await pool.query(`SELECT so.id,so.square_order_id,so.payment_method,so.status,so.subtotal,so.tax,so.total,so.currency,so.fulfillment,so.line_items,so.ordered_at,so.raw_square,CASE WHEN sd.id IS NULL THEN NULL ELSE jsonb_build_object('provider',sd.provider,'environment',sd.environment,'status',sd.status,'statusLabel',CASE WHEN sd.status='dispatching_soon' THEN 'Dispatching soon' WHEN sd.status='out_for_delivery' THEN 'Out for delivery' WHEN sd.status='arriving_soon' THEN 'Arriving soon' WHEN sd.status='delivered' THEN 'Delivered' ELSE initcap(replace(sd.status,'_',' ')) END,'trackingUrl',sd.tracking_url,'deliveryId',sd.external_delivery_id,'assignedDriverName',sd.assigned_driver_name,'lastEventAt',sd.last_event_at,'estimatedDeliveryAt',COALESCE(sd.raw_provider->'data'->>'dropoff_eta',sd.raw_provider->'delivery'->>'dropoff_eta',sd.raw_provider->>'dropoff_eta')) END AS delivery FROM storefront_orders so LEFT JOIN storefront_deliveries sd ON sd.storefront_order_id=so.id WHERE so.tenant_id=$1 AND so.user_id=$2 UNION ALL SELECT o.id,o.square_order_id,'house_account' AS payment_method,o.status,o.subtotal,o.tax,o.total,o.currency,o.fulfillment,o.line_items,o.ordered_at,o.raw_square,NULL::jsonb AS delivery FROM orders o JOIN account_users au ON au.account_id=o.account_id AND au.user_id=$2 WHERE o.tenant_id=$1 AND NOT EXISTS(SELECT 1 FROM storefront_orders so WHERE so.tenant_id=o.tenant_id AND so.square_order_id=o.square_order_id) ORDER BY ordered_at DESC LIMIT 100`,[user.tenant_id,user.id]);
+    await refreshUberRows(pool,uberDirect,result.rows);
     const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
     let orders=result.rows.map(row=>customerOrder(row));
     try{
@@ -298,11 +376,69 @@ export function createApp({ pool, square, uberDirect, config }) {
   const guestTenant=async slug=>{const tenant=await pool.query("SELECT id FROM tenants WHERE slug=$1 AND status='active'",[slug]);if(!tenant.rowCount)throw Object.assign(new Error("Online ordering is unavailable."),{status:404});return tenant.rows[0].id;};
   const refuseGuestPrints=input=>{if(input.customizations?.some(entry=>entry.kind==="print"))throw Object.assign(new Error("Custom-printed items need an account because their artwork is stored against it. Please sign in to order them."),{status:403,code:"ACCOUNT_REQUIRED_FOR_PRINT"});};
 
+  app.post("/api/public/storefront/cart-reminders",async(request,response,next)=>{try{
+    const input=cartReminderSchema.parse(request.body),tenantId=await guestTenant(input.tenantSlug);
+    if(process.env.VERCEL_ENV==="preview")return response.json({ok:true,eligible:false});
+    if(!input.items.length){
+      await pool.query("UPDATE abandoned_carts SET unsubscribed_at=now(),items='[]'::jsonb WHERE tenant_id=$1 AND cart_id=$2 AND completed_at IS NULL",[tenantId,input.cartId]);
+      return response.json({ok:true});
+    }
+    const email=(request.user?.tenant_id===tenantId?request.user.email:input.email||"").trim().toLowerCase();
+    if(!z.email().safeParse(email).success)throw Object.assign(new Error("A valid email is required for reminders."),{status:400});
+    const optedOut=await pool.query("SELECT 1 FROM abandoned_carts WHERE tenant_id=$1 AND email=$2 AND unsubscribed_at IS NOT NULL LIMIT 1",[tenantId,email]);
+    if(optedOut.rowCount)return response.json({ok:true,eligible:false});
+    const userId=request.user?.tenant_id===tenantId?request.user.id:null;
+    let customerIds=[];
+    if(!userId){
+      const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(tenantId):square;
+      customerIds=(await findSquareCustomers(tenantSquare,email)).map(customer=>customer.id);
+    }
+    const prior=await pool.query(`SELECT so.id FROM storefront_orders so
+      WHERE so.tenant_id=$1 AND so.ordered_at>=now()-interval '2 years'
+        AND so.payment_method='card' AND so.status NOT IN ('cancelled','failed','refunded')
+        AND ((so.user_id=$2 AND EXISTS(SELECT 1 FROM users u WHERE u.id=$2 AND lower(u.email)=$3))
+          OR (so.user_id IS NULL AND so.guest_contact->>'squareCustomerId'=ANY($4::text[])))
+      ORDER BY so.ordered_at DESC LIMIT 1`,[tenantId,userId,email,customerIds]);
+    if(!prior.rowCount)return response.json({ok:true,eligible:false});
+    const basis='prior_purchase';
+    await pool.query(`INSERT INTO abandoned_carts(tenant_id,cart_id,user_id,email,items,consented_at,consent_basis,qualifying_order_id)
+      VALUES($1,$2,$3,$4,$5,now(),$6,$7) ON CONFLICT(tenant_id,cart_id) DO UPDATE
+      SET email=EXCLUDED.email,user_id=EXCLUDED.user_id,items=EXCLUDED.items,updated_at=now(),
+          consented_at=CASE WHEN abandoned_carts.email=EXCLUDED.email THEN abandoned_carts.consented_at ELSE now() END,
+          consent_basis=EXCLUDED.consent_basis,qualifying_order_id=EXCLUDED.qualifying_order_id
+      WHERE abandoned_carts.completed_at IS NULL AND abandoned_carts.unsubscribed_at IS NULL AND abandoned_carts.reminder_sent_at IS NULL`,
+      [tenantId,input.cartId,userId,email,JSON.stringify(input.items),basis,prior.rows[0]?.id||null]);
+    response.json({ok:true,eligible:!!prior.rowCount});
+  }catch(error){next(error);}});
+
+  app.get("/api/public/storefront/cart-reminders/unsubscribe",async(request,response,next)=>{try{
+    const cartId=z.uuid().parse(request.query.cartId),token=String(request.query.token||"");
+    const found=await pool.query("SELECT tenant_id,cart_id,email FROM abandoned_carts WHERE cart_id=$1 LIMIT 1",[cartId]);
+    if(!found.rowCount||!validUnsubscribeSignature(config.sessionSecret,found.rows[0],token))throw Object.assign(new Error("This unsubscribe link is invalid."),{status:404});
+    response.type("html").set("Cache-Control","no-store").send(`<html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="font:16px Arial;max-width:480px;margin:48px auto;padding:20px"><h1>Amazing Donuts</h1><p>Stop bag reminder emails?</p><form method="POST"><button type="submit" style="padding:12px 20px">Unsubscribe</button></form></body></html>`);
+  }catch(error){next(error);}});
+  app.post("/api/public/storefront/cart-reminders/unsubscribe",async(request,response,next)=>{try{
+    const cartId=z.uuid().parse(request.query.cartId),token=String(request.query.token||"");
+    const found=await pool.query("SELECT tenant_id,cart_id,email FROM abandoned_carts WHERE cart_id=$1 LIMIT 1",[cartId]);
+    if(!found.rowCount||!validUnsubscribeSignature(config.sessionSecret,found.rows[0],token))throw Object.assign(new Error("This unsubscribe link is invalid."),{status:404});
+    const cart=found.rows[0];
+    await pool.query("UPDATE abandoned_carts SET unsubscribed_at=now(),items='[]'::jsonb WHERE tenant_id=$1 AND lower(email)=lower($2) AND completed_at IS NULL",[cart.tenant_id,cart.email]);
+    response.type("html").set("Cache-Control","no-store").send("<p>You have been unsubscribed from Amazing Donuts bag reminders.</p>");
+  }catch(error){next(error);}});
+
   app.post("/api/public/storefront/quote",async(request,response,next)=>{try{
     const input=guestQuoteSchema.parse(request.body),tenantId=await guestTenant(input.tenantSlug);
     const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(tenantId):square;
-    const {calculated}=await prepareSquareOrder(tenantSquare,config,input,null);
+    const {calculated}=await prepareSquareOrder(pool,tenantSquare,config,input,null,tenantId);
     response.json({order:publicOrder(calculated),delivery:publicDelivery(calculated,input,config.delivery)});
+  }catch(error){next(error);}});
+
+  app.post("/api/public/storefront/promo-code",async(request,response,next)=>{try{
+    const input=z.object({tenantSlug:z.string().min(2).default("amazing-donuts"),code:promoCodeSchema}).parse(request.body);
+    const tenantId=await guestTenant(input.tenantSlug);
+    const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(tenantId):square;
+    const promo=await resolvePromoCode(pool,tenantSquare,tenantId,input.code);
+    response.json({valid:Boolean(promo),code:promo?.code||"",name:promo?.name||""});
   }catch(error){next(error);}});
 
   app.post("/api/public/storefront/checkout",async(request,response,next)=>{try{
@@ -312,12 +448,18 @@ export function createApp({ pool, square, uberDirect, config }) {
     const email=input.guest.email.toLowerCase();
     const phone=normalizeNorthAmericanPhone(input.guest.phone),{customer}=await findOrCreateGuestCustomer(tenantSquare,{...input.guest,email,phone},input.idempotencyKey);
     await tenantSquare.updateCustomer(customer.id,{given_name:input.guest.firstName,family_name:input.guest.lastName||undefined,email_address:email,phone_number:phone||undefined});
-    const {orderDraft}=await prepareSquareOrder(tenantSquare,config,input,null);
+    const dispatch=input.fulfillment.type==="delivery"?createDispatchCapability(config.siteUrl,input.fulfillment.scheduledAt):null;
+    const checkoutInput=dispatch?{...input,fulfillment:withDispatchInstructions(input.fulfillment,dispatch.url)}:input;
+    const {orderDraft}=await prepareSquareOrder(pool,tenantSquare,config,checkoutInput,null,tenantId);
     const created=(await tenantSquare.createOrder({idempotency_key:`order-${input.idempotencyKey}`,order:{...orderDraft,customer_id:customer.id}})).order;
     const payment=(await tenantSquare.createPayment({idempotency_key:`payment-${input.idempotencyKey}`,source_id:input.sourceId,amount_money:created.total_money,order_id:created.id,location_id:config.squareLocationId,customer_id:customer.id,buyer_email_address:email,buyer_phone_number:normalizeNorthAmericanPhone(input.guest.phone)||undefined,autocomplete:true})).payment;
-    const stored=(await pool.query(`INSERT INTO storefront_orders(tenant_id,user_id,account_id,square_order_id,square_payment_id,square_invoice_id,payment_method,status,subtotal,tax,total,currency,fulfillment,line_items,customizations,raw_square,guest_contact) VALUES($1,NULL,NULL,$2,$3,NULL,'card',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(tenant_id,square_order_id) DO UPDATE SET square_payment_id=EXCLUDED.square_payment_id RETURNING id`,[tenantId,created.id,payment?.id||null,payment?.status?.toLowerCase()||"completed",Number(created.total_money.amount)-Number(created.total_tax_money?.amount||0),Number(created.total_tax_money?.amount||0),Number(created.total_money.amount),created.total_money.currency,JSON.stringify(guestFulfillmentReference(input.fulfillment)),JSON.stringify(created.line_items||[]),JSON.stringify(input.customizations),JSON.stringify({order:{id:created.id,customer_id:customer.id},payment:{id:payment?.id,status:payment?.status}}),JSON.stringify(guestOrderReference(customer.id))])).rows[0];
+    const stored=await transaction(pool,async client=>{
+      const row=(await client.query(`INSERT INTO storefront_orders(tenant_id,user_id,account_id,square_order_id,square_payment_id,square_invoice_id,payment_method,status,subtotal,tax,total,currency,fulfillment,line_items,customizations,raw_square,guest_contact) VALUES($1,NULL,NULL,$2,$3,NULL,'card',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(tenant_id,square_order_id) DO UPDATE SET square_payment_id=EXCLUDED.square_payment_id RETURNING id`,[tenantId,created.id,payment?.id||null,payment?.status?.toLowerCase()||"completed",Number(created.total_money.amount)-Number(created.total_tax_money?.amount||0),Number(created.total_money.amount),created.total_money.currency,JSON.stringify(guestFulfillmentReference(input.fulfillment)),JSON.stringify(created.line_items||[]),JSON.stringify(input.customizations),JSON.stringify({order:{id:created.id,customer_id:customer.id},payment:{id:payment?.id,status:payment?.status}}),JSON.stringify(guestOrderReference(customer.id))])).rows[0];
+      await client.query("UPDATE abandoned_carts SET completed_at=now(),items='[]'::jsonb WHERE tenant_id=$1 AND email=$2 AND completed_at IS NULL",[tenantId,email]);
+      if(dispatch)await client.query(`INSERT INTO storefront_deliveries(tenant_id,storefront_order_id,provider,environment,status,dispatch_token_hash,dispatch_expires_at) VALUES($1,$2,'unassigned',$3,'dispatching_soon',$4,$5) ON CONFLICT(storefront_order_id) DO UPDATE SET dispatch_token_hash=EXCLUDED.dispatch_token_hash,dispatch_expires_at=EXCLUDED.dispatch_expires_at,updated_at=now()`,[tenantId,row.id,config.uberDirectMode||"sandbox",dispatch.tokenHash,dispatch.expiresAt]);
+      return row;
+    });
     let delivery=publicDelivery(created,input,config.delivery);
-    if(input.fulfillment.type==="delivery"&&config.uberDirectAutoDispatch){try{delivery=await dispatchUberSandbox(pool,uberDirect,config,{storedOrderId:stored.id,tenantId,user:null,input,created});}catch(error){await pool.query(`INSERT INTO storefront_deliveries(tenant_id,storefront_order_id,environment,status,raw_provider) VALUES($1,$2,'sandbox','dispatch_failed',$3) ON CONFLICT(storefront_order_id) DO UPDATE SET status='dispatch_failed',raw_provider=EXCLUDED.raw_provider,updated_at=now()`,[tenantId,stored.id,JSON.stringify({error:error.message})]);console.error("Guest Uber Direct sandbox dispatch failed",error);}}
     const orderText=orderEmailSummary(created,input.fulfillment);
     await Promise.all([sendEmail(config,{to:email,subject:"Amazing Donuts order confirmed",text:`Thanks, ${input.guest.firstName}.\n\n${orderText}\n\nKeep this email as your receipt.`}),notifyOwners(config,"New website order (guest)",`${input.guest.firstName} ${input.guest.lastName}\n${email}\n${orderText}\n\nManage: ${config.siteUrl}/admin-dashboard/#orders`,{replyTo:email})]);
     response.status(201).json({order:publicOrder(created),paymentMethod:"card",delivery});
@@ -339,6 +481,16 @@ export function createApp({ pool, square, uberDirect, config }) {
     if (!membership.rowCount) return response.json({ account:null });
     response.json({ account:await hydrateAccount(pool,membership.rows[0]) });
   } catch(error){ next(error); }});
+  app.get("/api/storefront/current-statement.pdf", async (request,response,next)=>{ try {
+    const user=requireUser(request);
+    const result=await pool.query(`SELECT a.*,t.name AS tenant_name,t.brand FROM account_users au JOIN accounts a ON a.id=au.account_id JOIN tenants t ON t.id=a.tenant_id WHERE au.user_id=$1 AND a.tenant_id=$2 AND au.status='active' AND a.status='active' LIMIT 1`,[user.id,user.tenant_id]);
+    if(!result.rowCount)throw Object.assign(new Error("Active institutional account not found."),{status:404});
+    const account=result.rows[0];
+    const latest=(await pool.query("SELECT period_end FROM statements WHERE account_id=$1 ORDER BY period_end DESC LIMIT 1",[account.id])).rows[0];
+    const preview=await buildCurrentStatement(pool,account,latest);
+    const pdf=await statementPdf(preview,{name:account.tenant_name,brand:account.brand},account);
+    response.set({"Content-Type":"application/pdf","Content-Disposition":`attachment; filename="current-statement-${preview.period_end}.pdf"`,"Cache-Control":"private, no-store"}).send(pdf);
+  }catch(error){next(error);}});
   app.patch("/api/storefront/house-settings",async(request,response,next)=>{try{const user=requireUser(request),input=organizationSettingsSchema.parse(request.body),account=(await pool.query(`SELECT a.* FROM accounts a JOIN account_users au ON au.account_id=a.id WHERE a.tenant_id=$1 AND au.user_id=$2 AND au.status='active' AND au.role='account_admin' LIMIT 1`,[user.tenant_id,user.id])).rows[0];if(!account)throw Object.assign(new Error("Account administrator access is required."),{status:403});const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square,updated=await updateOrganizationSettings(pool,tenantSquare,account,input);response.json({account:await hydrateAccount(pool,updated)});}catch(error){next(error);}});
 
   app.post("/api/storefront/statements/:id/pay",async(request,response,next)=>{try{
@@ -349,7 +501,7 @@ export function createApp({ pool, square, uberDirect, config }) {
     if(["paid","void"].includes(statement.status)||Number(statement.closing_balance)<=0)throw Object.assign(new Error("This statement has no outstanding balance."),{status:409});
     let sourceId=input.sourceId,paymentMethod="Card";
     if(sourceId==="SAVED_CARD"){
-      const saved=(await pool.query("SELECT square_card_id,card_brand,last_4 FROM account_cards WHERE account_id=$1 AND status='active' ORDER BY created_at DESC LIMIT 1",[statement.account_id])).rows[0];
+      const saved=(await pool.query("SELECT square_card_id,card_brand,last_4 FROM account_cards WHERE account_id=$1 AND square_environment=$2 AND status='active' ORDER BY created_at DESC LIMIT 1",[statement.account_id,config.squareEnvironment])).rows[0];
       if(!saved)throw Object.assign(new Error("The saved card is no longer available. Choose another card."),{status:409,code:"SAVED_CARD_UNAVAILABLE"});
       sourceId=saved.square_card_id;paymentMethod=`Saved ${saved.card_brand||"card"} ending in ${saved.last_4}`;
     }
@@ -365,7 +517,7 @@ export function createApp({ pool, square, uberDirect, config }) {
     if(!order)throw Object.assign(new Error("Credit order not found."),{status:404});
     let sourceId=input.sourceId,paymentMethod="Card";
     if(sourceId==="SAVED_CARD"){
-      const saved=(await pool.query("SELECT square_card_id,card_brand,last_4 FROM account_cards WHERE account_id=$1 AND status='active' ORDER BY created_at DESC LIMIT 1",[order.account_id])).rows[0];
+      const saved=(await pool.query("SELECT square_card_id,card_brand,last_4 FROM account_cards WHERE account_id=$1 AND square_environment=$2 AND status='active' ORDER BY created_at DESC LIMIT 1",[order.account_id,config.squareEnvironment])).rows[0];
       if(!saved)throw Object.assign(new Error("The saved card is no longer available. Choose another card."),{status:409,code:"SAVED_CARD_UNAVAILABLE"});
       sourceId=saved.square_card_id;paymentMethod=`Saved ${saved.card_brand||"card"} ending in ${saved.last_4}`;
     }
@@ -377,6 +529,44 @@ export function createApp({ pool, square, uberDirect, config }) {
 
   app.get("/api/public/statements/:token",async(request,response,next)=>{try{const result=await pool.query(`SELECT s.id,s.statement_number,s.period_start,s.period_end,s.closing_balance,s.currency,s.due_at,s.status,a.organization_name,COALESCE(pa.paid_amount,0)::bigint AS paid_amount,GREATEST(0,s.closing_balance-COALESCE(pa.paid_amount,0))::bigint AS balance_due FROM statements s JOIN accounts a ON a.id=s.account_id LEFT JOIN (SELECT statement_id,SUM(amount)::bigint AS paid_amount FROM payment_allocations WHERE status='completed' GROUP BY statement_id) pa ON pa.statement_id=s.id WHERE s.payment_token=$1`,[request.params.token]);if(!result.rowCount)throw Object.assign(new Error("Payment link not found."),{status:404});const statement=result.rows[0],orders=await pool.query(`SELECT o.id,o.square_order_id,o.receipt_number,o.ordered_at,o.total,o.currency,GREATEST(0,o.total-COALESCE(pa.paid_amount,0))::bigint AS balance_due FROM orders o LEFT JOIN (SELECT order_id,SUM(amount)::bigint AS paid_amount FROM payment_allocations WHERE status='completed' GROUP BY order_id) pa ON pa.order_id=o.id WHERE o.account_id=(SELECT account_id FROM statements WHERE id=$1) AND o.payment_method='house_account' AND o.ordered_at::date BETWEEN $2 AND $3 ORDER BY o.ordered_at`,[statement.id,statement.period_start,statement.period_end]);response.json({statement:{...statement,orders:orders.rows}});}catch(error){next(error);}});
   app.post("/api/public/statements/:token/pay",async(request,response,next)=>{try{const input=settlementSchema.parse(request.body),result=await pool.query(`SELECT s.*,a.square_customer_id,a.billing_email FROM statements s JOIN accounts a ON a.id=s.account_id WHERE s.payment_token=$1`,[request.params.token]);if(!result.rowCount)throw Object.assign(new Error("Payment link not found."),{status:404});const statement=result.rows[0],payment=await collectStatement(pool,square,config,statement,input.sourceId,input.idempotencyKey,null,"Card",input.amount,input.orderId);await sendEmail(config,{to:statement.billing_email,subject:`Payment received for ${statement.statement_number}`,text:`We received ${formatMoney(payment.appliedAmount,statement.currency)} for statement ${statement.statement_number}.`});response.status(201).json({payment:{id:payment.id,status:payment.status,amount:payment.appliedAmount},statement:{status:payment.remainingBalance?"partially_paid":"paid",balance_due:payment.remainingBalance}});}catch(error){next(error);}});
+
+  app.get("/api/jobs/cart-reminders",async(request,response,next)=>{try{
+    requireCron(request,config);
+    const due=await pool.query(`SELECT ac.* FROM abandoned_carts ac
+      WHERE ac.updated_at < now()-interval '24 hours' AND ac.updated_at > now()-interval '30 days'
+        AND ac.completed_at IS NULL AND ac.unsubscribed_at IS NULL AND ac.reminder_sent_at IS NULL
+        AND (ac.consent_basis='express' OR EXISTS(SELECT 1 FROM storefront_orders prior WHERE prior.id=ac.qualifying_order_id AND prior.ordered_at>=now()-interval '2 years' AND prior.status NOT IN ('cancelled','failed','refunded'))
+        AND NOT EXISTS (SELECT 1 FROM abandoned_carts stop WHERE stop.tenant_id=ac.tenant_id AND stop.email=ac.email AND stop.unsubscribed_at IS NOT NULL)
+        AND NOT EXISTS (SELECT 1 FROM storefront_orders so WHERE so.tenant_id=ac.tenant_id
+          AND so.ordered_at>=ac.consented_at
+          AND ((ac.user_id IS NOT NULL AND so.user_id=ac.user_id) OR lower(so.guest_contact->>'email')=ac.email))
+        AND NOT EXISTS (SELECT 1 FROM abandoned_carts recent WHERE recent.tenant_id=ac.tenant_id
+          AND recent.email=ac.email AND recent.cart_id<>ac.cart_id AND recent.reminder_sent_at>now()-interval '30 days')
+      ORDER BY ac.updated_at LIMIT 25`);
+    let sent=0;
+    for(const cart of due.rows){
+      const claimed=await pool.query(`UPDATE abandoned_carts ac SET reminder_sent_at=now() WHERE ac.tenant_id=$1 AND ac.cart_id=$2
+        AND ac.completed_at IS NULL AND ac.unsubscribed_at IS NULL AND ac.reminder_sent_at IS NULL
+        AND ac.updated_at < now()-interval '24 hours'
+        AND (ac.consent_basis='express' OR EXISTS(SELECT 1 FROM storefront_orders prior WHERE prior.id=ac.qualifying_order_id AND prior.ordered_at>=now()-interval '2 years' AND prior.status NOT IN ('cancelled','failed','refunded'))
+        AND NOT EXISTS (SELECT 1 FROM abandoned_carts stop WHERE stop.tenant_id=ac.tenant_id AND stop.email=ac.email AND stop.unsubscribed_at IS NOT NULL)
+        AND NOT EXISTS (SELECT 1 FROM storefront_orders so WHERE so.tenant_id=ac.tenant_id AND so.ordered_at>=ac.consented_at
+          AND ((ac.user_id IS NOT NULL AND so.user_id=ac.user_id) OR lower(so.guest_contact->>'email')=ac.email))
+        AND NOT EXISTS (SELECT 1 FROM abandoned_carts recent WHERE recent.tenant_id=ac.tenant_id
+          AND recent.email=ac.email AND recent.cart_id<>ac.cart_id AND recent.reminder_sent_at>now()-interval '30 days')
+        RETURNING ac.cart_id`,[cart.tenant_id,cart.cart_id]);
+      if(!claimed.rowCount)continue;
+      const signature=unsubscribeSignature(config.sessionSecret,cart.tenant_id,cart.cart_id,cart.email);
+      const delivered=await sendEmail(config,{to:cart.email,subject:"Your Amazing Donuts bag is waiting",text:reminderText(cart,config.siteUrl,signature)});
+      if(delivered){
+        sent++;
+        await pool.query("UPDATE abandoned_carts SET items='[]'::jsonb WHERE tenant_id=$1 AND cart_id=$2",[cart.tenant_id,cart.cart_id]);
+      }
+      else await pool.query("UPDATE abandoned_carts SET reminder_sent_at=NULL WHERE tenant_id=$1 AND cart_id=$2",[cart.tenant_id,cart.cart_id]);
+    }
+    await pool.query("UPDATE abandoned_carts SET items='[]'::jsonb WHERE updated_at<now()-interval '30 days' AND items<>'[]'::jsonb");
+    response.json({ok:true,sent});
+  }catch(error){next(error);}});
 
   app.get("/api/jobs/reconcile",async(request,response,next)=>{try{
     requireCron(request,config);
@@ -397,7 +587,7 @@ export function createApp({ pool, square, uberDirect, config }) {
     let issued=0;
     if(isFirst){const end=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),0)),start=new Date(Date.UTC(end.getUTCFullYear(),end.getUTCMonth(),1)),periodStart=start.toISOString().slice(0,10),periodEnd=end.toISOString().slice(0,10);const accounts=await pool.query(`SELECT DISTINCT a.id,a.tenant_id FROM accounts a JOIN journal_transactions jt ON jt.account_id=a.id AND jt.effective_at>=$1::date AND jt.effective_at<($2::date+1) WHERE a.status='active' AND a.billing_frequency='monthly'`,[periodStart,periodEnd]);for(const account of accounts.rows){try{await issueStatement(pool,{tenant_id:account.tenant_id},account.id,{periodStart,periodEnd});issued++;}catch(error){if(error.code!=="23505")throw error;}}}
     if(today.getUTCDay()===1){const end=new Date(today);end.setUTCDate(end.getUTCDate()-1);const start=new Date(end);start.setUTCDate(start.getUTCDate()-6);const periodStart=start.toISOString().slice(0,10),periodEnd=end.toISOString().slice(0,10);const accounts=await pool.query(`SELECT DISTINCT a.id,a.tenant_id FROM accounts a JOIN journal_transactions jt ON jt.account_id=a.id AND jt.effective_at>=$1::date AND jt.effective_at<($2::date+1) WHERE a.status='active' AND a.billing_frequency='weekly'`,[periodStart,periodEnd]);for(const account of accounts.rows){try{await issueStatement(pool,{tenant_id:account.tenant_id},account.id,{periodStart,periodEnd});issued++;}catch(error){if(error.code!=="23505")throw error;}}}
-    const scheduled=await pool.query(`SELECT s.*,a.square_customer_id,a.billing_email,ac.square_card_id FROM statements s JOIN accounts a ON a.id=s.account_id JOIN account_cards ac ON ac.account_id=a.id AND ac.status='active' WHERE s.status IN ('issued','partially_paid','overdue') AND ((s.scheduled_charge_at IS NOT NULL AND s.scheduled_charge_at<=now()) OR (a.auto_charge_statements AND s.due_at<=CURRENT_DATE)) LIMIT 25`);let collected=0;for(const statement of scheduled.rows){try{await collectStatement(pool,square,config,statement,statement.square_card_id,`scheduled-${statement.id}`);collected++;}catch(error){console.error("Scheduled statement collection failed",statement.id,error);}}
+    const scheduled=await pool.query(`SELECT s.*,a.square_customer_id,a.billing_email,ac.square_card_id FROM statements s JOIN accounts a ON a.id=s.account_id JOIN account_cards ac ON ac.account_id=a.id AND ac.status='active' AND ac.square_environment=$1 WHERE s.status IN ('issued','partially_paid','overdue') AND ((s.scheduled_charge_at IS NOT NULL AND s.scheduled_charge_at<=now()) OR (a.auto_charge_statements AND s.due_at<=CURRENT_DATE)) LIMIT 25`,[config.squareEnvironment]);let collected=0;for(const statement of scheduled.rows){try{await collectStatement(pool,square,config,statement,statement.square_card_id,`scheduled-${statement.id}`);collected++;}catch(error){console.error("Scheduled statement collection failed",statement.id,error);}}
     await pool.query("UPDATE statements SET status='overdue' WHERE status IN ('issued','partially_paid') AND due_at<CURRENT_DATE");
     await pool.query(`INSERT INTO statement_notifications(tenant_id,statement_id,notification_type,recipient)
       SELECT s.tenant_id,s.id,CASE WHEN s.status='overdue' THEN 'overdue' WHEN s.due_at<=CURRENT_DATE+3 THEN 'due_soon' ELSE 'issued' END,a.billing_email
@@ -434,6 +624,24 @@ export function createApp({ pool, square, uberDirect, config }) {
     response.json({ok:true,accepted:info.accepted.length});
   }catch(error){next(error);}});
   app.get("/api/admin/email-status",async(request,response,next)=>{try{requireStaff(request);const configured=Boolean(config.smtpHost&&config.smtpUser&&config.smtpPassword),ownersConfigured=Boolean(config.ownerEmails?.length);response.json({configured,ownersConfigured,from:config.emailFrom,replyTo:config.emailReplyTo||null});}catch(error){next(error);}});
+  app.get("/api/admin/promo-codes",async(request,response,next)=>{try{
+    const user=requireStaff(request),tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
+    const [stored,discounts]=await Promise.all([pool.query("SELECT id,code,square_discount_id,active FROM storefront_promo_codes WHERE tenant_id=$1 ORDER BY code",[user.tenant_id]),squareDiscounts(tenantSquare)]);
+    response.json({codes:stored.rows,discounts});
+  }catch(error){next(error);}});
+  app.post("/api/admin/promo-codes",async(request,response,next)=>{try{
+    const user=requireStaff(request),input=z.object({code:promoCodeSchema.refine(Boolean),squareDiscountId:z.string().min(1).max(192)}).parse(request.body),code=normalizePromoCode(input.code);
+    const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
+    const discounts=await squareDiscounts(tenantSquare);
+    if(!discounts.some(item=>item.id===input.squareDiscountId))throw Object.assign(new Error("Choose an available Square discount."),{status:400});
+    const result=await pool.query("INSERT INTO storefront_promo_codes(tenant_id,code,square_discount_id,active) VALUES($1,$2,$3,TRUE) ON CONFLICT(tenant_id,code) DO UPDATE SET square_discount_id=EXCLUDED.square_discount_id,active=TRUE RETURNING id,code,square_discount_id,active",[user.tenant_id,code,input.squareDiscountId]);
+    response.json({code:result.rows[0]});
+  }catch(error){next(error);}});
+  app.delete("/api/admin/promo-codes/:id",async(request,response,next)=>{try{
+    const user=requireStaff(request),result=await pool.query("UPDATE storefront_promo_codes SET active=FALSE WHERE id=$1 AND tenant_id=$2 RETURNING id",[request.params.id,user.tenant_id]);
+    if(!result.rowCount)throw Object.assign(new Error("Promo code not found."),{status:404});
+    response.json({ok:true});
+  }catch(error){next(error);}});
   app.get("/api/admin/custom-orders",async(request,response,next)=>{try{const user=requireStaff(request),result=await pool.query(`SELECT so.id,so.square_order_id,so.payment_method AS source,so.status,so.total,so.currency,so.ordered_at,so.line_items,so.customizations,u.email,COALESCE(json_agg(json_build_object('id',a.id,'fileName',a.file_name,'mimeType',a.mime_type)) FILTER (WHERE a.id IS NOT NULL),'[]') AS assets FROM storefront_orders so JOIN users u ON u.id=so.user_id LEFT JOIN custom_order_assets a ON a.storefront_order_id=so.id WHERE so.tenant_id=$1 AND so.customizations<>'[]'::jsonb GROUP BY so.id,u.email ORDER BY so.ordered_at DESC LIMIT 100`,[user.tenant_id]);response.json({orders:result.rows});}catch(error){next(error);}});
   app.get("/api/admin/notifications",async(request,response,next)=>{try{const user=requireStaff(request),result=await pool.query("SELECT * FROM admin_notifications WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT 100",[user.tenant_id]);response.json({notifications:result.rows});}catch(error){next(error);}});
   app.patch("/api/admin/notifications/:id/read",async(request,response,next)=>{try{const user=requireStaff(request),notification=(await pool.query("UPDATE admin_notifications SET read_at=COALESCE(read_at,now()) WHERE id=$1 AND tenant_id=$2 RETURNING *",[request.params.id,user.tenant_id])).rows[0];if(!notification)throw Object.assign(new Error("Notification not found."),{status:404});response.json({notification});}catch(error){next(error);}});
@@ -480,19 +688,20 @@ export function createApp({ pool, square, uberDirect, config }) {
   app.post("/api/admin/accounts/:id/card",async(request,response,next)=>{try{
     const user=requireStaff(request),input=adminSaveCardSchema.parse(request.body),account=(await pool.query("SELECT * FROM accounts WHERE id=$1 AND tenant_id=$2",[request.params.id,user.tenant_id])).rows[0];
     if(!account)throw Object.assign(new Error("Account not found."),{status:404});
-    const existing=(await pool.query("SELECT * FROM account_cards WHERE account_id=$1 AND status='active'",[account.id])).rows[0],tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
-    const created=(await tenantSquare.createCard({idempotency_key:randomUUID(),source_id:input.sourceId,card:{customer_id:account.square_customer_id,cardholder_name:input.cardholderName}})).card;
+    const existing=(await pool.query("SELECT * FROM account_cards WHERE account_id=$1 AND square_environment=$2 AND status='active'",[account.id,config.squareEnvironment])).rows[0],tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;
+    const customerId=await ensureHouseCustomer(pool,tenantSquare,user.tenant_id,account.id);
+    const created=(await tenantSquare.createCard({idempotency_key:randomUUID(),source_id:input.sourceId,card:{customer_id:customerId,cardholder_name:input.cardholderName}})).card;
     if(existing)await tenantSquare.disableCard(existing.square_card_id);
     const stored=await transaction(pool,async client=>{
       if(existing)await client.query("UPDATE account_cards SET status='disabled' WHERE id=$1",[existing.id]);
-      return (await client.query(`INSERT INTO account_cards(tenant_id,account_id,user_id,square_card_id,card_brand,last_4,exp_month,exp_year,consented_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now()) RETURNING *`,[user.tenant_id,account.id,user.id,created.id,created.card_brand||null,created.last_4||null,created.exp_month||null,created.exp_year||null])).rows[0];
+      return (await client.query(`INSERT INTO account_cards(tenant_id,account_id,user_id,square_card_id,card_brand,last_4,exp_month,exp_year,square_environment,consented_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,now()) RETURNING *`,[user.tenant_id,account.id,user.id,created.id,created.card_brand||null,created.last_4||null,created.exp_month||null,created.exp_year||null,config.squareEnvironment])).rows[0];
     });
     await audit(pool,user,request,existing?"card.replaced":"card.added","account_card",stored.id,existing?publicCard(existing):null,publicCard(stored));
     await sendEmail(config,{to:account.billing_email,subject:"Payment card updated for your Amazing Donuts account",text:`Amazing Donuts securely saved a ${created.card_brand||"card"} ending in ${created.last_4||""} to your organization account. Contact the bakery immediately if you did not authorize this change.`});
     response.status(201).json({card:publicCard(stored),creditEnabled:true});
   }catch(error){next(error);}});
   app.post("/api/admin/accounts/:id/card/replacement",async(request,response,next)=>{try{const user=requireStaff(request),account=(await pool.query("SELECT * FROM accounts WHERE id=$1 AND tenant_id=$2",[request.params.id,user.tenant_id])).rows[0];if(!account)throw Object.assign(new Error("Account not found."),{status:404});await sendEmail(config,{to:account.billing_email,subject:"Update your Amazing Donuts payment card",text:`Please sign in and securely replace your card on file: ${config.siteUrl}/account/?replace-card=1`});response.json({ok:true});}catch(error){next(error);}});
-  app.post("/api/admin/accounts/:id/card/disable",async(request,response,next)=>{try{const user=requireStaff(request),card=(await pool.query(`SELECT ac.*,a.billing_email FROM account_cards ac JOIN accounts a ON a.id=ac.account_id WHERE ac.account_id=$1 AND a.tenant_id=$2 AND ac.status='active'`,[request.params.id,user.tenant_id])).rows[0];if(!card)throw Object.assign(new Error("Active card not found."),{status:404});const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;await tenantSquare.disableCard(card.square_card_id);await pool.query("UPDATE account_cards SET status='disabled' WHERE id=$1",[card.id]);await sendEmail(config,{to:card.billing_email,subject:"Your Amazing Donuts payment card was disabled",text:`The saved ${card.card_brand||"card"} ending in ${card.last_4||""} was disabled. Add a replacement from your account before the next automatic statement payment.`});response.json({ok:true});}catch(error){next(error);}});
+  app.post("/api/admin/accounts/:id/card/disable",async(request,response,next)=>{try{const user=requireStaff(request),card=(await pool.query(`SELECT ac.*,a.billing_email FROM account_cards ac JOIN accounts a ON a.id=ac.account_id WHERE ac.account_id=$1 AND a.tenant_id=$2 AND ac.square_environment=$3 AND ac.status='active'`,[request.params.id,user.tenant_id,config.squareEnvironment])).rows[0];if(!card)throw Object.assign(new Error("Active card not found."),{status:404});const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(user.tenant_id):square;await tenantSquare.disableCard(card.square_card_id);await pool.query("UPDATE account_cards SET status='disabled' WHERE id=$1",[card.id]);await sendEmail(config,{to:card.billing_email,subject:"Your Amazing Donuts payment card was disabled",text:`The saved ${card.card_brand||"card"} ending in ${card.last_4||""} was disabled. Add a replacement from your account before the next automatic statement payment.`});response.json({ok:true});}catch(error){next(error);}});
   app.post("/api/admin/accounts/:id/ledger",async(request,response,next)=>{try{
     const user=requireStaff(request),input=ledgerEntrySchema.parse(request.body),account=(await pool.query("SELECT * FROM accounts WHERE id=$1 AND tenant_id=$2",[request.params.id,user.tenant_id])).rows[0];
     if(!account)throw Object.assign(new Error("Account not found."),{status:404});
@@ -582,7 +791,7 @@ export function createApp({ pool, square, uberDirect, config }) {
     await sendEmail(config,{to:account?.billing_email,subject:`Amazing Donuts statement ${statement.statement_number}`,text:`${account?.organization_name||"Your organization"}\n\nYour new statement is ready. Balance due: ${formatMoney(statement.closing_balance,statement.currency)}. Due ${String(statement.due_at).slice(0,10)}.\n\nView statement and pay: ${config.siteUrl}/account/?statement=${encodeURIComponent(statement.payment_token)}`});
     response.status(201).json({ statement });
   } catch(error){ next(error); }});
-  app.post("/api/admin/statements/:id/charge",async(request,response,next)=>{try{const user=requireStaff(request),input=chargeSchema.parse(request.body),result=await pool.query(`SELECT s.*,a.organization_name,a.square_customer_id,a.billing_email,ac.square_card_id FROM statements s JOIN accounts a ON a.id=s.account_id JOIN account_cards ac ON ac.account_id=a.id AND ac.status='active' WHERE s.id=$1 AND s.tenant_id=$2`,[request.params.id,user.tenant_id]);if(!result.rowCount)throw Object.assign(new Error("Statement or active card not found."),{status:404});const statement=result.rows[0];if(input.scheduledAt){await pool.query("UPDATE statements SET scheduled_charge_at=$2 WHERE id=$1",[request.params.id,input.scheduledAt]);await sendEmail(config,{to:statement.billing_email,subject:`Payment scheduled for ${statement.statement_number}`,text:`${statement.organization_name}\n\nA saved-card payment for ${formatMoney(statement.closing_balance,statement.currency)} is scheduled for ${input.scheduledAt}.`});return response.json({scheduledAt:input.scheduledAt});}const payment=await collectStatement(pool,square,config,statement,statement.square_card_id,input.idempotencyKey,user.id,"Saved card");await Promise.all([sendEmail(config,{to:statement.billing_email,subject:`Payment received for ${statement.statement_number}`,text:`We received ${formatMoney(payment.appliedAmount,statement.currency)} for statement ${statement.statement_number}.`}),notifyOwners(config,"Institutional statement payment received",`${statement.organization_name}\n${statement.statement_number}\n${formatMoney(payment.appliedAmount,statement.currency)}`,{replyTo:statement.billing_email})]);response.status(201).json({payment:{id:payment.id,status:payment.status}});}catch(error){next(error);}});
+  app.post("/api/admin/statements/:id/charge",async(request,response,next)=>{try{const user=requireStaff(request),input=chargeSchema.parse(request.body),result=await pool.query(`SELECT s.*,a.organization_name,a.square_customer_id,a.billing_email,ac.square_card_id FROM statements s JOIN accounts a ON a.id=s.account_id JOIN account_cards ac ON ac.account_id=a.id AND ac.status='active' AND ac.square_environment=$3 WHERE s.id=$1 AND s.tenant_id=$2`,[request.params.id,user.tenant_id,config.squareEnvironment]);if(!result.rowCount)throw Object.assign(new Error("Statement or active card not found."),{status:404});const statement=result.rows[0];if(input.scheduledAt){await pool.query("UPDATE statements SET scheduled_charge_at=$2 WHERE id=$1",[request.params.id,input.scheduledAt]);await sendEmail(config,{to:statement.billing_email,subject:`Payment scheduled for ${statement.statement_number}`,text:`${statement.organization_name}\n\nA saved-card payment for ${formatMoney(statement.closing_balance,statement.currency)} is scheduled for ${input.scheduledAt}.`});return response.json({scheduledAt:input.scheduledAt});}const payment=await collectStatement(pool,square,config,statement,statement.square_card_id,input.idempotencyKey,user.id,"Saved card");await Promise.all([sendEmail(config,{to:statement.billing_email,subject:`Payment received for ${statement.statement_number}`,text:`We received ${formatMoney(payment.appliedAmount,statement.currency)} for statement ${statement.statement_number}.`}),notifyOwners(config,"Institutional statement payment received",`${statement.organization_name}\n${statement.statement_number}\n${formatMoney(payment.appliedAmount,statement.currency)}`,{replyTo:statement.billing_email})]);response.status(201).json({payment:{id:payment.id,status:payment.status}});}catch(error){next(error);}});
   app.get("/api/statements/:id.pdf", async (request,response,next)=>{ try {
     const staff=Boolean(request.adminUser),user=staff?requireStaff(request):requireUser(request);
     const result=await pool.query(`SELECT s.*,a.organization_name,a.billing_contact,t.name AS tenant_name,t.brand FROM statements s JOIN accounts a ON a.id=s.account_id JOIN tenants t ON t.id=s.tenant_id LEFT JOIN account_users au ON au.account_id=a.id AND au.user_id=$2 WHERE s.id=$1 AND s.tenant_id=$3 AND ($4::boolean OR au.user_id IS NOT NULL)`,[request.params.id,user.id,user.tenant_id,staff]);
@@ -619,8 +828,9 @@ export function createApp({ pool, square, uberDirect, config }) {
   app.post("/api/webhooks/uber",async(request,response,next)=>{try{
     if(!validUberSignature(request.rawBody,request.get("x-uber-signature")||request.get("x-postmates-signature"),config.uberDirectWebhookSigningKey))throw Object.assign(new Error("Invalid Uber webhook signature."),{status:401,code:"INVALID_WEBHOOK_SIGNATURE"});
     const event=request.body,eventId=String(event.event_id||event.id||"");if(!eventId)throw Object.assign(new Error("Uber event ID is required."),{status:400});
-    const inserted=await pool.query(`INSERT INTO webhook_events(provider_event_id,event_type,payload,provider,status,processed_at) VALUES($1,$2,$3,'uber','completed',now()) ON CONFLICT(provider,provider_event_id) DO NOTHING RETURNING id`,[eventId,String(event.event_type||event.kind||"uber.event"),JSON.stringify(event)]);
-    if(inserted.rowCount){const data=event.data||event.meta||event,deliveryId=String(event.delivery_id||data.delivery_id||data.id||data.order_id||""),status=String(event.status||data.status||"unknown").toLowerCase(),trackingUrl=data.tracking_url||data.tracking_url_v2||null;if(deliveryId)await pool.query("UPDATE storefront_deliveries SET status=$2,tracking_url=COALESCE($3,tracking_url),raw_provider=$4,last_event_at=now(),updated_at=now() WHERE external_delivery_id=$1",[deliveryId,status,trackingUrl,JSON.stringify(event)]);}
+    const data=event.data||event.meta||event,deliveryId=String(event.delivery_id||data.delivery_id||data.id||data.order_id||""),providerStatus=String(event.status||data.status||"unknown").toLowerCase(),status=providerStatus==="dropoff"&&data.courier_imminent===true?"arriving_soon":providerStatus,trackingUrl=data.tracking_url||data.tracking_url_v2||data.order_tracking_url||null,eventSummary={eventId,deliveryId,status,providerStatus,courierImminent:Boolean(data.courier_imminent),trackingUrl,occurredAt:event.event_time||event.created_at||new Date().toISOString()};
+    const inserted=await pool.query(`INSERT INTO webhook_events(provider_event_id,event_type,payload,provider,status,processed_at) VALUES($1,$2,$3,'uber','completed',now()) ON CONFLICT(provider,provider_event_id) DO NOTHING RETURNING id`,[eventId,String(event.event_type||event.kind||"uber.event"),JSON.stringify(eventSummary)]);
+    if(inserted.rowCount&&deliveryId){const completed=normalizedDeliveryStatus("uber_direct",status)==="delivered";await pool.query("UPDATE storefront_deliveries SET status=$2,tracking_url=COALESCE($3,tracking_url),raw_provider=COALESCE(raw_provider,'{}'::jsonb)||$4::jsonb,last_event_at=now(),dispatch_completed_at=CASE WHEN $5 THEN now() ELSE dispatch_completed_at END,dispatch_token_hash=CASE WHEN $5 THEN NULL ELSE dispatch_token_hash END,driver_token_hash=CASE WHEN $5 THEN NULL ELSE driver_token_hash END,updated_at=now() WHERE external_delivery_id=$1",[deliveryId,status,trackingUrl,JSON.stringify({lastEvent:eventSummary}),completed]);}
     response.status(200).send();
   }catch(error){next(error);}});
 
@@ -639,6 +849,7 @@ const googleConfigured=config=>Boolean(config.googleClientId&&config.googleClien
 const googleRedirectUri=config=>`${String(config.siteUrl).replace(/\/$/,"")}/api/house/auth/google/callback`;
 const readCookie=(request,name)=>{const entry=String(request.get("cookie")||"").split(";").map(value=>value.trim()).find(value=>value.startsWith(`${name}=`));return entry?decodeURIComponent(entry.slice(name.length+1)):null;};
 const safeReturnTo=(value,siteUrl)=>{try{const url=new URL(String(value||"/"),siteUrl),site=new URL(siteUrl);return url.origin===site.origin?`${url.pathname}${url.search}${url.hash}`:"/";}catch{return "/";}};
+const safePreviewOrigin=value=>{try{const url=new URL(String(value));return url.protocol==="https:"&&(url.hostname==="amazing-donuts-preview.vercel.app"||/^amazing-donuts-(?:[a-z0-9]{8,}|preview)-talkersteins-projects\.vercel\.app$/.test(url.hostname))&&url.pathname==="/"&&!url.search&&!url.hash&&!url.port&&!url.username&&!url.password?url.origin:null;}catch{return null;}};
 const signGoogleState=(payload,secret)=>{const body=Buffer.from(JSON.stringify(payload)).toString("base64url"),signature=createHmac("sha256",secret).update(body).digest("base64url");return `${body}.${signature}`;};
 const verifyGoogleState=(state,secret)=>{const [body,supplied]=state.split("."),expected=createHmac("sha256",secret).update(body||"").digest("base64url"),left=Buffer.from(supplied||""),right=Buffer.from(expected);if(!body||left.length!==right.length||!timingSafeEqual(left,right))throw new Error("Google sign-in state is invalid.");return JSON.parse(Buffer.from(body,"base64url").toString("utf8"));};
 async function googleCustomerUser(pool,square,claims){
@@ -709,7 +920,29 @@ async function syncPurchaserPinByEmail(pool,tenantSquare,tenantId,person){
 async function hydrateAccount(pool,account) {
   const [credit,orders,ledger,statements,payments,purchasers,cards]=await Promise.all([accountCredit(pool,account.id),pool.query(`SELECT o.*,u.first_name AS purchaser_first_name,u.last_name AS purchaser_last_name,u.email AS purchaser_email,COALESCE(pa.paid_amount,0)::bigint AS paid_amount,GREATEST(0,o.total-COALESCE(pa.paid_amount,0))::bigint AS balance_due FROM orders o LEFT JOIN users u ON u.id=o.purchaser_user_id LEFT JOIN (SELECT order_id,SUM(amount)::bigint AS paid_amount FROM payment_allocations WHERE status='completed' AND order_id IS NOT NULL GROUP BY order_id) pa ON pa.order_id=o.id WHERE o.account_id=$1 ORDER BY o.ordered_at DESC LIMIT 50`,[account.id]),pool.query(`SELECT jt.id,jt.transaction_type,jt.description,jt.effective_at,jp.amount,jp.currency,u.first_name AS purchaser_first_name,u.last_name AS purchaser_last_name,u.email AS purchaser_email FROM journal_transactions jt JOIN journal_postings jp ON jp.transaction_id=jt.id LEFT JOIN users u ON u.id=jt.created_by WHERE jt.account_id=$1 AND jp.ledger_account='accounts_receivable' ORDER BY jt.effective_at DESC LIMIT 100`,[account.id]),pool.query("SELECT s.id,s.statement_number,s.period_start,s.period_end,s.due_at,s.closing_balance,s.currency,s.status,s.payment_token,s.scheduled_charge_at,s.paid_at,COALESCE(pa.paid_amount,0)::bigint AS paid_amount,GREATEST(0,s.closing_balance-COALESCE(pa.paid_amount,0))::bigint AS balance_due FROM statements s LEFT JOIN (SELECT statement_id,SUM(amount)::bigint AS paid_amount FROM payment_allocations WHERE status='completed' GROUP BY statement_id) pa ON pa.statement_id=s.id WHERE s.account_id=$1 ORDER BY s.period_end DESC LIMIT 30",[account.id]),pool.query("SELECT * FROM payment_allocations WHERE account_id=$1 ORDER BY created_at DESC LIMIT 30",[account.id]),pool.query(`SELECT u.id,u.first_name,u.last_name,u.email,u.phone,au.role,au.organization_role,au.purchase_limit,au.status,(au.purchaser_pin_hash IS NOT NULL) AS has_pin FROM account_users au JOIN users u ON u.id=au.user_id WHERE au.account_id=$1 ORDER BY u.last_name,u.first_name`,[account.id]),pool.query("SELECT id,card_brand,last_4,exp_month,exp_year,status FROM account_cards WHERE account_id=$1 ORDER BY created_at DESC",[account.id])]);
   const submittedNames=new Map((account.metadata?.authorizedPurchasers||[]).map(person=>[String(person.email).toLowerCase(),String(person.name).trim()]));
-  return {...account,credit,orders:orders.rows,ledger:ledger.rows,statements:statements.rows,payments:payments.rows,purchasers:purchasers.rows.map(person=>({...person,display_name:submittedNames.get(String(person.email).toLowerCase())||`${person.first_name} ${person.last_name}`.trim()})),cards:cards.rows,has_organization_pin:Boolean(account.account_code_hash)};
+  const preview=account.status==='active'?await buildCurrentStatement(pool,account,statements.rows[0]):null;
+  const currentStatement=preview?{status:preview.status,statement_number:preview.statement_number,period_start:preview.period_start,period_end:preview.period_end,closing_balance:preview.closing_balance,currency:preview.currency,next_statement_date:preview.next_statement_date}:null;
+  return {...account,credit,orders:orders.rows,ledger:ledger.rows,statements:statements.rows,payments:payments.rows,purchasers:purchasers.rows.map(person=>({...person,display_name:submittedNames.get(String(person.email).toLowerCase())||`${person.first_name} ${person.last_name}`.trim()})),cards:cards.rows,currentStatement,has_organization_pin:Boolean(account.account_code_hash)};
+}
+
+async function buildCurrentStatement(pool,account,latestStatement){
+  const window=currentStatementWindow(account,new Date(),latestStatement);
+  const [opening,entries,orders]=await Promise.all([
+    pool.query(`SELECT COALESCE(SUM(jp.amount),0)::bigint AS total FROM journal_postings jp JOIN journal_transactions jt ON jt.id=jp.transaction_id WHERE jp.account_id=$1 AND jp.ledger_account='accounts_receivable' AND jt.effective_at<$2::date`,[account.id,window.periodStart]),
+    pool.query(`SELECT jt.id,jt.transaction_type,jt.description,jt.effective_at,jt.source_id,jp.amount,jp.currency,o.line_items,o.tax,o.receipt_number,o.payment_method,o.source,COALESCE(pa.paid_amount,0)::bigint AS allocated_amount FROM journal_transactions jt JOIN journal_postings jp ON jp.transaction_id=jt.id LEFT JOIN orders o ON o.square_order_id=jt.source_id AND o.account_id=jt.account_id LEFT JOIN (SELECT order_id,SUM(amount)::bigint AS paid_amount FROM payment_allocations WHERE status='completed' AND order_id IS NOT NULL GROUP BY order_id) pa ON pa.order_id=o.id WHERE jp.account_id=$1 AND jp.ledger_account='accounts_receivable' AND jt.effective_at>=$2::date AND jt.effective_at<($3::date+1) ORDER BY jt.effective_at,jt.created_at`,[account.id,window.periodStart,window.periodEnd]),
+    pool.query(`SELECT o.id,o.ordered_at,o.source,o.payment_method,o.receipt_number,o.square_order_id,o.total,o.tax,o.currency,o.line_items,u.first_name,u.last_name,COALESCE(pa.paid_amount,0)::bigint AS allocated_amount FROM orders o LEFT JOIN users u ON u.id=o.purchaser_user_id LEFT JOIN (SELECT order_id,SUM(amount)::bigint AS paid_amount FROM payment_allocations WHERE status='completed' AND order_id IS NOT NULL GROUP BY order_id) pa ON pa.order_id=o.id WHERE o.account_id=$1 AND o.status NOT IN ('cancelled','refunded') AND o.ordered_at::date BETWEEN $2 AND $3 ORDER BY o.ordered_at`,[account.id,window.periodStart,window.periodEnd]),
+  ]);
+  const openingBalance=Number(opening.rows[0].total);
+  const charges=entries.rows.filter(entry=>Number(entry.amount)>0).reduce((sum,entry)=>sum+Number(entry.amount),0);
+  const credits=entries.rows.filter(entry=>Number(entry.amount)<0).reduce((sum,entry)=>sum-Math.abs(Number(entry.amount)),0);
+  const closingBalance=Math.max(0,openingBalance+charges+credits);
+  return {
+    statement_number:"Current statement",status:"draft",period_start:window.periodStart,period_end:window.periodEnd,
+    next_statement_date:window.nextStatementDate,due_at:null,opening_balance:openingBalance,new_charges:charges,
+    credits_and_payments:Math.abs(credits),closing_balance:closingBalance,currency:account.currency||"CAD",
+    snapshot:{entries:entries.rows.map(entry=>({effectiveAt:entry.effective_at,description:entry.description,amount:Number(entry.amount),currency:entry.currency,reference:entry.receipt_number||entry.source_id,source:entry.source,paymentMethod:entry.payment_method,allocatedAmount:Number(entry.allocated_amount||0),lines:entry.line_items?.map(item=>({name:`${item.name||item.catalog_object_id} x ${item.quantity}`,amount:Number(item.total_money?.amount||Number(item.base_price_money?.amount||0)*Number(item.quantity))}))}))},
+    orderHistory:orders.rows,payments:[],
+  };
 }
 
 function publicHouseApplication(row){const {organization_pin_hash:_,authorized_purchasers,...application}=row;return {...application,authorized_purchasers:(authorized_purchasers||[]).map(({pinHash:__,...person})=>({...person,hasPin:Boolean(__)})),has_organization_pin:Boolean(row.organization_pin_hash)};}
@@ -780,7 +1013,7 @@ async function collectOrder(pool,square,config,order,sourceId,idempotencyKey,act
 async function audit(pool,user,request,action,targetType,targetId,before,after){ await pool.query(`INSERT INTO audit_log(tenant_id,actor_user_id,action,target_type,target_id,before_state,after_state,ip_address,user_agent) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[user.tenant_id,user.id,action,targetType,targetId,before?JSON.stringify(before):null,after?JSON.stringify(after):null,request.ip,request.get("user-agent")]); }
 function requireCron(request,config){const expected=config.cronSecret;if(!expected||request.get("authorization")!==`Bearer ${expected}`)throw Object.assign(new Error("Cron authorization required."),{status:401,code:"UNAUTHORIZED"});}
 function smtpTransport(config){return nodemailer.createTransport({host:config.smtpHost,port:config.smtpPort,secure:config.smtpSecure,auth:{user:config.smtpUser,pass:config.smtpPassword}});}
-async function sendEmail(config,message){if(!(config.smtpHost&&config.smtpUser&&config.smtpPassword&&message.to))return false;try{await smtpTransport(config).sendMail(emailMessage(config,message));return true;}catch(error){console.error("Email delivery failed",error);return false;}}
+async function sendEmail(config,message){if(!message.to||!(config.mailTransport||(config.smtpHost&&config.smtpUser&&config.smtpPassword)))return false;try{await (config.mailTransport||smtpTransport(config)).sendMail(emailMessage(config,message));return true;}catch(error){console.error("Email delivery failed",error);return false;}}
 async function notifyOwners(config,subject,text,{replyTo}={}){return sendEmail(config,{to:config.ownerEmails,subject,text,replyTo,audience:"owner"});}
 async function refreshInstitutionalBalance(pool,square,tenantId,accountId){
   try{const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(tenantId):square;return await syncInstitutionalAccountBalance(pool,tenantSquare,accountId);}
@@ -804,7 +1037,47 @@ async function handleSquareNotification(pool,square,config,tenantId,event){
   const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(tenantId):square;
   if(event.type?.startsWith("payment.")){const paymentId=event.data?.object?.payment?.id;if(!paymentId)return;const payment=(await tenantSquare.retrievePayment(paymentId)).payment;if(payment.status!=="COMPLETED"||payment.source_type==="EXTERNAL"||!payment.order_id)return;const found=await pool.query(`SELECT so.*,u.email FROM storefront_orders so JOIN users u ON u.id=so.user_id WHERE so.tenant_id=$1 AND so.square_order_id=$2 AND so.payment_method='house_account' LIMIT 1`,[tenantId,payment.order_id]);if(!found.rowCount)return;return;}
   if(event.type?.startsWith("invoice.")){const eventInvoice=event.data?.object?.invoice,invoiceId=eventInvoice?.id||event.data?.id;if(!invoiceId)return;const invoice=eventInvoice||((await tenantSquare.retrieveInvoice(invoiceId)).invoice),status=String(invoice.status||"UNPAID").toLowerCase(),found=await pool.query(`UPDATE storefront_orders SET status=$3 WHERE tenant_id=$1 AND square_invoice_id=$2 RETURNING *`,[tenantId,invoiceId,status]);if(found.rowCount&&["failed","canceled"].includes(status)){const customer=await pool.query("SELECT email FROM users WHERE id=$1",[found.rows[0].user_id]),customerEmail=customer.rows[0]?.email;await Promise.all([sendEmail(config,{to:customerEmail,subject:`Amazing Donuts invoice ${status}`,text:`The Square invoice for order ${found.rows[0].square_order_id} is ${status}. Please contact the bakery or use Square's invoice payment link.`}),notifyOwners(config,`Square invoice ${status}`,`${found.rows[0].square_order_id}\n${invoiceId}`,{replyTo:customerEmail})]);}return;}
-  if(event.type?.startsWith("refund.")){const refundId=event.data?.object?.refund?.id;if(!refundId)return;const refund=(await tenantSquare.retrieveRefund(refundId)).refund;if(refund.status!=="COMPLETED")return;const [found,institutional]=await Promise.all([pool.query(`SELECT so.*,u.email FROM storefront_orders so JOIN users u ON u.id=so.user_id WHERE so.tenant_id=$1 AND so.square_payment_id=$2 LIMIT 1`,[tenantId,refund.payment_id]),pool.query("SELECT * FROM orders WHERE tenant_id=$1 AND square_payment_id=$2 AND payment_method='house_account' LIMIT 1",[tenantId,refund.payment_id])]);if(institutional.rowCount){const order=institutional.rows[0];await transaction(pool,async client=>{await postRefund(client,{tenantId,accountId:order.account_id,refundId,amount:Number(refund.amount_money?.amount||0),currency:refund.amount_money?.currency||order.currency,description:`Square refund for ${order.receipt_number||order.square_order_id}`});await client.query("UPDATE orders SET status='refunded' WHERE id=$1 AND $2::bigint>=total",[order.id,Number(refund.amount_money?.amount||0)]);});await refreshInstitutionalBalance(pool,square,tenantId,order.account_id);}if(!found.rowCount)return;await pool.query("UPDATE storefront_orders SET status='refunded' WHERE id=$1",[found.rows[0].id]);await Promise.all([sendEmail(config,{to:found.rows[0].email,subject:"Your Amazing Donuts refund was completed",text:`A refund of ${formatMoney(refund.amount_money?.amount,refund.amount_money?.currency)} was completed for order ${found.rows[0].square_order_id}.`}),notifyOwners(config,"Website order refunded",`${found.rows[0].square_order_id}\n${formatMoney(refund.amount_money?.amount,refund.amount_money?.currency)}`,{replyTo:found.rows[0].email})]);return;}
+  if(event.type?.startsWith("refund.")){
+    const refundId=event.data?.object?.refund?.id;
+    if(!refundId)return;
+    const refund=(await tenantSquare.retrieveRefund(refundId)).refund;
+    if(refund.status!=="COMPLETED")return;
+    const claimed=await pool.query("INSERT INTO refund_notifications(tenant_id,square_refund_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING square_refund_id",[tenantId,refundId]);
+    if(!claimed.rowCount)return;
+    try{
+      const [found,institutional]=await Promise.all([
+        pool.query(`SELECT so.*,COALESCE(u.email,so.guest_contact->>'email') AS customer_email FROM storefront_orders so LEFT JOIN users u ON u.id=so.user_id WHERE so.tenant_id=$1 AND so.square_payment_id=$2 LIMIT 1`,[tenantId,refund.payment_id]),
+        pool.query("SELECT * FROM orders WHERE tenant_id=$1 AND square_payment_id=$2 AND payment_method='house_account' LIMIT 1",[tenantId,refund.payment_id])
+      ]);
+      if(institutional.rowCount){
+        const order=institutional.rows[0];
+        await transaction(pool,async client=>{
+          await postRefund(client,{tenantId,accountId:order.account_id,refundId,amount:Number(refund.amount_money?.amount||0),currency:refund.amount_money?.currency||order.currency,description:`Square refund for ${order.receipt_number||order.square_order_id}`});
+          await client.query("UPDATE orders SET status='refunded' WHERE id=$1 AND $2::bigint>=total",[order.id,Number(refund.amount_money?.amount||0)]);
+        });
+        await refreshInstitutionalBalance(pool,square,tenantId,order.account_id);
+      }
+      if(found.rowCount){
+        const order=found.rows[0],amount=Number(refund.amount_money?.amount||0);
+        await pool.query("UPDATE storefront_orders SET status=CASE WHEN $2::bigint>=total THEN 'refunded' ELSE status END WHERE id=$1",[order.id,amount]);
+        let customerEmail=order.customer_email;
+        if(!customerEmail){
+          const customerId=order.guest_contact?.squareCustomerId||order.raw_square?.order?.customer_id;
+          if(customerId)customerEmail=(await tenantSquare.retrieveCustomer(customerId)).customer?.email_address;
+        }
+        if(customerEmail){
+          const delivered=await sendEmail(config,{to:customerEmail,subject:"Your Amazing Donuts refund was completed",text:`A refund of ${formatMoney(amount,refund.amount_money?.currency||order.currency)} was completed for order ${order.square_order_id}.`});
+          if(!delivered)throw new Error("Refund email delivery failed.");
+        }
+        await notifyOwners(config,"Website order refunded",`${order.square_order_id}\n${formatMoney(amount,refund.amount_money?.currency||order.currency)}`,{replyTo:customerEmail});
+      }
+      await pool.query("UPDATE refund_notifications SET sent_at=now() WHERE tenant_id=$1 AND square_refund_id=$2",[tenantId,refundId]);
+    }catch(error){
+      await pool.query("DELETE FROM refund_notifications WHERE tenant_id=$1 AND square_refund_id=$2 AND sent_at IS NULL",[tenantId,refundId]);
+      throw error;
+    }
+    return;
+  }
   if(event.type?.includes("fulfillment")){const orderId=event.data?.object?.order_fulfillment_updated?.order_id||event.data?.object?.order?.id||event.data?.id;if(!orderId)return;const order=(await tenantSquare.retrieveOrder(orderId)).order,state=order.fulfillments?.[0]?.state||"PROPOSED",status={COMPLETED:"completed",CANCELED:"cancelled",FAILED:"cancelled"}[state]||"posted";const found=await pool.query(`UPDATE storefront_orders SET status=$3 WHERE tenant_id=$1 AND square_order_id=$2 RETURNING *`,[tenantId,orderId,status]);await pool.query("UPDATE orders SET status=$3 WHERE tenant_id=$1 AND square_order_id=$2",[tenantId,orderId,status==="completed"?"posted":status]);if(found.rowCount){const customer=await pool.query("SELECT email FROM users WHERE id=$1",[found.rows[0].user_id]),label=state==="PREPARED"?"ready":state.toLowerCase();await sendEmail(config,{to:customer.rows[0]?.email,subject:`Your Amazing Donuts order is ${label}`,text:`Order ${orderId} is ${label}. View your orders: ${config.siteUrl}/account/`});}}
 }
 
@@ -818,45 +1091,199 @@ export function assertDeliveryEnvironment(config,uberDirect){
   if(config.mixedEnvironmentTestMode&&config.uberDirectMode!=="sandbox")throw new Error("Mixed-environment testing requires UBER_DIRECT_MODE=sandbox.");
   if(!uberDirect?.sandbox)throw new Error("Automatic test dispatch requires an Uber Direct sandbox client.");
 }
-const uberAddress=address=>JSON.stringify({street_address:[address.addressLine1,address.addressLine2||""],city:address.locality,state:address.administrativeDistrictLevel1||address.province,zip_code:address.postalCode,country:address.country||"CA"});
-async function dispatchUberSandbox(pool,uberDirect,config,{storedOrderId,tenantId,user,input,created}){
-  if(!uberDirect?.configured)throw Object.assign(new Error("Uber Direct sandbox credentials are not configured."),{code:"UBER_DIRECT_NOT_CONFIGURED"});
+export const uberAddress=address=>JSON.stringify({street_address:[address.addressLine1,address.addressLine2].map(value=>String(value||"").trim()).filter(Boolean),city:String(address.locality||"").trim(),state:String(address.administrativeDistrictLevel1||address.province||"").trim(),zip_code:String(address.postalCode||"").trim().toUpperCase(),country:String(address.country||"CA").trim().toUpperCase()});
+const stripDispatchInstructions=value=>String(value||"").split(/\n{0,2}STAFF DELIVERY DISPATCH:/i)[0].trim();
+const dispatchSelect=`SELECT sd.*,so.square_order_id,so.total,so.currency,so.fulfillment,so.line_items,so.raw_square,so.status AS order_status
+  FROM storefront_deliveries sd JOIN storefront_orders so ON so.id=sd.storefront_order_id`;
+async function dispatchRecordByToken(pool,token){
+  const result=await pool.query(`${dispatchSelect} WHERE sd.dispatch_token_hash=$1 AND sd.dispatch_expires_at>now() AND sd.dispatch_completed_at IS NULL LIMIT 1`,[dispatchTokenHash(token)]);
+  if(!result.rowCount)throw Object.assign(new Error("This delivery dispatch link is invalid or has expired."),{status:410,code:"DISPATCH_LINK_EXPIRED"});
+  return result.rows[0];
+}
+async function driverRecordByToken(pool,token){
+  const result=await pool.query(`${dispatchSelect} WHERE sd.driver_token_hash=$1 AND sd.driver_expires_at>now() AND sd.dispatch_completed_at IS NULL AND sd.provider='own_driver' LIMIT 1`,[dispatchTokenHash(token)]);
+  if(!result.rowCount)throw Object.assign(new Error("This driver link is invalid, expired, or the delivery is complete."),{status:410,code:"DRIVER_LINK_EXPIRED"});
+  return result.rows[0];
+}
+async function dispatchRecordByOrder(pool,orderId,tenantId){
+  const result=await pool.query(`${dispatchSelect} WHERE so.id=$1 AND so.tenant_id=$2 LIMIT 1`,[orderId,tenantId]);
+  if(!result.rowCount)throw Object.assign(new Error("Delivery order not found."),{status:404,code:"DELIVERY_NOT_FOUND"});
+  return result.rows[0];
+}
+function assertDispatchOrigin(request,config){
+  const origin=request.get("origin"),expected=new URL(config.siteUrl).origin;
+  if(origin!==expected)throw Object.assign(new Error("This dispatch request did not come from the Amazing Donuts dispatch screen."),{status:403,code:"INVALID_DISPATCH_ORIGIN"});
+}
+const squareDeliveryInput=order=>{
+  const details=order.fulfillments?.find(item=>item.type==="DELIVERY")?.delivery_details||{},recipient=details.recipient||{},address=recipient.address||{};
+  return {fulfillment:{type:"delivery",scheduledAt:details.deliver_at,recipient:{displayName:recipient.display_name||"Customer",email:recipient.email_address||"",phone:recipient.phone_number||""},address:{addressLine1:address.address_line_1||"",addressLine2:address.address_line_2||"",locality:address.locality||"Toronto",administrativeDistrictLevel1:address.administrative_district_level_1||"ON",postalCode:address.postal_code||"",country:address.country||"CA"},deliveryInstructions:stripDispatchInstructions(details.note||details.dropoff_notes)}};
+};
+async function refreshUberDelivery(pool,uberDirect,record){
+  const deliveryId=record.external_delivery_id||record.deliveryId;
+  if(record.provider!=="uber_direct"||!deliveryId||!uberDirect?.configured||normalizedDeliveryStatus("uber_direct",record.status)==="delivered")return record;
+  const lastEventAt=record.last_event_at||record.lastEventAt;
+  if(lastEventAt&&Date.now()-new Date(lastEventAt).getTime()<15000)return record;
+  try{
+    const delivery=await uberDirect.retrieveDelivery(deliveryId),providerStatus=String(delivery.status||"pending").toLowerCase();
+    const status=providerStatus==="dropoff"&&delivery.courier_imminent===true?"arriving_soon":providerStatus;
+    const trackingUrl=delivery.tracking_url||delivery.tracking_url_v2||record.tracking_url||record.trackingUrl||null;
+    const completed=normalizedDeliveryStatus("uber_direct",status)==="delivered";
+    const summary={delivery:{id:deliveryId,status:providerStatus,tracking_url:trackingUrl,dropoff_eta:delivery.dropoff_eta,courier_imminent:Boolean(delivery.courier_imminent)}};
+    await pool.query(`UPDATE storefront_deliveries SET status=$2,tracking_url=COALESCE($3,tracking_url),raw_provider=COALESCE(raw_provider,'{}'::jsonb)||$4::jsonb,last_event_at=now(),dispatch_completed_at=CASE WHEN $5 THEN now() ELSE dispatch_completed_at END,dispatch_token_hash=CASE WHEN $5 THEN NULL ELSE dispatch_token_hash END,driver_token_hash=CASE WHEN $5 THEN NULL ELSE driver_token_hash END,updated_at=now() WHERE external_delivery_id=$1`,[deliveryId,status,trackingUrl,JSON.stringify(summary),completed]);
+    return {...record,status,tracking_url:trackingUrl,trackingUrl,last_event_at:new Date(),lastEventAt:new Date(),...(completed?{dispatch_completed_at:new Date()}: {})};
+  }catch(error){
+    console.error("Uber delivery refresh failed",String(deliveryId).slice(-8),error.message);
+    return record;
+  }
+}
+async function refreshUberRows(pool,uberDirect,rows){
+  const active=rows.filter(row=>row.delivery?.provider==="uber_direct"&&row.delivery.deliveryId&&normalizedDeliveryStatus("uber_direct",row.delivery.status)!=="delivered").slice(0,8);
+  await Promise.all(active.map(async row=>{row.delivery=await refreshUberDelivery(pool,uberDirect,row.delivery);}));
+}
+async function publicDispatchRecord(tenantSquare,record,{driver=false}={}){
+  const order=(await tenantSquare.retrieveOrder(record.square_order_id)).order,details=order.fulfillments?.find(item=>item.type==="DELIVERY")?.delivery_details||{},recipient=details.recipient||{},address=recipient.address||{};
+  return {orderId:record.storefront_order_id,squareOrderId:record.square_order_id,orderNumber:String(record.square_order_id).slice(-8),scheduledAt:details.deliver_at||record.fulfillment?.scheduledAt,total:Number(order.total_money?.amount||record.total),currency:order.total_money?.currency||record.currency,items:(order.line_items||record.line_items||[]).map(item=>({name:item.name||"Menu item",quantity:Number(item.quantity||1)})),recipient:{name:recipient.display_name||"Customer",phone:recipient.phone_number||""},address:{line1:address.address_line_1||"",line2:address.address_line_2||"",city:address.locality||"",province:address.administrative_district_level_1||"",postalCode:address.postal_code||""},instructions:stripDispatchInstructions(details.note||details.dropoff_notes),provider:record.provider,status:normalizedDeliveryStatus(record.provider,record.status),statusLabel:deliveryStatusLabel(record.provider,record.status),assignedDriverName:record.assigned_driver_name,...(!driver?{assignedDriverPhone:record.assigned_driver_phone||""}:{}),trackingUrl:record.tracking_url,environment:record.environment,canUpdate:record.dispatch_completed_at==null,view:driver?"driver":"staff"};
+}
+async function issueDriverLink(pool,config,record){
+  if(record.provider!=="own_driver")throw Object.assign(new Error("Choose an Amazing Donuts driver before creating their link."),{status:409,code:"LOCAL_DRIVER_REQUIRED"});
+  if(record.dispatch_completed_at)throw Object.assign(new Error("This delivery is already complete."),{status:409,code:"DELIVERY_COMPLETE"});
+  const scheduledAt=record.scheduled_at||record.fulfillment?.scheduledAt||new Date().toISOString(),capability=createDriverCapability(config.siteUrl,scheduledAt);
+  await pool.query("UPDATE storefront_deliveries SET driver_token_hash=$2,driver_expires_at=$3,updated_at=now() WHERE id=$1",[record.id,capability.tokenHash,capability.expiresAt]);
+  return capability.url.toString();
+}
+async function chooseDeliveryProvider(pool,square,uberDirect,config,record,input){
+  if(record.dispatch_completed_at)throw Object.assign(new Error("This delivery is already complete."),{status:409,code:"DELIVERY_COMPLETE"});
+  const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(record.tenant_id):square;
+  if(input.provider==="own_driver"){
+    if(record.external_delivery_id)throw Object.assign(new Error("Uber Direct has already accepted this delivery."),{status:409,code:"UBER_ALREADY_DISPATCHED"});
+    const updated=(await pool.query(`UPDATE storefront_deliveries SET provider='own_driver',status='dispatching_soon',assigned_driver_name=$2,assigned_driver_phone=$3,driver_token_hash=NULL,driver_expires_at=NULL,updated_at=now() WHERE id=$1 RETURNING *`,[record.id,input.driverName||"Amazing Donuts driver",normalizeNorthAmericanPhone(input.driverPhone)])).rows[0];
+    return publicDispatchRecord(tenantSquare,{...record,...updated});
+  }
+  if(record.external_delivery_id)return publicDispatchRecord(tenantSquare,record);
+  const created=(await tenantSquare.retrieveOrder(record.square_order_id)).order;
+  const delivery=await dispatchUber(pool,uberDirect,config,{storedOrderId:record.storefront_order_id,tenantId:record.tenant_id,input:squareDeliveryInput(created),created});
+  return publicDispatchRecord(tenantSquare,{...record,...delivery,provider:"uber_direct",environment:config.uberDirectMode||"sandbox",external_delivery_id:delivery.deliveryId,tracking_url:delivery.trackingUrl});
+}
+async function setLocalDeliveryStatus(pool,square,record,status,{driver=false}={}){
+  if(record.provider!=="own_driver")throw Object.assign(new Error("Manual statuses are only available for an Amazing Donuts driver."),{status:409,code:"LOCAL_DRIVER_REQUIRED"});
+  assertLocalStatusTransition(record.status,status);
+  const completed=status==="delivered";
+  const updated=(await pool.query(`UPDATE storefront_deliveries SET status=$2,dispatch_completed_at=CASE WHEN $3 THEN now() ELSE dispatch_completed_at END,dispatch_token_hash=CASE WHEN $3 THEN NULL ELSE dispatch_token_hash END,driver_token_hash=CASE WHEN $3 THEN NULL ELSE driver_token_hash END,last_event_at=now(),updated_at=now() WHERE id=$1 RETURNING *`,[record.id,status,completed])).rows[0];
+  const tenantSquare=typeof square.forTenant==="function"?await square.forTenant(record.tenant_id):square;
+  if(completed)await completeSquareDelivery(tenantSquare,record.square_order_id).catch(error=>console.error("Square delivery completion sync failed",error.message));
+  return publicDispatchRecord(tenantSquare,{...record,...updated},{driver});
+}
+async function completeSquareDelivery(square,orderId){
+  const order=(await square.retrieveOrder(orderId)).order,fulfillments=(order.fulfillments||[]).map(item=>item.type==="DELIVERY"?{...item,state:"COMPLETED"}:item);
+  if(!fulfillments.some(item=>item.type==="DELIVERY"))return;
+  await square.request(`/v2/orders/${encodeURIComponent(orderId)}`,{method:"PUT",body:{order:{location_id:order.location_id,version:order.version,fulfillments}}});
+}
+async function dispatchUber(pool,uberDirect,config,{storedOrderId,tenantId,input,created}){
+  if(!uberDirect?.configured)throw Object.assign(new Error("Uber Direct credentials are not configured."),{status:503,code:"UBER_DIRECT_NOT_CONFIGURED"});
   const pickup=config.uberPickup,dropoff=input.fulfillment.address;
-  if(!pickup?.phone||!pickup?.postalCode)throw Object.assign(new Error("Uber pickup phone and postal code are required."),{code:"UBER_PICKUP_NOT_CONFIGURED"});
+  if(!pickup?.phone||!pickup?.postalCode)throw Object.assign(new Error("Uber pickup phone and postal code are required."),{status:503,code:"UBER_PICKUP_NOT_CONFIGURED"});
   const pickupAddress=uberAddress({addressLine1:pickup.addressLine1,addressLine2:pickup.addressLine2,locality:pickup.locality,administrativeDistrictLevel1:pickup.province,postalCode:pickup.postalCode,country:pickup.country});
   const dropoffAddress=uberAddress(dropoff),pickupPhone=normalizeNorthAmericanPhone(pickup.phone),dropoffPhone=normalizeNorthAmericanPhone(input.fulfillment.recipient.phone);
-  const quote=await uberDirect.createQuote({pickup_address:pickupAddress,dropoff_address:dropoffAddress,pickup_phone_number:pickupPhone,dropoff_phone_number:dropoffPhone,deliver_by:new Date(input.fulfillment.scheduledAt).toISOString()});
-  const delivery=await uberDirect.createDelivery({quote_id:quote.id,pickup_name:pickup.name,pickup_address:pickupAddress,pickup_phone_number:pickupPhone,pickup_instructions:pickup.instructions||null,dropoff_name:input.fulfillment.recipient.displayName,dropoff_address:dropoffAddress,dropoff_phone_number:dropoffPhone,dropoff_instructions:input.fulfillment.deliveryInstructions||null,manifest_description:`Amazing Donuts website test order ${created.id}`,manifest_items:(created.line_items||[]).map(line=>({name:line.name||"Amazing Donuts item",quantity:Number(line.quantity||1),size:"small"})),external_id:created.id,idempotency_key:`uber-${created.id}`});
+  let quote;
+  try {
+    quote=await uberDirect.createQuote({pickup_address:pickupAddress,dropoff_address:dropoffAddress,pickup_phone_number:pickupPhone,dropoff_phone_number:dropoffPhone,deliver_by:new Date(input.fulfillment.scheduledAt).toISOString()});
+  } catch (error) {
+    if(error.code==="UBER_DIRECT_REQUEST_FAILED"&&error.details?.code==="unknown_location")throw Object.assign(new Error(`Uber could not locate the ${/pickup/i.test(error.message)?"bakery pickup":"customer drop-off"} address. Check the address and try again.`),{status:422,code:"UBER_ADDRESS_NOT_FOUND"});
+    throw error;
+  }
+  const delivery=await uberDirect.createDelivery({quote_id:quote.id,pickup_name:pickup.name,pickup_address:pickupAddress,pickup_phone_number:pickupPhone,pickup_instructions:pickup.instructions||null,dropoff_name:input.fulfillment.recipient.displayName,dropoff_address:dropoffAddress,dropoff_phone_number:dropoffPhone,dropoff_instructions:input.fulfillment.deliveryInstructions||null,manifest_description:`Amazing Donuts website order ${created.id}`,manifest_items:(created.line_items||[]).map(line=>({name:line.name||"Amazing Donuts item",quantity:Number(line.quantity||1),size:"small"})),external_id:created.id,idempotency_key:`uber-${created.id}`});
   const id=delivery.id||delivery.delivery_id,status=String(delivery.status||"pending").toLowerCase(),trackingUrl=delivery.tracking_url||delivery.tracking_url_v2||null;
-  await pool.query(`INSERT INTO storefront_deliveries(tenant_id,storefront_order_id,environment,status,quote_id,external_delivery_id,tracking_url,raw_provider) VALUES($1,$2,'sandbox',$3,$4,$5,$6,$7) ON CONFLICT(storefront_order_id) DO UPDATE SET status=EXCLUDED.status,quote_id=EXCLUDED.quote_id,external_delivery_id=EXCLUDED.external_delivery_id,tracking_url=EXCLUDED.tracking_url,raw_provider=EXCLUDED.raw_provider,updated_at=now()`,[tenantId,storedOrderId,status,quote.id,id,trackingUrl,JSON.stringify({quote,delivery})]);
-  return {provider:"UBER_DIRECT",environment:"sandbox",status,deliveryId:id,trackingUrl};
+  const environment=config.uberDirectMode||"sandbox",providerData={quote:{id:quote.id,fee:quote.fee,expires:quote.expires,dropoff_eta:quote.dropoff_eta},delivery:{id,status,tracking_url:trackingUrl,dropoff_eta:delivery.dropoff_eta}};
+  await pool.query(`UPDATE storefront_deliveries SET provider='uber_direct',environment=$2,status=$3,quote_id=$4,external_delivery_id=$5,tracking_url=$6,raw_provider=$7,assigned_driver_name=NULL,last_event_at=now(),updated_at=now() WHERE storefront_order_id=$1`,[storedOrderId,environment,status,quote.id,id,trackingUrl,JSON.stringify(providerData)]);
+  return {provider:"uber_direct",environment,status,deliveryId:id,trackingUrl};
 }
 const validatePrintedItems=input=>{for(const item of input.items){if(!printProductNames.has(normalizeName(item.name)))continue;if(item.quantity<4)throw Object.assign(new Error("Custom-printed items have a minimum purchase of four dozen units."),{status:409,code:"PRINT_MINIMUM_REQUIRED"});if(new Date(input.fulfillment.scheduledAt).getTime()<Date.now()+7*86400000)throw Object.assign(new Error("Custom-printed items require a minimum of one week's notice."),{status:409,code:"PRINT_LEAD_TIME_REQUIRED"});const custom=input.customizations?.find(entry=>normalizeName(entry.productName)===normalizeName(item.name));if(custom?.kind!=="print"||custom.artworks.some(art=>art.count>4)||custom.artworks.reduce((sum,art)=>sum+art.count,0)!==item.quantity)throw Object.assign(new Error("Assign one print file for each group of up to four dozen units."),{status:409,code:"PRINT_ARTWORK_REQUIRED"});}};
-async function catalogObjects(square){let cursor,objects=[];do{const page=await square.request("/v2/catalog/list",{query:{types:"ITEM,TAX,MODIFIER_LIST",...(cursor?{cursor}:{})}});objects.push(...(page.objects||[]));cursor=page.cursor;}while(cursor);return objects;}
+async function catalogObjects(square){let cursor,objects=[];do{const page=await square.request("/v2/catalog/list",{query:{types:"ITEM,TAX,CATEGORY,IMAGE,DISCOUNT,PRICING_RULE,PRODUCT_SET,TIME_PERIOD",...(cursor?{cursor}:{})}});objects.push(...(page.objects||[]));cursor=page.cursor;}while(cursor);return objects;}
+export function storefrontCatalogCategories(objects){
+  const categories=objects.filter(object=>object.type==="CATEGORY"&&!object.is_deleted&&object.category_data?.category_type!=="MENU_CATEGORY"&&object.category_data?.name?.trim()).map((object,index)=>({name:object.category_data.name.trim(),ordinal:Number(object.category_data.parent_category?.ordinal),index}));
+  categories.sort((left,right)=>{
+    const leftOrdered=Number.isFinite(left.ordinal),rightOrdered=Number.isFinite(right.ordinal);
+    if(leftOrdered&&rightOrdered&&left.ordinal!==right.ordinal)return left.ordinal-right.ordinal;
+    if(leftOrdered!==rightOrdered)return leftOrdered?-1:1;
+    return left.index-right.index;
+  });
+  return categories.map(({name})=>name).filter((name,index,names)=>names.indexOf(name)===index);
+}
+export function storefrontCatalogProducts(objects,locationId){
+  const categories=new Map(objects.filter(object=>object.type==="CATEGORY"&&!object.is_deleted&&object.category_data?.category_type!=="MENU_CATEGORY").map(object=>[object.id,object.category_data?.name]).filter(([,name])=>Boolean(name)));
+  const images=new Map(objects.filter(object=>object.type==="IMAGE"&&!object.is_deleted&&object.image_data?.url).map(object=>[object.id,object.image_data.url]));
+  return objects.filter(item=>item.type==="ITEM"&&!item.is_deleted).flatMap(item=>{
+    const variation=variationAtLocation(item,locationId),price=variationPrice(variation,locationId);
+    if(!variation)return [];
+    const categoryRefs=[...(item.item_data?.categories||[])].sort((left,right)=>Number(left.ordinal||0)-Number(right.ordinal||0));
+    const categoryIds=[...categoryRefs.map(entry=>entry.id),item.item_data?.reporting_category?.id,item.item_data?.category_id].filter(Boolean);
+    const category=categoryIds.map(id=>categories.get(id)).find(Boolean);
+    const imageIds=[...(item.item_data?.image_ids||[]),item.item_data?.image_id].filter((id,index,ids)=>Boolean(id)&&ids.indexOf(id)===index),imageUrls=imageIds.map(id=>images.get(id)).filter(Boolean);
+    return [{name:item.item_data.name,price:Number(price.amount),currency:price.currency||"CAD",available:availableAtLocation(item,variation,locationId),catalogItemId:item.id,catalogObjectId:variation.id,categoryIds,...(category?{category}:{}),...(imageUrls.length?{img:imageUrls[0],secondary:imageUrls.slice(1)}:{})}];
+  });
+}
+function discountCandidateIds(objects,products){
+  const sets=new Map(objects.filter(object=>object.type==="PRODUCT_SET"&&!object.is_deleted).map(object=>[object.id,object.product_set_data||{}]));
+  const candidateIds=new Set();
+  for(const rule of objects.filter(object=>object.type==="PRICING_RULE"&&!object.is_deleted)){
+    const data=rule.pricing_rule_data||{},set=sets.get(data.match_products_id);
+    if(!set)continue;
+    const ids=new Set([...(set.product_ids_any||[]),...(set.product_ids_all||[])]);
+    for(const product of products){
+      if(set.all_products||ids.has(product.catalogItemId)||ids.has(product.catalogObjectId)||product.categoryIds.some(id=>ids.has(id)))candidateIds.add(product.catalogObjectId);
+    }
+  }
+  return candidateIds;
+}
+async function mapWithConcurrency(values,limit,mapper){
+  const output=new Array(values.length);let cursor=0;
+  await Promise.all(Array.from({length:Math.min(limit,values.length)},async()=>{while(cursor<values.length){const index=cursor++;output[index]=await mapper(values[index],index);}}));
+  return output;
+}
+export async function storefrontCatalogProductsWithDiscounts(square,objects,locationId){
+  const products=storefrontCatalogProducts(objects,locationId),candidates=discountCandidateIds(objects,products);
+  const discounted=await mapWithConcurrency(products.filter(product=>candidates.has(product.catalogObjectId)),6,async product=>{
+    try{
+      const result=await square.request("/v2/orders/calculate",{method:"POST",body:{order:{location_id:locationId,line_items:[{catalog_object_id:product.catalogObjectId,quantity:"1"}],pricing_options:{auto_apply_taxes:false,auto_apply_discounts:true}}}}),line=result.order?.line_items?.[0],discount=Number(line?.total_discount_money?.amount||0),total=Number(line?.total_money?.amount);
+      return discount>0&&Number.isFinite(total)&&total<product.price?[product.catalogObjectId,total]:null;
+    }catch(error){console.error("Square storefront discount calculation failed",product.name,error.message);return null;}
+  });
+  const salePrices=new Map(discounted.filter(Boolean));
+  return products.map(({catalogItemId,catalogObjectId,categoryIds,...product})=>salePrices.has(catalogObjectId)?{...product,originalPrice:product.price,price:salePrices.get(catalogObjectId)}:product);
+}
 export async function buildSquareOrder(square,locationId,input,user,config={}){
   if(!locationId)throw Object.assign(new Error("The Square checkout location is not configured."),{status:503});
-  const objects=await catalogObjects(square),items=objects.filter(x=>x.type==="ITEM"),taxes=objects.filter(x=>x.type==="TAX"&&x.is_deleted!==true);
+  const objects=await catalogObjects(square),items=objects.filter(x=>x.type==="ITEM");
   const customizationIndexes=new Map();
-  const lineItems=input.items.map(line=>{
-    const wanted=normalizeName(line.name),item=items.find(x=>normalizeName(x.item_data?.name)===wanted),variation=variationAtLocation(item,locationId);
-    if(!availableAtLocation(item,variation,locationId))throw Object.assign(new Error(`${line.name} is not currently available in the Square catalog.`),{status:409,code:"CATALOG_ITEM_UNAVAILABLE"});
-    const customIndex=customizationIndexes.get(wanted)||0;
+  const lineItems=input.items.flatMap(line=>{
+    const wanted=normalizeName(line.name),customIndex=customizationIndexes.get(wanted)||0;
     customizationIndexes.set(wanted,customIndex+1);
-    const custom=input.customizations?.filter(entry=>normalizeName(entry.productName)===wanted)[customIndex],note=custom?.kind==="glyph"?`CUSTOM CAKE: ${custom.glyph}`:custom?.kind==="print"?`CUSTOM PRINT: ${custom.icingFlavour??custom.icingFlavor} icing${custom.sprinkleColours?`, ${custom.sprinkleColours} sprinkles`:""}. ${custom.artworks.map((art,index)=>`Design ${index+1} x ${art.count} dozen units`).join(", ")}. Artwork files are in the Amazing Donuts order portal.`:undefined;
+    const custom=input.customizations?.filter(entry=>normalizeName(entry.productName)===wanted)[customIndex];
+    if(boxForName(line.name))return squareBoxLines(custom,Number(line.quantity),objects,locationId);
+    if(custom?.kind==="box")throw Object.assign(new Error("Flavour selections require a donut box."),{status:409,code:"BOX_ITEM_REQUIRED"});
+    const item=items.find(x=>normalizeName(x.item_data?.name)===wanted),variation=variationAtLocation(item,locationId);
+    if(!availableAtLocation(item,variation,locationId))throw Object.assign(new Error(`${line.name} is not currently available in the Square catalog.`),{status:409,code:"CATALOG_ITEM_UNAVAILABLE"});
+    const note=custom?.kind==="glyph"?`CUSTOM CAKE: ${custom.glyph}`:custom?.kind==="print"?`CUSTOM PRINT: ${custom.icingFlavour??custom.icingFlavor} icing${custom.sprinkleColours?`, ${custom.sprinkleColours} sprinkles`:""}. ${custom.artworks.map((art,index)=>`Design ${index+1} x ${art.count} dozen units`).join(", ")}. Artwork files are in the Amazing Donuts order portal.`:undefined;
     const labNote=labOrderNote(line.name,custom);
-    return {catalog_object_id:variation.id,quantity:String(line.quantity),...(note||labNote?{note:note||labNote}:{}),...squareBoxSelection(item,custom,objects,locationId)};
+    return [{catalog_object_id:variation.id,quantity:String(line.quantity),...(note||labNote?{note:note||labNote}:{})}];
   });
   const recipient={display_name:input.fulfillment.recipient.displayName,email_address:input.fulfillment.recipient.email,phone_number:normalizeNorthAmericanPhone(input.fulfillment.recipient.phone)};
   if(input.fulfillment.address)recipient.address={address_line_1:input.fulfillment.address.addressLine1,address_line_2:input.fulfillment.address.addressLine2||undefined,locality:input.fulfillment.address.locality,administrative_district_level_1:input.fulfillment.address.administrativeDistrictLevel1,postal_code:input.fulfillment.address.postalCode,country:input.fulfillment.address.country};
-  const fulfillment=input.fulfillment.type==="pickup"?{type:"PICKUP",state:"PROPOSED",pickup_details:{schedule_type:"SCHEDULED",pickup_at:input.fulfillment.scheduledAt,recipient}}:{type:"DELIVERY",state:"PROPOSED",delivery_details:{schedule_type:"SCHEDULED",deliver_at:input.fulfillment.scheduledAt,recipient,...(input.fulfillment.deliveryInstructions?{delivery_instructions:input.fulfillment.deliveryInstructions}:{}),...(input.fulfillment.noContact?{no_contact_delivery:true}:{})}};
+  const fulfillment=input.fulfillment.type==="pickup"?{type:"PICKUP",state:"PROPOSED",pickup_details:{schedule_type:"SCHEDULED",pickup_at:input.fulfillment.scheduledAt,recipient}}:{type:"DELIVERY",state:"PROPOSED",delivery_details:{schedule_type:"SCHEDULED",deliver_at:input.fulfillment.scheduledAt,recipient,...(input.fulfillment.deliveryInstructions?{note:input.fulfillment.deliveryInstructions}:{}),...(input.fulfillment.noContact?{is_no_contact_delivery:true}:{})}};
   const testMode=Boolean(config.mixedEnvironmentTestMode);
-  return {location_id:locationId,line_items:lineItems,fulfillments:[fulfillment],...websiteTaxes(taxes),source:{name:testMode?"WEBSITE TEST - UBER SANDBOX":"Amazing Donuts Website"},reference_id:`${testMode?"TEST-UBER-SANDBOX":"web"}-${user?.id?.slice(0,8)||"guest"}-${Date.now()}`};
+  return {location_id:locationId,line_items:lineItems,fulfillments:[fulfillment],...websiteTaxes(),source:{name:testMode?"WEBSITE TEST - UBER SANDBOX":"Amazing Donuts Website"},reference_id:`${testMode?"TEST-UBER-SANDBOX":"web"}-${user?.id?.slice(0,8)||"guest"}-${Date.now()}`};
 }
-async function prepareSquareOrder(square,config,input,user){
+async function prepareSquareOrder(pool,square,config,input,user,tenantId){
   validateFulfillmentSchedule(input.fulfillment,config.delivery);
+  validateFridayOnlyItems(input.items,input.fulfillment);
   validateDelivery(input.fulfillment,config.delivery);
   validatePrintedItems(input);
+  const hasLab=input.items.some(item=>normalizeName(item.name)===normalizeName(LAB_NAME))||input.customizations.some(item=>item.kind==="lab");
+  if(hasLab&&new Date(input.fulfillment.scheduledAt).getTime()<Date.now()+86400000)throw Object.assign(new Error("Donut Lab orders require at least one day's notice."),{status:409,code:"LAB_LEAD_TIME_REQUIRED"});
+  if(input.fulfillment.asap&&(hasLab||input.items.some(item=>printProductNames.has(normalizeName(item.name)))))throw Object.assign(new Error("Custom orders cannot use as soon as possible fulfillment."),{status:409,code:"CUSTOM_ASAP_UNAVAILABLE"});
   const orderDraft=await buildSquareOrder(square,config.squareLocationId,input,user,config);
+  const promo=await resolvePromoCode(pool,square,tenantId,input.promoCode);
+  if(promo)orderDraft.discounts=[{uid:"WEBSITE_PROMO",scope:"ORDER",catalog_object_id:promo.catalogObjectId}];
   const initial=(await square.request("/v2/orders/calculate",{method:"POST",body:{order:orderDraft}})).order;
   const fee=deliveryFee(merchandiseSubtotal(initial),input.fulfillment,config.delivery);
   if(fee)orderDraft.service_charges=deliveryServiceCharge(fee);
@@ -864,7 +1291,7 @@ async function prepareSquareOrder(square,config,input,user){
   return {orderDraft,calculated};
 }
 const publicDelivery=(order,input,policy)=>input.fulfillment.type==="delivery"?{provider:policy.provider,status:"AWAITING_MANUAL_DISPATCH",fee:Number(order.total_service_charge_money?.amount||0),free:Number(order.total_service_charge_money?.amount||0)===0}:null;
-const publicOrder=order=>({id:order.id,total:Number(order.total_money?.amount||0),subtotal:Number(order.total_money?.amount||0)-Number(order.total_tax_money?.amount||0),tax:Number(order.total_tax_money?.amount||0),currency:order.total_money?.currency||"CAD",state:order.state,lineItems:(order.line_items||[]).map(x=>({name:x.name,quantity:x.quantity,total:Number(x.total_money?.amount||0)})),fulfillments:order.fulfillments||[]});
+const publicOrder=order=>({id:order.id,total:Number(order.total_money?.amount||0),subtotal:Number(order.total_money?.amount||0)-Number(order.total_tax_money?.amount||0)+Number(order.total_discount_money?.amount||0),tax:Number(order.total_tax_money?.amount||0),discount:Number(order.total_discount_money?.amount||0),taxes:(order.taxes||[]).map(x=>({name:x.name,percentage:x.percentage})),currency:order.total_money?.currency||"CAD",state:order.state,lineItems:(order.line_items||[]).map(x=>({name:x.name,quantity:x.quantity,total:Number(x.total_money?.amount||0)})),fulfillments:order.fulfillments||[]});
 
 export function orderEmailSummary(order,fulfillment){
   const currency=order.total_money?.currency||"CAD",cash=amount=>new Intl.NumberFormat("en-CA",{style:"currency",currency}).format(Number(amount||0)/100),lines=(order.line_items||[]).flatMap(line=>[`- ${line.name||"Item"} x ${line.quantity||1}${line.total_money?` · ${cash(line.total_money.amount)}`:""}`,...(line.note?[`  ${line.note}`]:[])]),serviceCharge=Number(order.total_service_charge_money?.amount||0),tax=Number(order.total_tax_money?.amount||0),total=Number(order.total_money?.amount||0),merchandise=total-tax-serviceCharge;

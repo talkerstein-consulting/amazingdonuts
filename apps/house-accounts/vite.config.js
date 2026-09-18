@@ -9,6 +9,14 @@ export default defineConfig({
   root,
   base: "/admin-dashboard/",
   plugins: [react()],
-  server: { port: 5174, proxy: { "/api": "http://127.0.0.1:3101" } },
+  server: {
+    port: 5174,
+    proxy: {
+      "/api/house": {
+        target: "http://127.0.0.1:3101",
+        rewrite: (requestPath) => requestPath.replace(/^\/api\/house(?=\/|$)/, "/api")
+      }
+    }
+  },
   build: { outDir: path.resolve(root, "../../dist/admin-dashboard"), emptyOutDir: false }
 });

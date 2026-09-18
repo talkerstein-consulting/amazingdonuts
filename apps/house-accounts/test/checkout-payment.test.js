@@ -26,3 +26,13 @@ test("deployed payment pages permit the official Google Pay script, frame and lo
     assert.ok(!directives["script-src"].includes("'unsafe-inline'"));
   }
 });
+
+test("Google Pay initialization is not restricted to Chrome-family browsers", () => {
+  const checkout = readFileSync(new URL("../../../src/pages/CheckoutPage.tsx", import.meta.url), "utf8");
+  const styles = readFileSync(new URL("../../../src/pages/commerce.css", import.meta.url), "utf8");
+  const capability = checkout.slice(checkout.indexOf("const walletCapabilities ="), checkout.indexOf("const slotsFor ="));
+  assert.match(capability, /google: "blocked"/);
+  assert.doesNotMatch(capability, /navigator\.userAgent|PaymentRequest/);
+  assert.match(checkout, /payments\.googlePay\(request\)/);
+  assert.doesNotMatch(styles, /#google-pay-button:not\(\.is-ready\)\s*\{\s*display:\s*none/);
+});

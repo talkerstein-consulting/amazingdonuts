@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "https://amazing-donuts-preview-talkersteins-projects.vercel.app/$1",
+      "statusCode": 301
+    }
+  ]
+}

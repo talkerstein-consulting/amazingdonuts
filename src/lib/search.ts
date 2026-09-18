@@ -1,4 +1,4 @@
-import { CATEGORIES, type Category, type Product } from '../data/products';
+import type { Category, Product } from '../data/products';
 import { tagFor } from '../data/product-tags';
 
 /**
@@ -56,10 +56,10 @@ export function searchProducts(products: Product[], query: string) {
 }
 
 /** Counters whose name matches, offered alongside the products. */
-export function matchingCategories(query: string): Category[] {
+export function matchingCategories(categories: Category[], query: string): Category[] {
   if (!query) return [];
   const term = query.toLowerCase();
-  return CATEGORIES.filter((category) => category.toLowerCase().includes(term));
+  return categories.filter((category) => category.toLowerCase().includes(term));
 }
 
 /**

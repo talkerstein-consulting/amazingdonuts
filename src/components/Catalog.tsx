@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { BOX_BUILDER_IDS, CATEGORIES, INTERNAL_PRODUCT_IDS, type Category, type Product } from '../data/products';
+import { BOX_BUILDER_IDS, INTERNAL_PRODUCT_IDS, type Category, type Product } from '../data/products';
 import CollectionRail from '../shop/CollectionRail';
 import BoxCard from './BoxCard';
 import { tagFor } from '../data/product-tags';
@@ -8,6 +8,8 @@ import { Badge, BrandButton, C, F, SQUIRCLE } from './brand';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useBoxQty, useShop } from '../lib/shop';
 import AddControl from './AddControl';
+import ProductPrice from './ProductPrice';
+import { fallbackProductImage } from '../lib/product-image';
 import { SHOP_HREF, shopHref } from '../lib/shop-href';
 import { smoothScrollTo } from '../lib/smooth-scroll';
 import { COMPACT_CATEGORY_BAR_HEIGHT, useStickyCategoryBar } from '../hooks/useStickyCategoryBar';
@@ -49,6 +51,7 @@ function ProductThumb({ product }: { product: Product }) {
       >
         <img
           src={product.img}
+          onError={(event) => fallbackProductImage(event, product.id)}
           alt={product.name}
           loading="lazy"
           style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.2)' }}
@@ -86,7 +89,7 @@ function ProductThumb({ product }: { product: Product }) {
         >
           {product.name}
         </h4>
-        <span className="product-tile__price" style={{ fontFamily: F.text, fontWeight: 700, fontSize: 14, color: C.price }}>{product.price}</span>
+        <ProductPrice product={product} className="product-tile__price" style={{ fontFamily: F.text, fontWeight: 700, fontSize: 14, color: C.price }} />
       </div>
     </article>
   );
@@ -233,16 +236,16 @@ function CategoryRow({
 }
 
 export default function Catalog() {
-  const { products } = useShop();
+  const { products, categories } = useShop();
   const [collapsed, setCollapsed] = useState<Set<Category>>(() => new Set());
   const [active, setActive] = useState<Category | null>(null);
   const columns = useIsDesktop() ? 4 : 2;
   const bar = useStickyCategoryBar();
 
-  const byCategory = useMemo(() => CATEGORIES.map((category) => ({
+  const byCategory = useMemo(() => categories.map((category) => ({
     category,
     products: products.filter((product) => product.category === category && !BOX_BUILDER_IDS.has(product.id) && !INTERNAL_PRODUCT_IDS.has(product.id))
-  })).filter((group) => group.products.length > 0), [products]);
+  })).filter((group) => group.products.length > 0), [products, categories]);
   const boxes = useMemo(() => products.filter((product) => BOX_BUILDER_IDS.has(product.id)), [products]);
 
   const jumpTo = (category: Category | null) => {

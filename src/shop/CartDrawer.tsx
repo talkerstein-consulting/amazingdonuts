@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
-import { C, F, SQUIRCLE } from '../components/brand';
-import { useShop, money, lineKeyOf } from '../lib/shop';
+import { ArrowLeft, ChevronDown, Gift, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import type { Product } from '../data/products';
+import { BrandButton, C, F, SQUIRCLE } from '../components/brand';
+import { useShop, money, priceOf, lineKeyOf } from '../lib/shop';
 import { SHOP_HREF } from '../lib/shop-href';
-import { customizationComplete, minimumQuantityFor, PRINT_PRODUCTS } from '../lib/custom-order';
+import { customizationComplete, customizationFor, minimumQuantityFor, PRINT_PRODUCTS } from '../lib/custom-order';
 import ProductLine from '../components/ProductLine';
 import CartCustomization from './CartCustomization';
 import CheckoutFix from './CheckoutFix';
@@ -17,20 +18,78 @@ const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
  * something never takes you off what you were browsing.
  */
 export default function CartDrawer() {
-  const { cartOpen, closeCart, lines, count, subtotal, setQty, customize, remove } = useShop();
+  const { cartOpen, openCart, closeCart, product: activeProduct, lines, count, subtotal, setQty, customize, remove, wishlist, products, signedIn, openProduct, add } = useShop();
+  const [removedProduct, setRemovedProduct] = useState<Product | null>(null);
+  const [lastAdded, setLastAdded] = useState('');
+  const [buyAgainNames, setBuyAgainNames] = useState<string[]>([]);
+  const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState(200);
+  const [promoDraft, setPromoDraft] = useState(() => localStorage.getItem('amazing-promo-code') || '');
+  const [promoMessage, setPromoMessage] = useState('');
+  const [promoBusy, setPromoBusy] = useState(false);
+  const applyPromo = async () => {
+    const code = promoDraft.trim().toUpperCase();
+    if (!code) { localStorage.removeItem('amazing-promo-code'); setPromoMessage('Promo code removed.'); return; }
+    setPromoBusy(true);
+    try {
+      const response = await fetch('/api/house/public/storefront/promo-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error?.message || 'This promo code is unavailable.');
+      localStorage.setItem('amazing-promo-code', code);
+      setPromoMessage(`${code} will be applied to your order at checkout.`);
+    } catch (error) { localStorage.removeItem('amazing-promo-code'); setPromoMessage(error instanceof Error ? error.message : 'This promo code is unavailable.'); }
+    finally { setPromoBusy(false); }
+  };
+  const amountToFreeDelivery = Math.max(0, (freeDeliveryThreshold ?? 0) - subtotal);
+  const savedProducts = signedIn ? wishlist.map(id => products.find(p => p.id === id)).filter((p): p is Product => Boolean(p)).slice(0, 3) : [];
+  const buyAgainProducts = buyAgainNames.map(name => products.find(p => p.name.toLowerCase() === name)).filter((p): p is Product => p != null && !wishlist.includes(p.id)).slice(0, 3);
+  const removeLine = (key: string, product: Product) => { setRemovedProduct(product); remove(key); };
   const customReady=lines.every(line=>customizationComplete(line.product.id,line.qty,line.customization));
   /* Counted, not just tested: the button points at what is ringed, and "the
      highlighted item" is a lie when two of them are. */
   const blockedCount=lines.filter(line=>!customizationComplete(line.product.id,line.qty,line.customization)).length;
 
   useEffect(() => {
+    let timeout: number | undefined;
+    const onAdded = (event: Event) => {
+      const { name, qty } = (event as CustomEvent<{name: string; qty: number}>).detail;
+      setLastAdded(`${name}${qty > 1 ? ` × ${qty}` : ''} added`);
+      window.clearTimeout(timeout);
+      timeout = window.setTimeout(() => setLastAdded(''), 5000);
+    };
+    window.addEventListener('amazing:bag-added', onAdded);
+    return () => { window.removeEventListener('amazing:bag-added', onAdded); window.clearTimeout(timeout); };
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/house/storefront/config').then(response => response.ok ? response.json() : null).then(body => {
+      const threshold = Number(body?.delivery?.freeThreshold) / 100;
+      setFreeDeliveryThreshold(Number.isFinite(threshold) && threshold > 0 ? threshold : 200);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (!cartOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeCart();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeCart(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [cartOpen, closeCart]);
 
+  useEffect(() => {
+    if (!cartOpen || !signedIn) return;
+    let live = true;
+    fetch('/api/house/storefront/orders', { credentials: 'include' }).then(response => response.ok ? response.json() : { orders: [] }).then(body => {
+      if (!live) return;
+      const names: string[] = (body.orders || []).flatMap((order: { line_items?: { name?: string }[] }) => order.line_items || []).map((line: { name?: string }) => String(line.name || '').toLowerCase()).filter(Boolean);
+      setBuyAgainNames([...new Set(names)]);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [cartOpen, signedIn]);
+
   return (
+    <>
+    {count > 0 && !cartOpen && !activeProduct && !window.location.pathname.startsWith('/checkout') && (
+      <div className="bag-checkout-bar"><div><strong>Your bag</strong><span>{count} {count === 1 ? 'item' : 'items'} · {money(subtotal)}</span></div><span className="bag-checkout-bar__recent" aria-live="polite">{lastAdded}</span><BrandButton href={customReady ? '/checkout/' : '#'} onClick={event => { if (!customReady) { event.preventDefault(); openCart(); } }} className="bag-checkout-bar__cta">{customReady ? 'Checkout' : 'Review your bag'}</BrandButton></div>
+    )}
     <AnimatePresence>
       {cartOpen && (
         <>
@@ -73,6 +132,8 @@ export default function CartDrawer() {
             </header>
 
             <div className="cart__body" data-lenis-prevent>
+              {lines.length > 0 && <section className={`cart__deliveryProgress${amountToFreeDelivery === 0 ? ' is-complete' : ''}`} aria-label="Free delivery progress"><div><Gift size={19} /><strong>{amountToFreeDelivery === 0 ? 'Free delivery unlocked' : `${money(amountToFreeDelivery)} away from free delivery`}</strong></div><progress value={Math.min(subtotal, freeDeliveryThreshold)} max={freeDeliveryThreshold} /></section>}
+              {lines.length > 0 && <div className="promo-code cart__promo"><label htmlFor="cart-promo">Promo code</label><div><input id="cart-promo" value={promoDraft} onChange={event => setPromoDraft(event.target.value)} maxLength={40} autoComplete="off" /><button type="button" disabled={promoBusy} onClick={() => void applyPromo()}>{promoBusy ? 'Checking...' : 'Apply'}</button></div>{promoMessage && <small role="status">{promoMessage}</small>}</div>}
               {lines.length === 0 ? (
                 <div className="cart__empty">
                   <span className="cart__emptyIcon">
@@ -86,9 +147,9 @@ export default function CartDrawer() {
                   </p>
                   {/* Also `openShop()` until now, so an empty basket's only
                       call to action closed the drawer and did nothing else. */}
-                  <a href={SHOP_HREF} className="cart__checkout brand-press" onClick={closeCart}>
+                  <BrandButton href={SHOP_HREF} block className="cart__checkout" onClick={closeCart}>
                     Shop all donuts
-                  </a>
+                  </BrandButton>
                 </div>
               ) : (
                 <ul className="cart__lines">
@@ -114,7 +175,7 @@ export default function CartDrawer() {
                   const blocked=!customizationComplete(product.id,qty,customization);
                   return (
                     <li key={key} className={`cart__line${blocked?' cart__line--attention':''}`}>
-                      <ProductLine product={product}>
+                      <ProductLine product={product} onOpen={() => { closeCart(); openProduct(product.id); }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                           {/* A printed line has no stepper. The artwork covers a
                               stated number of dozens, chosen on the product page
@@ -127,8 +188,8 @@ export default function CartDrawer() {
                             <span className="cart__fixedQty">{qty} dozen</span>
                           ) : (
                           <div className="cart__stepper">
-                            <button type="button" disabled={qty<=minimumQuantityFor(product.id)} onClick={() => setQty(key, qty - 1)} aria-label={`One fewer ${product.name}`}>
-                              <Minus size={14} strokeWidth={2.6} />
+                            <button type="button" disabled={qty <= minimumQuantityFor(product.id) && qty !== 1} onClick={() => qty === 1 ? removeLine(key, product) : setQty(key, qty - 1)} aria-label={qty === 1 ? `Remove ${product.name}` : `One fewer ${product.name}`}>
+                              {qty === 1 ? <Trash2 size={14} strokeWidth={2.4} /> : <Minus size={14} strokeWidth={2.6} />}
                             </button>
                             <span>{qty}</span>
                             <button type="button" onClick={() => setQty(key, qty + 1)} aria-label={`One more ${product.name}`}>
@@ -136,23 +197,29 @@ export default function CartDrawer() {
                             </button>
                           </div>
                           )}
-                          <button
+                          {qty !== 1 && <button
                             type="button"
-                            onClick={() => remove(key)}
+                            onClick={() => removeLine(key, product)}
                             aria-label={`Remove ${product.name}`}
                             className="cart__remove"
                           >
                             <Trash2 size={16} strokeWidth={2.2} />
-                          </button>
+                          </button>}
                         </div>
                       </ProductLine>
-                      <CartCustomization productId={product.id} qty={qty} value={customization} onChange={next=>customize(key,next)}/>
+                      {(customization || customizationFor(product.id)) && <details className="cart__itemDetails" open>
+                        <summary>Item details <ChevronDown size={16} aria-hidden="true" /></summary>
+                        <CartCustomization productId={product.id} qty={qty} value={customization} onChange={next=>customize(key,next)}/>
+                      </details>}
                       {blocked&&<CheckoutFix productId={product.id} qty={qty} value={customization} onChange={next=>customize(key,next)}/>}
                     </li>
                   );
                   })}
                 </ul>
               )}
+              {removedProduct && <p className="cart__removed" role="status"><a href={`/shop/#product/${removedProduct.id}`} onClick={closeCart}>{removedProduct.name}</a> was removed from bag.</p>}
+              {savedProducts.length > 0 && <section className="cart__suggestions"><h3>Saved products</h3>{savedProducts.map(p => <div className="cart__suggestion" key={p.id}><button type="button" onClick={() => { closeCart(); openProduct(p.id); }}><img src={p.img} alt="" /><span>{p.name}<small>{money(priceOf(p))}</small></span></button><button type="button" aria-label={customizationFor(p.id) ? `Choose options for ${p.name}` : `Add ${p.name} to bag`} onClick={() => { if (customizationFor(p.id)) { closeCart(); openProduct(p.id); } else add(p, 1, { openCart: false }); }}><Plus size={18} /></button></div>)}</section>}
+              {buyAgainProducts.length > 0 && <section className="cart__suggestions"><h3>Buy again</h3>{buyAgainProducts.map(p => <div className="cart__suggestion" key={p.id}><button type="button" onClick={() => { closeCart(); openProduct(p.id); }}><img src={p.img} alt="" /><span>{p.name}<small>{money(priceOf(p))}</small></span></button><button type="button" aria-label={`View ${p.name}`} onClick={() => { closeCart(); openProduct(p.id); }}><Plus size={18} /></button></div>)}</section>}
             </div>
 
             {lines.length > 0 && (
@@ -162,14 +229,15 @@ export default function CartDrawer() {
                   <span>{money(subtotal)}</span>
                 </div>
                 <p className="cart__note">Tax and pickup details are settled at checkout.</p>
-                <a href={customReady?"/checkout/":"#"} aria-disabled={!customReady} className={`cart__checkout brand-press${customReady?'':' is-disabled'}`} onClick={event=>{if(!customReady)event.preventDefault();else closeCart()}}>
-                  {customReady?`Checkout — ${money(subtotal)}`:`Finish the highlighted item${blockedCount===1?'':'s'}`}
-                </a>
+                <BrandButton href={customReady?"/checkout/":"#"} block aria-disabled={!customReady} className={`cart__checkout${customReady?'':' is-disabled'}`} onClick={event=>{if(!customReady)event.preventDefault();else closeCart()}}>
+                  {customReady?'Checkout':`Finish the highlighted item${blockedCount===1?'':'s'}`}
+                </BrandButton>
               </footer>
             )}
           </motion.aside>
         </>
       )}
     </AnimatePresence>
+    </>
   );
 }

@@ -29,7 +29,11 @@ export class UberDirectClient {
     const token=await this.accessToken();
     const response=await this.fetch(`https://api.uber.com/v1/customers/${encodeURIComponent(this.customerId)}${path}`,{method,headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},...(body?{body:JSON.stringify(body)}:{})});
     const result=await response.json().catch(()=>({}));
-    if(!response.ok)throw Object.assign(new Error(result.message||result.error||"Uber Direct request failed."),{status:502,code:"UBER_DIRECT_REQUEST_FAILED",details:result});
+    if(!response.ok){
+      const providerMessage=String(result.message||result.error||"");
+      if(result.code==="customer_blocked"&&providerMessage.includes("tax_form_required"))throw Object.assign(new Error("Uber Direct has blocked dispatch until the organization tax form is completed in Uber Direct billing settings."),{status:409,code:"UBER_TAX_FORM_REQUIRED",details:result});
+      throw Object.assign(new Error(providerMessage||"Uber Direct request failed."),{status:502,code:"UBER_DIRECT_REQUEST_FAILED",details:result});
+    }
     return result;
   }
 

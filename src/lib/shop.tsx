@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { INTERNAL_PRODUCT_IDS, PRODUCTS, type Product } from '../data/products';
-import { customizationFor, minimumQuantityFor, PRINT_PRODUCTS, type Customization } from './custom-order';
+import { INTERNAL_PRODUCT_IDS, PRODUCTS, type Category, type Product } from '../data/products';
+import { BOX_PRODUCTS, customizationFor, isSpecialOrder, minimumQuantityFor, NOT_A_BOX_FLAVOUR, PRINT_PRODUCTS, type Customization } from './custom-order';
 import { recordProductView } from './recently-viewed';
 import { lineKeyOf } from './cart-line';
+import { mergeSquareCatalog, type SquareStorefrontProduct } from './live-catalog';
+import { initSprinkleClicks } from './sprinkle-click';
 export { lineKeyOf } from './cart-line';
 
 /**
@@ -22,6 +24,7 @@ export type CartLine = { product: Product; qty: number; customization?: Customiz
 
 type Store = {
   products: Product[];
+  categories: Category[];
   product: Product | null;
   cartOpen: boolean;
   lines: CartLine[];
@@ -60,6 +63,12 @@ export const unitPriceOf = (line: { product: Product; customization?: Customizat
   priceOf(line.product);
 export const money = (n: number) => `$${n.toFixed(2)}`;
 
+const DEFAULT_DONUT_IDS = new Set(PRODUCTS.filter(product => product.category === 'Donuts' && !BOX_PRODUCTS.has(product.id)).map(product => product.id));
+const eligibleBoxFlavours = (products: Product[]) => products.filter(product => DEFAULT_DONUT_IDS.has(product.id) && !INTERNAL_PRODUCT_IDS.has(product.id) && product.available !== false && !NOT_A_BOX_FLAVOUR.has(product.id) && !isSpecialOrder(product.name) && priceOf(product) > 0 && priceOf(product) <= 5);
+const pricedBoxProduct = (product: Product, customization: Customization | undefined, products: Product[]) => customization?.kind === 'box'
+  ? { ...product, price: money(customization.donuts.reduce((sum, id) => sum + priceOf(products.find(item => item.id === id) ?? { ...product, price: '$0.00' }), 0)) }
+  : product;
+
 /** The panel opens over whatever page it was opened from. */
 const readHash = () => {
   const h = window.location.hash;
@@ -67,11 +76,13 @@ const readHash = () => {
 };
 
 export function ShopProvider({ children }: { children: ReactNode }) {
+  useEffect(initSprinkleClicks, []);
   const [route, setRoute] = useState(readHash);
   const [cartOpen, setCartOpen] = useState(false);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [signedIn, setSignedIn] = useState(false);
-  const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [lines, setLines] = useState<CartLine[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('amazing-cart') || '[]') as { id: string; qty: number; customization?: Customization }[];
@@ -110,17 +121,28 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       return response.json();
     }).then(body => {
       if (!active) return;
-      const live = new Map((body.products || []).map((item: { name:string;price:number }) => [item.name.toLowerCase(), item]));
-      const next = PRODUCTS.map(product => {
-        const match = live.get(product.name.toLowerCase()) as { price:number;boxFlavours?:string[];available?:boolean } | undefined;
-        return match
-          ? { ...product, price: money(match.price / 100), boxFlavours: match.boxFlavours, available: match.available !== false }
-          : INTERNAL_PRODUCT_IDS.has(product.id)
-            ? { ...product, available: true }
-            : { ...product, available: false };
-      });
+      const squareProducts = mergeSquareCatalog(PRODUCTS, (body.products || []) as SquareStorefrontProduct[], INTERNAL_PRODUCT_IDS).filter(product => !BOX_PRODUCTS.has(product.id));
+      const flavours = eligibleBoxFlavours(squareProducts);
+      const categoryCounts = new Map<string, number>();
+      flavours.forEach(product => categoryCounts.set(product.category, (categoryCounts.get(product.category) || 0) + 1));
+      const boxCategory = [...categoryCounts].sort((left, right) => right[1] - left[1])[0]?.[0];
+      const startingPrice = flavours.length ? Math.min(...flavours.map(priceOf)) : 0;
+      const startingOriginalPrice = flavours.length ? Math.min(...flavours.map(product => priceOf({ ...product, price: product.originalPrice || product.price }))) : 0;
+      const boxes = boxCategory ? PRODUCTS.filter(product => BOX_PRODUCTS.has(product.id)).map(product => ({
+        ...product,
+        category: boxCategory,
+        price: money(startingPrice * Math.max(...(BOX_PRODUCTS.get(product.id) || [0]))),
+        ...(startingOriginalPrice > startingPrice ? { originalPrice: money(startingOriginalPrice * Math.max(...(BOX_PRODUCTS.get(product.id) || [0]))) } : {}),
+        available: flavours.length > 0
+      })) : [];
+      const byId = new Map([...squareProducts, ...boxes].map(product => [product.id, product]));
+      const next = PRODUCTS.flatMap(product => byId.has(product.id) ? [byId.get(product.id)!] : []);
       setProducts(next);
-      setLines(current => current.map(line => ({ ...line, product: next.find(item => item.id === line.product.id) || line.product })));
+      setCategories(Array.isArray(body.categories) ? body.categories.filter((category: unknown): category is string => typeof category === 'string' && Boolean(category.trim())) : []);
+      setLines(current => current.flatMap(line => {
+        const product = next.find(item => item.id === line.product.id);
+        return product ? [{ ...line, product: pricedBoxProduct(product, line.customization, next) }] : [];
+      }));
       }).catch(() => {}).finally(() => { pending = false; });
     };
     refresh();
@@ -152,17 +174,6 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     window.addEventListener('amazing:auth-changed', changed);
     return () => window.removeEventListener('amazing:auth-changed', changed);
   }, [loadWishlist]);
-
-  /* The bag does NOT open when the flying donut lands in it.
-
-     It used to. A `CART_LANDED` listener here opened the drawer after every
-     flight, which quietly overrode `add`'s own `openCart: false` — the flag
-     six call sites pass precisely to keep the drawer shut. The letter cake is
-     where that showed: spelling a word is one add per letter, and the drawer
-     came over the picker on every single one.
-
-     The flight is the confirmation. Where an add needs the drawer as well, the
-     caller says so by leaving `openCart` at its default. */
 
   useEffect(() => {
     const sync = () => setRoute(readHash());
@@ -206,8 +217,9 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   }, [product]);
 
   const add = useCallback((p: Product, qty = 1, { openCart = true, customization }: { openCart?: boolean; customization?: Customization } = {}) => {
-    p = products.find(product => product.id === p.id) || p;
-    if (p.available === false) return false;
+    const currentProduct = products.find(product => product.id === p.id);
+    if (!currentProduct || currentProduct.available === false) return false;
+    p = pricedBoxProduct(currentProduct, customization, products);
     setLines((prev) => {
       qty=Math.max(qty,minimumQuantityFor(p.id));
       const spec = customization ?? customizationFor(p.id);
@@ -228,6 +240,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       return next;
     });
     if (openCart) setCartOpen(true);
+    window.dispatchEvent(new CustomEvent('amazing:bag-added', { detail: { name: p.name, qty } }));
     return true;
   }, [products]);
 
@@ -269,6 +282,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     const subtotal = lines.reduce((n, l) => n + unitPriceOf(l) * l.qty, 0);
     return {
       products,
+      categories,
       product,
       cartOpen,
       lines,
@@ -290,7 +304,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       clear: () => setLines([]),
       toggleWishlist
     };
-  }, [products, product, cartOpen, lines, wishlist, signedIn, go, clearHash, add, setQty, customize, remove, toggleWishlist]);
+  }, [products, categories, product, cartOpen, lines, wishlist, signedIn, go, clearHash, add, setQty, customize, remove, toggleWishlist]);
 
   return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>;
 }

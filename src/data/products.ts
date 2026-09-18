@@ -1,12 +1,13 @@
 // Generated from 'Amazing Donuts Products/catalog.csv' (scraped from amazingdonuts.com,
 // 2026-08-20). Photos are the transparent cut-outs that ship alongside each listing.
 
-export type Category = 'Donuts' | 'Muffins' | 'Cupcakes' | 'Cookies' | 'Breads';
+export type Category = string;
 
 export type Product = {
   id: string;
   name: string;
   price: string;
+  originalPrice?: string;
   category: Category;
   img: string;
   /**
@@ -18,7 +19,6 @@ export type Product = {
    */
   secondary?: string[];
   url: string;
-  boxFlavours?: string[];
   available?: boolean;
 };
 

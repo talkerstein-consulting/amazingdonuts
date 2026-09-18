@@ -9,7 +9,6 @@ import { NavThemeProvider } from '../lib/nav-theme';
 import { ShopProvider, useShop, useBoxQty } from '../lib/shop';
 import { initSmoothScroll } from '../lib/smooth-scroll';
 import Header from '../components/Header';
-import PickupBanner from '../components/PickupBanner';
 import Footer from '../components/Footer';
 import AuthModal from '../shop/AuthModal';
 import CartDrawer from '../shop/CartDrawer';
@@ -44,7 +43,7 @@ import {
  * word means. See `lib/search`.
  */
 function SearchBody({ onQueryChange }: { onQueryChange: (q: string) => void }) {
-  const { openProduct, products: catalogProducts } = useShop();
+  const { openProduct, products: catalogProducts, categories: catalogCategories } = useShop();
   const boxQty = useBoxQty();
   const open = (product: Product) => openProduct(product.id);
 
@@ -63,7 +62,7 @@ function SearchBody({ onQueryChange }: { onQueryChange: (q: string) => void }) {
   );
 
   const results = useMemo(() => (query ? searchProducts(products, query) : []), [products, query]);
-  const categories = useMemo(() => matchingCategories(query), [query]);
+  const categories = useMemo(() => matchingCategories(catalogCategories, query), [catalogCategories, query]);
   const fallback = useMemo(() => fallbackProducts(products), [products]);
 
   useEffect(() => {
@@ -239,7 +238,6 @@ export default function SearchPage() {
         <SquircleDefs />
         <div style={{ background: 'var(--cream)', color: 'var(--navy)' }}>
           <Header onSignIn={() => setAuthOpen(true)} />
-          <PickupBanner />
           <main>
             <SearchShell />
           </main>

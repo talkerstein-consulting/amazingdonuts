@@ -8,6 +8,7 @@ import { SquareAdapter } from "../../packages/square/client.js";
 import { deliveryConfig } from "./delivery.js";
 import { allowLocalPreviewRequest, isolateLocalCookies } from "./local-preview.js";
 import { validateLocalConfig } from "./local-config.js";
+import { localMailTransport } from "./local-mail.js";
 
 const root = new URL("../../../../", import.meta.url);
 const mode = process.env.HOUSE_LOCAL_MODE || "production";
@@ -45,6 +46,7 @@ const api = createApp({ pool, square, config: {
   smtpPassword: process.env.SMTP_PASSWORD || "",
   emailFrom: process.env.ACCOUNTS_EMAIL_FROM || "Amazing Donuts <accounts@amazingdonuts.com>",
   emailReplyTo: process.env.ACCOUNTS_REPLY_TO || process.env.SMTP_USER || "",
+  mailTransport: mode === "sandbox" ? localMailTransport(process.env.LOCAL_MAIL_OUTBOX_DIR || undefined) : undefined,
   ownerEmails: (process.env.OWNER_NOTIFICATION_EMAILS || process.env.ADMIN_EMAILS || "").split(",").map(value => value.trim()).filter(Boolean)
 } });
 const app = express();

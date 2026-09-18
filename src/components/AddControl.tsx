@@ -1,10 +1,10 @@
 import { Minus, Plus } from 'lucide-react';
+import { flyToCart } from '../lib/fly-to-cart';
 import type { CSSProperties } from 'react';
 import type { Product } from '../data/products';
 import { C } from './brand';
 import { useBoxQty, useShop } from '../lib/shop';
 import { customizationFor } from '../lib/custom-order';
-import { flyToCart } from '../lib/fly-to-cart';
 
 /**
  * The add control on a product photo bed — the same knob on the homepage
@@ -22,14 +22,7 @@ import { flyToCart } from '../lib/fly-to-cart';
  * shifted its own plus under the cursor would punish the second tap of every
  * pair.
  *
- * Nothing here opens the cart drawer — not the first add and not the steps
- * after it. The knob turning into a stepper, on the tile, is the confirmation:
- * the drawer sliding over the grid buried the very thing it was confirming,
- * and it meant every add cost a dismissal before the next one. What connects
- * the tile to the header's count is the flight — the product arcs up to the
- * bag and the bag reacts, so the number changing in the far corner is
- * something you watched happen rather than something you have to go and
- * check.
+ * The first add turns the control into a stepper; later taps adjust the count.
  */
 
 /**
@@ -121,11 +114,7 @@ export default function AddControl({
         type="button"
         className="brand-press"
         onClick={(event) => {
-          add(product, 1, { openCart: false });
-          /* The button itself is gone on the next tick — it becomes a stepper —
-             so the flight is measured from the photo bed it sits on, which
-             stays put and is what the donut appears to leave. */
-          flyToCart(event.currentTarget.parentElement, product.img);
+          if (add(product, 1, { openCart: false })) flyToCart(event.currentTarget.parentElement, product.img);
         }}
         aria-label={
           product.id === 'twelve-custom-printed-donuts'

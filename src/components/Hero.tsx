@@ -147,7 +147,7 @@ export default function Hero({ ready }: { ready: boolean }) {
             <span className="cta-short">Delivery</span>
           </BrandButton>
           <BrandButton href={SHOP_HREF} variant="outline" onClick={choose('pickup')}>
-            <span className="cta-long">Book a pickup</span>
+            <span className="cta-long">Order pickup</span>
             <span className="cta-short">Pickup</span>
           </BrandButton>
         </motion.div>

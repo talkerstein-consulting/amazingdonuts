@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Donut,
@@ -7,7 +7,6 @@ import {
   Cookie,
   Wheat,
   LayoutGrid,
-  ChevronRight,
   Sparkles,
   Flame,
   ArrowUpNarrowWide,
@@ -16,14 +15,15 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { BOX_BUILDER_IDS, CATEGORIES, INTERNAL_PRODUCT_IDS, type Category, type Product } from '../data/products';
+import { BOX_BUILDER_IDS, INTERNAL_PRODUCT_IDS, type Category, type Product } from '../data/products';
 import BoxCard from '../components/BoxCard';
 import { LAB_HREF } from '../lib/lab-href';
 import { useGridColumns } from '../hooks/useGridColumns';
 import { readShopParams } from '../lib/shop-href';
+import { smoothScrollTo } from '../lib/smooth-scroll';
 import { searchProducts, fallbackProducts } from '../lib/search';
 import { useStickyCategoryBar } from '../hooks/useStickyCategoryBar';
-import { C, F, BadgeRow } from '../components/brand';
+import { C, F, BadgeRow, BrandButton } from '../components/brand';
 import { tagFor } from '../data/product-tags';
 import { useShop, useBoxQty } from '../lib/shop';
 import ProductTile from '../components/ProductTile';
@@ -56,7 +56,7 @@ import FilterDrawer, {
  * The card covers the middle of these, so what survives is the left and right
  * of the frame — worth knowing if any of them are ever re-cropped.
  */
-const BANNERS: Record<'all' | Category, string> = {
+const BANNERS: Record<string, string> = {
   all: '/img/category/all.webp',
   Donuts: '/img/category/donuts.webp',
   Muffins: '/img/category/muffins.webp',
@@ -67,7 +67,7 @@ const BANNERS: Record<'all' | Category, string> = {
 
 /** Alt text per banner. Never the collection name — the heading already says
     that, and a screen reader would hear it twice. */
-const BANNER_ALT: Record<'all' | Category, string> = {
+const BANNER_ALT: Record<string, string> = {
   all: 'Rows of sprinkled and chocolate-glazed donuts, hearts and stars on a blue counter',
   Donuts: 'Rows of sprinkled and chocolate-glazed donuts, hearts and stars on a blue counter',
   Muffins: 'A tray of freshly baked muffins',
@@ -93,7 +93,7 @@ const BANNER_ALT: Record<'all' | Category, string> = {
  * `Croissant`: the collection is challah and everyday loaves, and a croissant
  * would name a thing the bakery does not sell.
  */
-const COLLECTION_ICON: Record<'all' | Category, LucideIcon> = {
+const COLLECTION_ICON: Record<string, LucideIcon> = {
   all: LayoutGrid,
   Donuts: Donut,
   Muffins: Dessert,
@@ -266,7 +266,7 @@ const TIERS: { id: Tier; label: string; test: (p: Product) => boolean }[] = [
   { id: 'special', label: 'Special', test: (p) => priceValue(p) > SPECIAL_OVER }
 ];
 
-const COLLECTION_COPY: Record<'all' | Category, { title: string; seo: string }> = {
+const COLLECTION_COPY: Record<string, { title: string; seo: string }> = {
   all: {
     title: 'Shop all',
     seo: 'Every donut, muffin, cupcake, cookie and bread we prepare is hand-cut, decorated and made in our own kosher kitchen in Toronto.'
@@ -296,7 +296,7 @@ const COLLECTION_COPY: Record<'all' | Category, { title: string; seo: string }> 
 
 
 export default function ShopAll() {
-  const { openProduct, products: catalogProducts } = useShop();
+  const { openProduct, products: catalogProducts, categories } = useShop();
   const products = useMemo(() => catalogProducts.filter((product) => !INTERNAL_PRODUCT_IDS.has(product.id)), [catalogProducts]);
   /* Which products are already in the box, so the grid can say so. */
   const boxQty = useBoxQty();
@@ -316,7 +316,22 @@ export default function ShopAll() {
      collection; inside the drawer it is a filter beside the others, and the
      price line it draws is one every counter has. */
   const [tier, setTier] = useState<Tier | null>(() => readShopParams().tier);
-  const [flavour, setFlavour] = useState<Flavour | null>(null);
+  const [flavours, setFlavours] = useState<Flavour[]>([]);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const pickCategory = (next: Category | null) => {
+    setActive(next);
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      const grid = gridRef.current;
+      if (!grid) return;
+      const top = grid.getBoundingClientRect().top + window.scrollY - 150;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) window.scrollTo({ top });
+      else smoothScrollTo(top);
+    }));
+  };
+
+  useEffect(() => {
+    if (active && categories.length && !categories.includes(active)) setActive(null);
+  }, [active, categories]);
 
   /**
    * What to offer when nothing matched.
@@ -349,11 +364,11 @@ export default function ShopAll() {
   const shown = useMemo(() => {
     const inCategory = active ? products.filter((p) => p.category === active) : products;
     const inTier = tier ? inCategory.filter(TIERS.find((t) => t.id === tier)!.test) : inCategory;
-    const inFlavour = flavour ? inTier.filter(tasteOf(flavour)) : inTier;
+    const inFlavour = flavours.length ? inTier.filter((p) => flavours.some((flavour) => tasteOf(flavour)(p))) : inTier;
     /* The same matcher the results page and the header's suggestions use, so
        a query cannot mean one thing here and another there — see `lib/search`. */
     return searchProducts(inFlavour, query);
-  }, [active, tier, flavour, query, products]);
+  }, [active, tier, flavours, query, products]);
 
   /* Sorted separately from the filtering above so a re-sort does not re-run
      the search. Catalogue position is the tiebreak throughout — see SORTS. */
@@ -380,7 +395,7 @@ export default function ShopAll() {
     let out = list;
     if (active && skip !== 'category') out = out.filter((p) => p.category === active);
     if (tier && skip !== 'tier') out = out.filter(TIERS.find((t) => t.id === tier)!.test);
-    if (flavour && skip !== 'flavour') out = out.filter(tasteOf(flavour));
+    if (flavours.length && skip !== 'flavour') out = out.filter((p) => flavours.some((flavour) => tasteOf(flavour)(p)));
     return out;
   };
 
@@ -408,10 +423,10 @@ export default function ShopAll() {
        Three names for one filter is three chances to think they are different
        things. */
     { id: 'all', label: 'Shop all', icon: LayoutGrid, count: countInCategory(null) },
-    ...CATEGORIES.map((category) => ({
+    ...categories.map((category) => ({
       id: category,
       label: category,
-      icon: COLLECTION_ICON[category],
+      icon: COLLECTION_ICON[category] ?? LayoutGrid,
       count: countInCategory(category)
     }))
   ];
@@ -429,13 +444,13 @@ export default function ShopAll() {
   const flavourOptions: FilterOption<Flavour | 'any'>[] = [
     { id: 'any', label: 'Any flavour', count: countInFlavour(null) },
     ...FLAVOURS.map((f) => ({ id: f.id, label: f.label, count: countInFlavour(f.id) })).filter(
-      (o) => o.count > 0 || o.id === flavour
+      (o) => o.count > 0 || flavours.includes(o.id as Flavour)
     )
   ];
 
   /* Sort is deliberately not counted: there is no unsorted grid, so a badge
      that always read at least 1 would say nothing. */
-  const activeFilters = (active ? 1 : 0) + (tier ? 1 : 0) + (flavour ? 1 : 0);
+  const activeFilters = (active ? 1 : 0) + (tier ? 1 : 0) + flavours.length;
 
   /* Grouped only while the grid is showing everything.
      A picked category is already one group and the banner above it says which,
@@ -458,7 +473,7 @@ export default function ShopAll() {
 
     if (grouped) {
       const out: Tile[] = [];
-      CATEGORIES.forEach((category) => {
+      categories.forEach((category) => {
         /* Filtered out of the sorted list, so each counter's run carries the
            chosen order inside it rather than the grid losing its grouping the
            moment anything but Featured is picked. */
@@ -478,11 +493,15 @@ export default function ShopAll() {
     if (active && NO_PROMO.has(active)) return items;
     const at = Math.min(columns * PROMO_ROW, items.length);
     return [...items.slice(0, at), { kind: 'promo' as const }, ...items.slice(at)];
-  }, [ordered, columns, active, grouped]);
+  }, [ordered, columns, active, grouped, categories]);
 
   /* Filtering the grid re-titles the page: picking Cookies makes this the
      cookies collection, not "Shop all" with a filter applied. */
-  const copy = COLLECTION_COPY[active ?? 'all'];
+  const copy = COLLECTION_COPY[active ?? 'all'] ?? {
+    title: active ?? 'Shop all',
+    seo: `Browse ${active ?? 'our full selection'} from Amazing Donuts.`
+  };
+  const bannerKey = active && BANNERS[active] ? active : 'all';
 
   return (
     <div className="shop-page">
@@ -501,8 +520,8 @@ export default function ShopAll() {
           <AnimatePresence initial={false}>
             <motion.img
               key={active ?? 'all'}
-              src={BANNERS[active ?? 'all']}
-              alt={BANNER_ALT[active ?? 'all']}
+              src={BANNERS[bannerKey]}
+              alt={BANNER_ALT[bannerKey] ?? `Amazing Donuts ${active ?? 'catalogue'}`}
               width={1920}
               height={1080}
               className="shop-banner__img"
@@ -553,7 +572,7 @@ export default function ShopAll() {
       <div ref={bar.sentinel} className="category-bar-sentinel" aria-hidden="true" />
       <div className={`category-bar shop-category-bar${bar.stuck ? ' is-stuck' : ''}`} style={bar.style}>
         <div className="category-bar__inner" ref={bar.inner}>
-          <CollectionRail active={active} onPick={setActive} compact={bar.stuck} />
+          <CollectionRail active={active} onPick={pickCategory} compact={bar.stuck} />
           <button
             type="button"
             onClick={() => setFiltersOpen(true)}
@@ -577,19 +596,19 @@ export default function ShopAll() {
         onSort={setSort}
         categories={categoryOptions}
         category={active ?? 'all'}
-        onCategory={(next) => setActive(next === 'all' ? null : next)}
+        onCategory={(next) => pickCategory(next === 'all' ? null : next)}
         tiers={tierOptions}
         tier={tier ?? 'any'}
         onTier={(next) => setTier(next === 'any' ? null : next)}
         flavours={flavourOptions}
-        flavour={flavour ?? 'any'}
-        onFlavour={(next) => setFlavour(next === 'any' ? null : next)}
+        flavour={flavours.length ? flavours : ['any']}
+        onFlavour={(next) => setFlavours((current) => next === 'any' ? [] : current.includes(next) ? current.filter((value) => value !== next) : [...current, next])}
         showing={shown.length}
         canClear={activeFilters > 0 || sort !== 'featured'}
         onClear={() => {
           setActive(null);
           setTier(null);
-          setFlavour(null);
+          setFlavours([]);
           setSort('featured');
         }}
       />
@@ -660,14 +679,14 @@ export default function ShopAll() {
       {!query && shown.length === 0 && (
         <p className="shop-query shop-query--empty">
           No {tier ? `${TIERS.find((t) => t.id === tier)!.label.toLowerCase()} ` : ''}
-          {flavour ? `${FLAVOURS.find((f) => f.id === flavour)!.label.toLowerCase()} ` : ''}items
+          {flavours.length === 1 ? `${FLAVOURS.find((f) => f.id === flavours[0])!.label.toLowerCase()} ` : ''}items
           on {active ? `the ${active.toLowerCase()} counter` : 'any counter'}.{' '}
           <button
             type="button"
             onClick={() => {
               setActive(null);
               setTier(null);
-              setFlavour(null);
+              setFlavours([]);
             }}
             className="shop-query__clear"
           >
@@ -678,7 +697,7 @@ export default function ShopAll() {
       )}
 
       {/* --- grid --------------------------------------------------------- */}
-      <div className="shop-grid">
+      <div className="shop-grid" ref={gridRef}>
         <AnimatePresence mode="popLayout">
           {tiles.map((tile, i) =>
             tile.kind === 'heading' ? (
@@ -725,10 +744,9 @@ export default function ShopAll() {
                     Custom donuts and cookies made for birthdays, brands, parties, and very
                     important inside jokes.
                   </p>
-                  <a href={LAB_HREF} className="shop-promo__cta">
+                  <BrandButton href={LAB_HREF} className="shop-promo__cta">
                     Try the donut lab
-                    <ChevronRight size={16} strokeWidth={3} />
-                  </a>
+                  </BrandButton>
                 </div>
               </motion.article>
             ) : (

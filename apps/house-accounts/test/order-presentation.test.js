@@ -2,13 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { customerOrder, websiteTaxes } from '../apps/api/order-presentation.js';
 
-test('13% HST is the fallback, without doubling catalog taxes', () => {
-  const fallback = websiteTaxes([]);
-  assert.equal(fallback.taxes[0].percentage, '13');
-  assert.equal(fallback.pricing_options.auto_apply_taxes, false);
-  const configured = websiteTaxes([{ id: 'tax' }]);
-  assert.equal(configured.taxes, undefined);
-  assert.equal(configured.pricing_options.auto_apply_taxes, true);
+test('website orders use Square catalog taxes without an independent HST rate', () => {
+  const options = websiteTaxes();
+  assert.equal(options.taxes, undefined);
+  assert.deepEqual(options.pricing_options, { auto_apply_taxes: true, auto_apply_discounts: true });
 });
 
 const row = { status:'completed', payment_method:'card', subtotal:1000, tax:0, total:1000, fulfillment:{type:'delivery',scheduledAt:'2026-09-11T16:00:00Z'}, raw_square:{payment:{status:'COMPLETED'},order:{total_service_charge_money:{amount:800},fulfillments:[{state:'PROPOSED'}]}} };

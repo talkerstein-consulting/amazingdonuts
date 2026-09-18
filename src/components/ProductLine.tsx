@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import type { Product } from '../data/products';
 import { C, F, SQUIRCLE } from './brand';
+import ProductPrice from './ProductPrice';
+import { fallbackProductImage } from '../lib/product-image';
 
 /**
  * A product as a horizontal line: squircle thumbnail, name, price, and
@@ -17,20 +19,23 @@ import { C, F, SQUIRCLE } from './brand';
  * list item, a button, or a plain box, and carries `.cart__line` for the sand
  * bed and radius.
  */
-export default function ProductLine({ product, children }: { product: Product; children?: ReactNode }) {
+export default function ProductLine({ product, children, onOpen }: { product: Product; children?: ReactNode; onOpen?: () => void }) {
   return (
     <div className="cart__line-main">
-      <span className="cart__thumb" style={{ clipPath: SQUIRCLE }}>
+      {onOpen ? <button type="button" className="cart__product-link cart__product-link--thumb" onClick={onOpen} aria-label={`View ${product.name}`} style={{ clipPath: SQUIRCLE }}>
+        <img src={product.img} alt="" loading="lazy" onError={(event) => fallbackProductImage(event, product.id)} style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.14)' }} />
+      </button> : <span className="cart__thumb" style={{ clipPath: SQUIRCLE }}>
         <img
           src={product.img}
           alt=""
           loading="lazy"
+          onError={(event) => fallbackProductImage(event, product.id)}
           style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.14)' }}
         />
-      </span>
+      </span>}
 
       <div style={{ minWidth: 0, flex: 1 }}>
-        <p
+        {onOpen ? <button type="button" className="cart__product-link cart__product-link--name" onClick={onOpen}>{product.name}</button> : <p
           style={{
             margin: 0,
             fontFamily: F.display,
@@ -48,10 +53,8 @@ export default function ProductLine({ product, children }: { product: Product; c
           }}
         >
           {product.name}
-        </p>
-        <p style={{ margin: '4px 0 0', fontFamily: F.text, fontWeight: 700, fontSize: 13, color: C.price }}>
-          {product.price}
-        </p>
+        </p>}
+        <ProductPrice product={product} style={{ margin: '4px 0 0', fontFamily: F.text, fontWeight: 700, fontSize: 13, color: C.price }} />
 
         {children}
       </div>

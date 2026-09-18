@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import { nextDateRangeSelection } from "../../lib/date-range.js";
-import { Bell, BriefcaseBusiness, Building2, CalendarRange, Check, ChevronDown, ClipboardList, Copy, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, Package, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, Trash2, UserCog, Users, X } from "lucide-react";
+import { Bell, BriefcaseBusiness, Building2, CalendarRange, Check, ChevronDown, ClipboardList, Copy, CreditCard, Download, Eye, EyeOff, FileText, LayoutDashboard, LogOut, MapPin, MessageCircle, Navigation, Package, Phone, Plus, ReceiptText, RefreshCw, Search, Share2, ShieldCheck, Trash2, Truck, UserCog, Users, X } from "lucide-react";
 import "./portal.css";
 import "./portal-workspaces.css";
 import "./portal-notifications.css";
@@ -97,6 +97,7 @@ const navItems = [
   { id: "overview", label: "Overview", Icon: LayoutDashboard },
   { id: "statements", label: "Statements", Icon: ReceiptText },
   { id: "orders", label: "Orders", Icon: Package },
+  { id: "promo-codes", label: "Promo codes", Icon: ReceiptText },
   { id: "accounts", label: "Accounts", Icon: Building2 },
   { id: "notifications", label: "Notifications", Icon: Bell },
   { id: "requests", label: "Institutional applications", Icon: Building2, groupStart: true },
@@ -121,6 +122,23 @@ async function request(path, options) {
   if (!response.ok) throw new Error(body?.error?.message || "Request failed.");
   return body;
 }
+
+const capabilityToken = (name) => {
+  const value = new URLSearchParams(location.search).get(name) || "";
+  return value.match(/^[A-Za-z0-9_-]{43}/)?.[0] || "";
+};
+
+const dispatchAddress = (dispatch) => [
+  dispatch?.address?.line1,
+  dispatch?.address?.line2,
+  [dispatch?.address?.city, dispatch?.address?.province, dispatch?.address?.postalCode].filter(Boolean).join(" "),
+].filter(Boolean).join(", ");
+
+const providerName = (delivery) => {
+  if (delivery?.provider === "uber_direct") return delivery.environment === "sandbox" ? "Uber Direct test" : "Uber Direct";
+  if (delivery?.provider === "own_driver") return delivery.assignedDriverName || "Amazing Donuts driver";
+  return "Awaiting driver assignment";
+};
 async function downloadStatement(statement) {
   const response = await fetch(`/api/house/statements/${statement.id}.pdf`);
   if (!response.ok) {
@@ -138,6 +156,8 @@ async function downloadStatement(statement) {
 }
 
 function App() {
+  const dispatchToken = capabilityToken("dispatch"), driverToken = capabilityToken("driver");
+  if (dispatchToken || driverToken) return <DeliveryWorkspace token={dispatchToken || driverToken} driver={Boolean(driverToken)} />;
   const demo = new URLSearchParams(location.search).has("demo"),
     [user, setUser] = useState(
       demo
@@ -231,6 +251,53 @@ function App() {
       <Admin user={user} view={view} accounts={accounts || []} setAccounts={setAccounts} applications={applications} setApplications={setApplications} bulkRequests={bulkRequests} setBulkRequests={setBulkRequests} customOrders={customOrders} careers={careers} setCareers={setCareers} managers={managers} setManagers={setManagers} notifications={notifications} setNotifications={setNotifications} demo={demo} />
     </Shell>
   );
+}
+
+function DeliveryWorkspace({ token, driver }) {
+  const endpoint = `/public/${driver ? "driver" : "dispatch"}/${encodeURIComponent(token)}`;
+  const [dispatch, setDispatch] = useState(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), [driverLink, setDriverLink] = useState("");
+  const [driverName, setDriverName] = useState(""), [driverPhone, setDriverPhone] = useState("");
+  const load = async () => { try { setDispatch((await request(endpoint)).dispatch); setError(""); } catch (cause) { setError(cause.message); } };
+  useEffect(() => { load(); }, [endpoint]);
+  const chooseProvider = async (provider) => {
+    setBusy(true); setError("");
+    try {
+      const body = await request(`${endpoint}/provider`, { method: "POST", body: JSON.stringify({ provider, ...(provider === "own_driver" ? { driverName: driverName || "Amazing Donuts driver", driverPhone } : {}) }) });
+      setDispatch(body.dispatch); setDriverLink(body.driverLink || "");
+    } catch (cause) { setError(cause.message); } finally { setBusy(false); }
+  };
+  const setStatus = async (status) => {
+    setBusy(true); setError("");
+    try { setDispatch((await request(`${endpoint}/status`, { method: "POST", body: JSON.stringify({ status }) })).dispatch); }
+    catch (cause) { setError(cause.message); } finally { setBusy(false); }
+  };
+  if (!dispatch && !error) return <div className="boot">Loading delivery...</div>;
+  if (!dispatch) return <main className="dispatch-page"><section className="dispatch-error"><Truck/><h1>Delivery link unavailable</h1><p>{error}</p></section></main>;
+  const address = dispatchAddress(dispatch), directions = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+  const mapEmbed = `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
+  const shareDriverLink = async () => {
+    const text = `Amazing Donuts delivery for order #${dispatch.orderNumber}`;
+    if (navigator.share) await navigator.share({ title: "Amazing Donuts delivery", text, url: driverLink });
+    else { await navigator.clipboard.writeText(driverLink); setError("Driver link copied."); }
+  };
+  return <main className="dispatch-page"><section className="dispatch-workspace">
+    <header><div className="brand-mark"><img src={brandIcon} alt="Amazing Donuts"/></div><div><span>{driver ? "Driver delivery" : "Staff dispatch"}</span><h1>Order #{dispatch.orderNumber}</h1><p>{dispatch.statusLabel}</p></div></header>
+    <div className="dispatch-grid">
+      <article className="dispatch-dropoff"><h2>Drop-off</h2><strong>{dispatch.recipient?.name}</strong><p>{address}</p><div className="dispatch-link-row"><a href={directions} target="_blank" rel="noreferrer"><Navigation/> Directions</a>{dispatch.recipient?.phone ? <a href={`tel:${dispatch.recipient.phone}`}><Phone/> Call customer</a> : null}</div></article>
+      <article><h2>Order</h2><ul>{(dispatch.items || []).map((item,index)=><li key={`${item.name}-${index}`}><span>{item.name}</span><b>× {item.quantity}</b></li>)}</ul><strong>{cash(dispatch.total, dispatch.currency)}</strong></article>
+      {driver ? <article className="dispatch-map-card dispatch-wide"><h2>Route map</h2><iframe className="dispatch-map" title={`Map to ${address}`} src={mapEmbed} loading="eager" referrerPolicy="no-referrer-when-downgrade" allowFullScreen/></article> : null}
+      <article className="dispatch-wide"><h2>Delivery instructions</h2><p>{dispatch.instructions || "No special delivery instructions."}</p></article>
+    </div>
+    {!driver && dispatch.provider === "unassigned" ? <section className="provider-picker"><div><span>Delivery mode</span><h2>Choose who will deliver</h2></div><div className="provider-options">
+      <form onSubmit={(event)=>{event.preventDefault();chooseProvider("own_driver");}}><Truck/><h3>Amazing Donuts driver</h3><label><span>Driver name</span><input value={driverName} onChange={event=>setDriverName(event.target.value)} placeholder="Driver name"/></label><label><span>Driver phone</span><input type="tel" value={driverPhone} onChange={event=>setDriverPhone(formatPhone(event.target.value))} placeholder="+1 (416) 555-0123" required/></label><button disabled={busy}>Assign driver</button></form>
+      <div className="provider-card"><MapPin/><h3>Uber Direct</h3><p>{dispatch.environment === "sandbox" ? "Creates a Sandbox Uber Direct delivery for testing." : "Dispatches an Uber Direct courier for this paid order."}</p><button type="button" disabled={busy} onClick={()=>chooseProvider("uber_direct")}>Dispatch with Uber</button></div>
+    </div></section> : null}
+    {!driver && dispatch.provider === "own_driver" && !driverLink ? <button className="dispatch-primary" disabled={busy} onClick={async()=>{setBusy(true);try{const body=await request(`${endpoint}/driver-link`,{method:"POST"});setDriverLink(body.driverLink);}catch(cause){setError(cause.message);}finally{setBusy(false);}}}>Create driver link</button> : null}
+    {driverLink ? <section className="driver-share"><div><span>One-time driver link</span><p>This link expires when the delivery is completed.</p></div><button type="button" onClick={shareDriverLink}><Share2/> Share</button><a href={`sms:?&body=${encodeURIComponent(driverLink)}`}><MessageCircle/> SMS</a><a href={`https://wa.me/?text=${encodeURIComponent(driverLink)}`} target="_blank" rel="noreferrer">WhatsApp</a></section> : null}
+    {(driver || dispatch.provider === "own_driver") ? <section className="delivery-status-controls"><span>Update delivery status</span>{["dispatching_soon","out_for_delivery","arriving_soon","delivered"].map(status=><button type="button" key={status} disabled={busy || dispatch.status === status || !dispatch.canUpdate} onClick={()=>setStatus(status)}>{status.replaceAll("_"," ")}</button>)}</section> : null}
+    {dispatch.trackingUrl ? <a className="dispatch-primary" href={dispatch.trackingUrl} target="_blank" rel="noreferrer"><MapPin/> Open live tracking</a> : null}
+    {error ? <p className="global-error">{error}</p> : null}
+  </section></main>;
 }
 
 function Login({ onUser, errorMessage = "" }) {
@@ -393,6 +460,7 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
         <OrderTable orders={orders} />
       </Listing>
     );
+  if (view === "promo-codes") return <PromoCodes demo={demo} />;
   if (view === "purchasers")
     return (
       <Listing eyebrow="Authorized buyers" title="Purchasers">
@@ -411,6 +479,36 @@ function Admin({ user, view, accounts, setAccounts, applications, setApplication
       </section>
     </main>
   );
+}
+
+function PromoCodes({ demo }) {
+  const [codes, setCodes] = useState([]), [discounts, setDiscounts] = useState([]);
+  const [code, setCode] = useState(''), [discountId, setDiscountId] = useState('');
+  const [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const load = async () => {
+    if (demo) return;
+    try { const data = await request('/admin/promo-codes'); setCodes(data.codes); setDiscounts(data.discounts); setError(''); }
+    catch (cause) { setError(cause.message); }
+  };
+  useEffect(() => { void load(); }, [demo]);
+  const save = async event => {
+    event.preventDefault(); setBusy(true); setError('');
+    try { await request('/admin/promo-codes', { method: 'POST', body: JSON.stringify({ code, squareDiscountId: discountId }) }); setCode(''); await load(); }
+    catch (cause) { setError(cause.message); }
+    finally { setBusy(false); }
+  };
+  const disable = async id => {
+    setBusy(true); setError('');
+    try { await request(`/admin/promo-codes/${id}`, { method: 'DELETE' }); await load(); }
+    catch (cause) { setError(cause.message); }
+    finally { setBusy(false); }
+  };
+  return <main className="dashboard"><section className="page-panel promo-manager"><div className="section-head"><div><p>Storefront</p><h2>Promo codes</h2></div></div>
+    <p>Each code applies one existing Square catalog discount to the order. Automatic Square discounts remain in effect.</p>
+    {error && <p className="global-error" role="alert">{error}</p>}
+    <form onSubmit={save} className="promo-manager__form"><label>Code<input value={code} onChange={event => setCode(event.target.value.toUpperCase())} maxLength={40} pattern="[A-Z0-9_-]+" required /></label><label>Square discount<select value={discountId} onChange={event => setDiscountId(event.target.value)} required><option value="">Choose discount</option>{discounts.map(item => <option key={item.id} value={item.id}>{item.name}{item.percentage ? ` · ${item.percentage}%` : item.amount != null ? ` · ${cash(item.amount)}` : ''}</option>)}</select></label><button type="submit" disabled={busy || !code || !discountId}>Save code</button></form>
+    <div className="promo-manager__list">{codes.map(item => <div key={item.id}><strong>{item.code}</strong><span>{discounts.find(discount => discount.id === item.square_discount_id)?.name || 'Square discount unavailable'}</span><small>{item.active ? 'Active' : 'Disabled'}</small>{item.active && <button type="button" disabled={busy} onClick={() => void disable(item.id)}>Disable</button>}</div>)}</div>
+  </section></main>;
 }
 
 function OwnerOverview({ totals, accounts, statements, orders, applications, bulkRequests, notifications, demo }) {
@@ -1392,6 +1490,7 @@ function OrderTable({ orders = [] }) {
                 <b>{cash(item.total_money?.amount ?? Number(item.base_price_money?.amount || 0) * Number(item.quantity || 1), item.total_money?.currency || item.base_price_money?.currency || x.currency)}</b>
               </div>) : <p>No item details were stored for this order.</p>}
               {x.assets?.length ? <div className="order-assets">{x.assets.map((asset) => <a key={asset.id} href={`/api/house/custom-assets/${asset.id}`}><Download /> {asset.fileName}</a>)}</div> : null}
+              {x.fulfillment?.type === "delivery" && x.delivery ? <AdminOrderDispatchPanel order={x}/> : null}
             </div> : null}
           </div>
         })
@@ -1400,6 +1499,29 @@ function OrderTable({ orders = [] }) {
       )}
     </div>
   );
+}
+
+function AdminOrderDispatchPanel({ order }) {
+  const [delivery, setDelivery] = useState(order.delivery), [driverName, setDriverName] = useState(""), [driverPhone, setDriverPhone] = useState(""), [driverLink, setDriverLink] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const choose = async (provider) => {
+    setBusy(true); setError("");
+    try {
+      const body = await request(`/admin/orders/${order.id}/dispatch/provider`, { method:"POST", body:JSON.stringify({provider, ...(provider === "own_driver" ? {driverName:driverName || "Amazing Donuts driver",driverPhone} : {})}) });
+      setDelivery(body.dispatch); setDriverLink(body.driverLink || "");
+    } catch (cause) { setError(cause.message); } finally { setBusy(false); }
+  };
+  const createDriverLink = async () => {
+    setBusy(true); setError("");
+    try { setDriverLink((await request(`/admin/orders/${order.id}/dispatch/driver-link`,{method:"POST"})).driverLink); }
+    catch (cause) { setError(cause.message); } finally { setBusy(false); }
+  };
+  return <section className="order-dispatch-panel"><header><div><span>Delivery dispatch</span><h3>{providerName(delivery)}</h3></div><b>{delivery.statusLabel || String(delivery.status || "").replaceAll("_"," ")}</b></header>
+    {delivery.provider === "unassigned" ? <div className="order-provider-options"><form onSubmit={(event)=>{event.preventDefault();choose("own_driver");}}><strong>Amazing Donuts driver</strong><input value={driverName} onChange={event=>setDriverName(event.target.value)} placeholder="Driver name"/><input type="tel" value={driverPhone} onChange={event=>setDriverPhone(formatPhone(event.target.value))} placeholder="Driver phone" required/><button disabled={busy}>Assign and create link</button></form><div><strong>Uber Direct</strong><p>{delivery.environment === "sandbox" ? "Sandbox test delivery" : "Live courier dispatch"}</p><button type="button" disabled={busy} onClick={()=>choose("uber_direct")}>Dispatch with Uber</button></div></div> : null}
+    {delivery.provider === "own_driver" && !driverLink ? <button type="button" disabled={busy} onClick={createDriverLink}>Create new driver link</button> : null}
+    {driverLink ? <div className="order-driver-share"><input value={driverLink} readOnly/><button type="button" onClick={()=>navigator.clipboard.writeText(driverLink)}><Copy/> Copy</button><button type="button" onClick={()=>navigator.share?navigator.share({title:"Amazing Donuts delivery",url:driverLink}):navigator.clipboard.writeText(driverLink)}><Share2/> Share</button></div> : null}
+    {delivery.trackingUrl ? <a href={delivery.trackingUrl} target="_blank" rel="noreferrer"><MapPin/> Open live tracking</a> : null}
+    {error ? <p className="error">{error}</p> : null}
+  </section>;
 }
 function StatementTable({ statements = [] }) {
   return (

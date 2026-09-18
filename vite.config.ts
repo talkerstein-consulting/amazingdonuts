@@ -51,6 +51,7 @@ export default defineConfig({
         search: path.resolve(__dirname, 'search/index.html'),
         pickup: path.resolve(__dirname, 'pickup/index.html'),
         contact: path.resolve(__dirname, 'contact/index.html'),
+        about: path.resolve(__dirname, 'about/index.html'),
         careers: path.resolve(__dirname, 'careers/index.html'),
         bulkOrders: path.resolve(__dirname, 'bulk-orders/index.html'),
         checkout: path.resolve(__dirname, 'checkout/index.html'),
@@ -58,6 +59,7 @@ export default defineConfig({
         allergyFree: path.resolve(__dirname, 'allergy-free/index.html'),
         kashruth: path.resolve(__dirname, 'kashruth/index.html'),
         privacyPolicy: path.resolve(__dirname, 'privacy-policy/index.html'),
+        privacyPolicyTerms: path.resolve(__dirname, 'privacy-policy-terms/index.html'),
         shippingReturns: path.resolve(__dirname, 'shipping-returns/index.html')
       }
     }

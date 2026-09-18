@@ -1,7 +1,7 @@
-export function websiteTaxes(taxes) {
-  // Catalog rules take precedence; never apply an explicit tax and automatic taxes together.
-  if (taxes.length) return { pricing_options: { auto_apply_taxes: true, auto_apply_discounts: true } };
-  return { taxes: [{ uid: 'website-hst', name: 'HST', percentage: '13', scope: 'ORDER' }], pricing_options: { auto_apply_taxes: false, auto_apply_discounts: true } };
+import { deliveryStatusLabel, normalizedDeliveryStatus } from './delivery-dispatch.js';
+
+export function websiteTaxes() {
+  return { pricing_options: { auto_apply_taxes: true, auto_apply_discounts: true } };
 }
 
 const paymentRefundStatus = payments => {
@@ -22,12 +22,15 @@ export function customerOrder(row, liveOrder, livePayments = []) {
   const tip = Number(square.total_tip_money?.amount || 0);
   const discount = Number(square.total_discount_money?.amount || 0);
   const status = row.delivery?.status;
-  const labels = { pending: 'Finding a courier', pickup: 'Courier dispatched', pickup_complete: 'Picked up', dropoff: 'Out for delivery', delivered: 'Delivered', canceled: 'Delivery cancelled', returned: 'Returned to bakery', dispatch_failed: 'Delivery dispatch failed' };
+  const deliveryLabel = row.delivery ? deliveryStatusLabel(row.delivery.provider, status) : null;
   const states = { PROPOSED: 'Order received', RESERVED: 'Preparing', PREPARED: row.fulfillment?.type === 'delivery' ? 'Ready for courier' : 'Ready for pickup', COMPLETED: row.fulfillment?.type === 'delivery' ? 'Delivered' : 'Collected', CANCELED: 'Cancelled', FAILED: 'Fulfillment failed' };
   const orderStates = { OPEN: 'Open', COMPLETED: 'Completed', CANCELED: 'Cancelled', DRAFT: 'Draft' };
   const refundStatus = paymentRefundStatus(payments);
-  return { ...result, line_items: square.line_items || row.line_items || [], ordered_at: square.created_at || row.ordered_at, tax, total, breakdown: { merchandise: total - tax - deliveryFee - tip + discount, deliveryFee, discount, tip, tax, total },
-    fulfillmentStatus: labels[status] || states[fulfillment?.state] || orderStates[square.state] || 'Order received',
+  const receiptUrl = payments.find(payment => payment?.receipt_url)?.receipt_url || raw_square?.payment?.receipt_url || null;
+  return { ...result, ...(row.delivery?{delivery:{...row.delivery,status:normalizedDeliveryStatus(row.delivery.provider,status),statusLabel:deliveryLabel}}:{}), line_items: square.line_items || row.line_items || [], ordered_at: square.created_at || row.ordered_at, tax, total,
+    taxes: (square.taxes || []).map(item => ({ name: item.name, percentage: item.percentage })), receiptUrl,
+    breakdown: { merchandise: total - tax - deliveryFee - tip + discount, deliveryFee, discount, tip, tax, total },
+    fulfillmentStatus: deliveryLabel || states[fulfillment?.state] || orderStates[square.state] || 'Order received',
     scheduledAt: row.fulfillment?.scheduledAt || fulfillment?.delivery_details?.deliver_at || fulfillment?.pickup_details?.pickup_at,
     statusUpdatedAt: liveOrder?.updated_at || square.updated_at || null,
     liveStatusAvailable: Boolean(liveOrder),

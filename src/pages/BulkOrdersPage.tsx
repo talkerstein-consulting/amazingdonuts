@@ -30,10 +30,10 @@ import '../components/brand/brand.css';
 import '../shop/shop.css';
 import { SquircleDefs, BrandButton, C, F } from '../components/brand';
 import { formatNorthAmericanPhone } from '../lib/phone';
-import { SHOP_PRODUCTS, type Category, type Product } from '../data/products';
+import { INTERNAL_PRODUCT_IDS, type Category, type Product } from '../data/products';
 import { tagFor } from '../data/product-tags';
 import { NavThemeProvider } from '../lib/nav-theme';
-import { ShopProvider } from '../lib/shop';
+import { ShopProvider, useShop } from '../lib/shop';
 import { initSmoothScroll } from '../lib/smooth-scroll';
 import { SHOP_ADDRESS } from '../lib/routes';
 import Header from '../components/Header';
@@ -124,12 +124,13 @@ const BULK_FACE_CATEGORY: Record<string, Category | null> = {
   'Custom printed': null
 };
 
-const bulkFace = (label: string): Product | undefined => {
+const bulkFace = (label: string, products: Product[]): Product | undefined => {
+  const shopProducts = products.filter((product) => !INTERNAL_PRODUCT_IDS.has(product.id));
   if (label === 'Custom printed') {
-    return SHOP_PRODUCTS.find((p) => p.id === 'twelve-custom-printed-donuts');
+    return shopProducts.find((p) => p.id === 'twelve-custom-printed-donuts');
   }
   const category = BULK_FACE_CATEGORY[label];
-  const scope = SHOP_PRODUCTS.filter((p) => p.category === category);
+  const scope = shopProducts.filter((p) => p.category === category);
   const rank = (p: Product) => {
     const tag = tagFor(p.id);
     return tag === 'seller' ? 0 : tag === 'popular' ? 1 : 2;
@@ -253,6 +254,7 @@ function FieldLabel({ label, Icon }: { label: string; Icon: LucideIcon }) {
 }
 
 function IntakeForm() {
+  const { products: catalogProducts } = useShop();
   const reduceMotion = useReducedMotion();
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const [orderType, setOrderType] = useState<string>('');
@@ -336,9 +338,7 @@ function IntakeForm() {
     { id: 'organization', auto: false, done: () => Boolean(organization.trim()) },
     { id: 'name', auto: false, done: () => Boolean(name.trim()) },
     { id: 'email', auto: false, done: () => /.+@.+\..+/.test(email) },
-    /* Optional, and says so: a phone number is how the bakery reaches you
-       faster, not something the enquiry needs to be sent. */
-    { id: 'phone', auto: false, done: () => true },
+    { id: 'phone', auto: false, done: () => phone.replace(/\D/g, '').length >= 10 },
     { id: 'notes', auto: false, done: () => true }
   ] as const;
 
@@ -355,7 +355,7 @@ function IntakeForm() {
     organization: 'Tell us who the order is for.',
     name: 'Who should we reply to?',
     email: 'We need an email address to send the quote to.',
-    phone: '',
+    phone: 'Add a phone number so we can confirm your order.',
     notes: ''
   };
 
@@ -398,6 +398,12 @@ function IntakeForm() {
 
   const send = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!lastStep) { goNext(); return; }
+    if (!STEPS.every((item) => item.done())) {
+      setStepIndex(STEPS.findIndex((item) => !item.done()));
+      setNudged(true);
+      return;
+    }
     const form = e.currentTarget;
     if (!date) {
       setSubmitState('error');
@@ -517,7 +523,7 @@ function IntakeForm() {
                     swiped past. */}
                 <div className="bulk-picks">
                   {PRODUCTS.map(([pr, Icon]) => {
-                    const face = bulkFace(pr);
+                    const face = bulkFace(pr, catalogProducts);
                     const on = products.includes(pr);
                     return (
                       <label key={pr} className={`collection-card bulk-pick${on ? ' is-on' : ''}`}>
@@ -644,7 +650,7 @@ function IntakeForm() {
                   autoComplete="tel"
                   autoFocus
                 />
-                <span className="bulk-field__note">Optional — only if a call would be quicker than an email.</span>
+                <span className="bulk-field__note">We use this to confirm the order details with you.</span>
               </label>
             )}
 

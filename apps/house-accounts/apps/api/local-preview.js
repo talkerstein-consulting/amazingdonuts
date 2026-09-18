@@ -20,7 +20,7 @@ const READ_PATHS = new Set([
 ]);
 const POST_PATHS = new Set([
   "/api/auth/login", "/api/auth/logout", "/api/admin-auth/login", "/api/admin-auth/logout",
-  "/api/storefront/quote", "/api/public/storefront/quote", "/api/storefront/address-search"
+  "/api/storefront/quote", "/api/public/storefront/quote", "/api/public/storefront/promo-code", "/api/storefront/address-search"
 ]);
 
 /* A wishlist row is a per-user bookmark, not a live transaction: blocking the

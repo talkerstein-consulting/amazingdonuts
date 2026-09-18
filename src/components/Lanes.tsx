@@ -83,7 +83,7 @@ const FAN_3 = [
    the heading above each to tell them apart. */
 const CTA: Record<string, string> = {
   Delivery: 'Order delivery',
-  Pickup: 'Book a pickup'
+  Pickup: 'Order pickup'
 };
 
 export function LaneCard({ lane }: { lane: (typeof LANES)[number] }) {

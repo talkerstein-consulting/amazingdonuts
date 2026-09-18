@@ -1,4 +1,4 @@
-import { CATEGORIES, type Category } from '../data/products';
+import type { Category } from '../data/products';
 
 /** Mirrors the catalogue's donut tiers. */
 export type ShopTier = 'classic' | 'special';
@@ -43,12 +43,10 @@ export function readShopParams(
   search = typeof window === 'undefined' ? '' : window.location.search
 ): { category: Category | null; tier: ShopTier | null; query: string } {
   const params = new URLSearchParams(search);
-  const c = params.get('c');
+  const c = (params.get('c') ?? '').trim().slice(0, 80);
   const t = params.get('t');
   return {
-    /* Validated against the real list — a junk `?c=` must fall back to
-       everything rather than filtering the grid down to nothing. */
-    category: CATEGORIES.includes(c as Category) ? (c as Category) : null,
+    category: c || null,
     tier: t === 'classic' || t === 'special' ? t : null,
     /* Trimmed and length-capped: it goes straight into a visible heading, and
        the URL is user-editable. */

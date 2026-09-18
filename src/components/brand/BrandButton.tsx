@@ -55,6 +55,7 @@ type Props = {
   /** Renders an <a> instead of a <button>, so navigation stays a real link. */
   href?: string;
   children: ReactNode;
+  knobIcon?: ReactNode;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> &
   Pick<AnchorHTMLAttributes<HTMLAnchorElement>, 'target' | 'rel'> & {
     onClick?: (event: MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => void;
@@ -65,6 +66,7 @@ export default function BrandButton({
   block = false,
   href,
   children,
+  knobIcon,
   style,
   className,
   onClick,
@@ -100,14 +102,14 @@ export default function BrandButton({
       <span className="bbtn__label">{children}</span>
 
       <span className={`bbtn__knob${popping ? ' bbtn__knob--pop' : ''}`} aria-hidden="true">
-        <span className="bbtn__track">
+        {knobIcon ?? <span className="bbtn__track">
           <span className="bbtn__cell">
             <ChevronRight size={20} strokeWidth={2.5} />
           </span>
           <span className="bbtn__cell">
             <ChevronRight size={20} strokeWidth={2.5} />
           </span>
-        </span>
+        </span>}
       </span>
 
       {burst.length > 0 && (

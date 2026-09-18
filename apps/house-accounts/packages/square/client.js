@@ -2,6 +2,7 @@ const URLS = { sandbox: "https://connect.squareupsandbox.com", production: "http
 
 export class SquareAdapter {
   constructor({ environment, accessToken, apiVersion, fetchImpl = fetch }) {
+    this.environment = environment;
     this.baseUrl = URLS[environment];
     this.accessToken = accessToken;
     this.apiVersion = apiVersion;
@@ -32,6 +33,7 @@ export class SquareAdapter {
   refundPayment(body) { return this.request("/v2/refunds", { method:"POST", body }); }
   retrieveRefund(id) { return this.request(`/v2/refunds/${encodeURIComponent(id)}`); }
   retrieveOrder(id) { return this.request(`/v2/orders/${encodeURIComponent(id)}`); }
+  updateOrder(id,body) { return this.request(`/v2/orders/${encodeURIComponent(id)}`, { method:"PUT", body }); }
   searchOrders(body) { return this.request('/v2/orders/search', { method: 'POST', body }); }
   retrievePayment(id) { return this.request(`/v2/payments/${encodeURIComponent(id)}`); }
   listPayments(query) { return this.request("/v2/payments", { query }); }

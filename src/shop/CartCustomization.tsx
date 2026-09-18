@@ -38,12 +38,14 @@ import GlyphPicker from './GlyphPicker';
 export default function CartCustomization({
   productId,
   qty,
-  value
+  value,
+  readOnly = false
 }: {
   productId: string;
   qty: number;
   value?: Customization;
   onChange?: (next: Customization) => void;
+  readOnly?: boolean;
 }) {
   const { customize, openProduct, closeCart } = useShop();
 
@@ -67,7 +69,7 @@ export default function CartCustomization({
     <div className="cart-custom__head">
       <strong>{title}</strong>
       <span className="cart-custom__note">{note}</span>
-      {onEdit && (
+      {onEdit && !readOnly && (
         <button type="button" className="cart-custom__edit" onClick={onEdit}>
           <Pencil size={13} strokeWidth={2.4} aria-hidden="true" />
           Edit
@@ -107,7 +109,10 @@ export default function CartCustomization({
         {head(
           'In this box',
           `${customization.donuts.length}/${boxMaxFor(productId) || customization.donuts.length}`,
-          () => openEditor(productId)
+          () => {
+            sessionStorage.setItem('amazing:edit-box', JSON.stringify({ productId, donuts: customization.donuts, qty }));
+            openEditor(productId);
+          }
         )}
         <ul className="cart-box-list">
           {customization.donuts.map((id, index) => {

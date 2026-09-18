@@ -1,10 +1,13 @@
 import { createHash } from 'node:crypto';
 import { transaction } from './db.js';
 
+const squareEnvironment = square => square.environment || (String(square.baseUrl).includes('sandbox') ? 'sandbox' : 'production');
+
 export async function resolveHouseCustomer(square, account) {
-  if (account.square_customer_id) {
+  const environment=squareEnvironment(square),customerId=account.square_customer_ids?.[environment]||account.square_customer_id;
+  if (customerId) {
     try {
-      const { customer } = await square.retrieveCustomer(account.square_customer_id);
+      const { customer } = await square.retrieveCustomer(customerId);
       if (!customer?.id) throw new Error('Square returned an incomplete customer.');
       return customer.id;
     } catch (error) {
@@ -12,7 +15,7 @@ export async function resolveHouseCustomer(square, account) {
     }
   }
   // A stable key also recovers a successful Square write if the database commit fails.
-  const key = createHash('sha256').update(JSON.stringify([square.baseUrl, account.tenant_id, account.id, account.square_customer_id || 'new'])).digest('hex');
+  const key = createHash('sha256').update(JSON.stringify([square.baseUrl, account.tenant_id, account.id, customerId || 'new'])).digest('hex');
   const { customer } = await square.createCustomer({
     idempotency_key: key,
     company_name: account.organization_name,
@@ -44,9 +47,8 @@ export async function ensureHouseCustomer(pool, square, tenantId, accountId) {
     const account = (await client.query('SELECT * FROM accounts WHERE id=$1 AND tenant_id=$2 FOR UPDATE', [accountId, tenantId])).rows[0];
     if (!account) throw Object.assign(new Error('Institutional account not found.'), {status:404});
     const id = await resolveHouseCustomer(square, account);
-    if (id !== account.square_customer_id) {
-      await client.query('UPDATE accounts SET square_customer_id=$3,updated_at=now() WHERE id=$1 AND tenant_id=$2', [accountId, tenantId, id]);
-    }
+    const environment=squareEnvironment(square);
+    if(id!==account.square_customer_ids?.[environment])await client.query(`UPDATE accounts SET square_customer_ids=COALESCE(square_customer_ids,'{}'::jsonb)||jsonb_build_object($3::text,$4::text),square_customer_id=COALESCE(square_customer_id,$4),updated_at=now() WHERE id=$1 AND tenant_id=$2`,[accountId,tenantId,environment,id]);
     return id;
   });
 }
@@ -58,4 +60,22 @@ export async function assertHouseCard(square, cardId, customerId) {
     if (error.status !== 404 || !error.details?.some(item => item.code === 'NOT_FOUND')) throw error;
   }
   if (!card?.enabled || card.customer_id !== customerId) throw Object.assign(new Error('Your institutional account is linked to Square. Please add a card on file for this payment environment before using account credit.'), {status:409, code:'CARD_ON_FILE_REQUIRED'});
+}
+
+export async function ensureHouseCardCustomer(pool, square, tenantId, accountId, cardId) {
+  let card;
+  try { ({card} = await square.request(`/v2/cards/${encodeURIComponent(cardId)}`)); }
+  catch (error) {
+    if (error.status !== 404 || !error.details?.some(item => item.code === 'NOT_FOUND')) throw error;
+  }
+  if (!card?.enabled || !card.customer_id) throw Object.assign(new Error('The saved card is unavailable in Square. Please add it again.'), {status:409,code:'CARD_ON_FILE_REQUIRED'});
+  let customer;
+  try { ({customer} = await square.retrieveCustomer(card.customer_id)); }
+  catch(error){
+    if(error.status !== 404 || !error.details?.some(item => item.code === 'NOT_FOUND')) throw error;
+  }
+  if (customer?.reference_id !== accountId) throw Object.assign(new Error('The saved card does not belong to this institutional account. Please add a card on file.'), {status:409,code:'CARD_ON_FILE_REQUIRED'});
+  const environment=squareEnvironment(square);
+  await pool.query(`UPDATE accounts SET square_customer_ids=COALESCE(square_customer_ids,'{}'::jsonb)||jsonb_build_object($3::text,$4::text),updated_at=now() WHERE id=$1 AND tenant_id=$2 AND square_customer_ids->>$3 IS DISTINCT FROM $4`,[accountId,tenantId,environment,card.customer_id]);
+  return card.customer_id;
 }

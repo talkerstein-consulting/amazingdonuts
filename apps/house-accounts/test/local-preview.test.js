@@ -32,7 +32,7 @@ test("local production preview permits checkout reads, login, and price calculat
   for (const path of ["/api/storefront/config", "/api/storefront/catalog", "/api/storefront/session", "/api/storefront/addresses"]) {
     assert.equal(allowLocalPreviewRequest("GET", path), true);
   }
-  for (const path of ["/api/auth/login", "/api/auth/logout", "/api/storefront/quote", "/api/public/storefront/quote"]) {
+  for (const path of ["/api/auth/login", "/api/auth/logout", "/api/storefront/quote", "/api/public/storefront/quote", "/api/public/storefront/promo-code"]) {
     assert.equal(allowLocalPreviewRequest("POST", path), true);
   }
 });

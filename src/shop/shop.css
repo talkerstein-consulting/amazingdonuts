@@ -279,10 +279,7 @@
   transition: filter 0.18s ease, transform 0.18s ease;
 }
 
-.cabinet__add:hover,
-.cart__checkout:hover { filter: brightness(1.06); transform: translateY(-2px); }
-.cart__checkout:hover,
-.cart__checkout:focus-visible { color: #fff; }
+.cabinet__add:hover { filter: brightness(1.06); transform: translateY(-2px); }
 
 .cabinet__add.is-added { background: var(--navy); }
 
@@ -291,6 +288,56 @@
   margin-top: 16px;
   display: block;
 }
+
+.cabinet__purchaseActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cabinet__card { container-type: inline-size; }
+@container (max-width: 440px) { .cabinet__purchaseActions { grid-template-columns: 1fr; } }
+.cabinet__purchaseActions .bbtn { min-width: 0; padding-left: 12px; --bbtn-gap: 6px; --bbtn-knob: 34px; --bbtn-h: 52px; font-size: 13px; }
+.cabinet__purchaseActions .bbtn__label { white-space: nowrap; }
+.cabinet__purchaseActions .cabinet__buyNow,
+.cabinet__buybar .cabinet__buybarNow { background: transparent; color: var(--navy); }
+.cabinet__purchaseActions .cabinet__buyNow .bbtn__knob,
+.cabinet__buybar .cabinet__buybarNow .bbtn__knob { background: var(--navy); color: var(--cream); }
+.cabinet__pairsGrid .product-tile { min-width: 0; }
+.cabinet__bundleItem .product-tile { width: 100%; }
+.cabinet__buybar .cabinet__buybarNow { flex: none; white-space: nowrap; }
+@media (max-width: 560px) {
+  .cabinet__purchaseActions { grid-template-columns: 1fr; }
+  .cabinet__media { aspect-ratio: 1.12; }
+  .cabinet__buybarSave { display: none; }
+  .cabinet__buybar { display: grid; grid-template-columns: 1fr; gap: 7px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .cabinet__buybar .cabinet__buybarButton,
+  .cabinet__buybar .cabinet__buybarNow { width: 100%; min-height: 48px; flex: none; justify-content: space-between; --bbtn-h: 48px; --bbtn-knob: 36px; }
+}
+
+
+.bag-checkout-bar { position: fixed; z-index: 150; bottom: 0; left: 50%; transform: translateX(-50%); width: min(760px, calc(100% - 32px)); display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-radius: 24px 24px 0 0; background: var(--navy); color: #fff; box-shadow: 0 12px 32px rgba(14,62,105,.24); }
+.bag-checkout-bar > div { display: grid; gap: 2px; }
+.bag-checkout-bar strong { font: 800 15px var(--font-cta); text-transform: uppercase; }
+.bag-checkout-bar > div > span { font-size: 13px; }
+.bag-checkout-bar__recent { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; color: #fff; }
+.bag-checkout-bar__cta { flex: none; text-decoration: none; white-space: nowrap; }
+.shop-grid { scroll-margin-top: 150px; }
+@media (max-width: 480px) { .bag-checkout-bar { width: calc(100% - 24px); border-radius: 20px 20px 0 0; } }
+@media (max-width: 600px) { .bag-checkout-bar__recent { display: none; } }
+.cart__deliveryProgress { display: grid; gap: 7px; margin-bottom: 12px; padding: 14px 16px; background: var(--sand); border-radius: 20px; color: var(--navy); }
+.cart__deliveryProgress > div { display: flex; align-items: center; gap: 8px; }
+.cart__deliveryProgress progress { display: block; width: 100%; height: 12px; overflow: hidden; border: 0; border-radius: 999px; background: #d9e4ed; appearance: none; }
+.cart__deliveryProgress progress::-webkit-progress-bar { border-radius: 999px; background: #d9e4ed; }
+.cart__deliveryProgress progress::-webkit-progress-value { border-radius: 999px; background: var(--orange); }
+.cart__deliveryProgress progress::-moz-progress-bar { border-radius: 999px; background: var(--orange); }
+.cart__deliveryProgress.is-complete progress::-webkit-progress-value { background: var(--navy); }
+.cart__deliveryProgress.is-complete progress::-moz-progress-bar { background: var(--navy); }
+.cart__removed { margin: 14px 0; font-size: 14px; }
+.cart__removed a { color: var(--navy); font-weight: 800; }
+.cart__suggestions { margin: 22px 0; display: grid; gap: 8px; }
+.cart__suggestions h3 { font-size: 22px; }
+.cart__suggestion { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px; border: 1px solid rgba(14,62,105,.15); border-radius: 8px; }
+.cart__suggestion button { border: 0; background: transparent; color: var(--navy); cursor: pointer; }
+.cart__suggestion button:first-child { display: flex; align-items: center; gap: 9px; min-width: 0; text-align: left; }
+.cart__suggestion img { width: 52px; height: 52px; object-fit: contain; background: var(--sand); border-radius: 6px; }
+.cart__suggestion span { min-width: 0; font-weight: 700; }
+.cart__suggestion small { display: block; margin-top: 3px; font-weight: 400; }
 
 /* The sticky bar keeps its own compact wishlist control once the card action
    has scrolled away. */
@@ -389,6 +436,8 @@ a.cabinet__iconBtn { text-decoration: none; }
 .cabinet__iconBtn:hover { transform: translateY(-2px); }
 .cabinet__iconBtn.is-on { color: var(--orange); }
 .cabinet__iconGlyph { display: grid; place-items: center; }
+.cabinet__mediaTools .cabinet__iconBtn, .boxer__bag { position: relative; }
+.cabinet__bagCount { position: absolute; top: -5px; right: -6px; display: grid; place-items: center; min-width: 19px; height: 19px; padding: 0 4px; border-radius: 999px; background: var(--orange); color: #fff; font: 700 11px var(--font-cta); }
 
 .cabinet__crumbs {
   display: flex;
@@ -425,10 +474,10 @@ a.cabinet__iconBtn { text-decoration: none; }
   margin-bottom: 20px;
   padding: clamp(14px, 1.6vw, 18px);
   border-radius: 18px;
-  box-shadow: inset 0 0 0 2px var(--orange);
+  box-shadow: inset 0 0 0 1px rgba(14, 62, 105, .18);
   /* A wash of the same orange at 4%, which lifts the group off the card
      without competing with the swatches and thumbnails inside it. */
-  background: rgba(255, 104, 50, 0.04);
+  background: rgba(255, 255, 255, 0.42);
 }
 
 /* The last of them sits directly above the quantity row and its Add button;
@@ -440,7 +489,7 @@ a.cabinet__iconBtn { text-decoration: none; }
 /* The group's heading takes the orange too, so the ring reads as one labelled
    object rather than a box that happens to be drawn around some text. */
 .cabinet__spec > .cabinet__label {
-  color: var(--orange);
+  color: var(--navy);
 }
 
 .cabinet__label {
@@ -458,11 +507,14 @@ a.cabinet__iconBtn { text-decoration: none; }
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+  align-items: stretch;
 }
 
 .cabinet__pack {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 2px;
   padding: 12px 8px;
   border: none;
@@ -543,6 +595,24 @@ a.cabinet__iconBtn { text-decoration: none; }
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  align-items: stretch;
+}
+
+.cabinet__pairsGrid > .product-tile { height: 100%; }
+
+@media (max-width: 699px) {
+  .cabinet__pairsGrid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .cabinet__pairsGrid > .product-tile {
+    flex: 0 0 calc((100% - 10px) / 2);
+    height: auto;
+    scroll-snap-align: start;
+  }
 }
 
 @media (min-width: 700px) {
@@ -690,6 +760,15 @@ a.cabinet__iconBtn { text-decoration: none; }
   border-radius: 20px;
   background: var(--sand);
 }
+.cart__itemDetails { min-width: 0; border-top: 1px solid rgba(14,62,105,.14); padding-top: 8px; }
+.cart__itemDetails summary { display: flex; align-items: center; justify-content: space-between; list-style: none; color: var(--navy); font: 800 13px var(--font-cta); cursor: pointer; }
+.cart__itemDetails summary::-webkit-details-marker { display: none; }
+.cart__itemDetails[open] summary svg { transform: rotate(180deg); }
+.cart__itemDetails .cart-custom { border-top: 0; padding: 12px 0 0; }
+.cart__product-link { border: 0; padding: 0; background: transparent; color: var(--navy); cursor: pointer; }
+.cart__product-link--thumb { display: block; flex: 0 0 76px; width: 76px; height: 76px; overflow: hidden; background: var(--cream); }
+.cart__product-link--name { display: -webkit-box; max-width: 100%; overflow: hidden; font: 800 16px/1.3 var(--font-cta); text-align: left; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.cart__product-link:hover { text-decoration: underline; }
 
 /* ==========================================================================
    A line that is holding the order up.
@@ -1740,29 +1819,7 @@ a.cabinet__iconBtn { text-decoration: none; }
   color: var(--navy);
 }
 
-/* Dare Devil: custom orders are this page's one hero moment. */
-.shop-promo__cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 52px;
-  margin-top: 4px;
-  padding: 0 26px;
-  border-radius: var(--radius-pill);
-  background: var(--orange);
-  color: #fff;
-  text-decoration: none;
-  font-family: var(--font-cta);
-  font-weight: 700;
-  font-size: var(--type-cta);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  transition: filter 0.18s ease, transform 0.18s ease;
-}
-
-.shop-promo__cta:hover { filter: brightness(1.06); transform: translateY(-2px); }
-.shop-promo__cta:hover,
-.shop-promo__cta:focus-visible { color: #fff; }
+.shop-promo__cta { margin-top: 4px; }
 
 .house-application-form {
   margin-top: 30px;
@@ -2125,10 +2182,21 @@ a.cabinet__iconBtn { text-decoration: none; }
   text-transform: uppercase;
 }
 
+.filter-drawer__back {
+  position: static;
+  flex: none;
+  margin: 0;
+  background: rgba(255,255,255,.14);
+  color: var(--cream);
+}
+.filter-drawer__title { text-align: right; }
+
 .filter-drawer__body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  touch-action: pan-y;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   padding: clamp(14px, 2vw, 22px) clamp(10px, 1.6vw, 14px) 20px;
 }
@@ -2276,7 +2344,7 @@ a.cabinet__iconBtn { text-decoration: none; }
    the ends of lines where they join nothing. */
 .cabinet__bundleRow {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 10px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -2290,6 +2358,7 @@ a.cabinet__iconBtn { text-decoration: none; }
   flex: none;
   display: grid;
   place-items: center;
+  align-self: center;
   width: 22px;
   color: rgba(14, 62, 105, 0.45);
 }
@@ -2297,6 +2366,7 @@ a.cabinet__iconBtn { text-decoration: none; }
 .cabinet__bundleItem {
   flex: 1 1 0;
   min-width: 116px;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -3043,8 +3113,7 @@ a.cabinet__iconBtn { text-decoration: none; }
   align-items: flex-start;
   gap: 12px;
 }
-.return-prompt__actions > .bbtn,
-.return-prompt__actions > .bbtn:hover:not(:disabled) {
+.return-prompt__actions > .bbtn {
   --bbtn-pad-l: 20px;
   width: 100%;
   justify-content: space-between;
@@ -3111,8 +3180,10 @@ a.cabinet__iconBtn { text-decoration: none; }
      why this one control looked nothing like the identical pill on the product
      panel and in the bag. */
   flex: none;
-  margin: clamp(10px, 1.6vw, 16px) 0 0 clamp(12px, 2vw, 22px);
+  margin: 0;
 }
+.boxer__toolbar { width: min(1240px, 100%); margin: 0 auto; display: flex; align-items: flex-start; justify-content: space-between; flex: none; padding: clamp(10px, 1.6vw, 16px) clamp(12px, 2vw, 22px) 0; }
+.boxer__bag { flex: none; }
 
 .boxer__inner {
   width: min(1240px, 100%);
@@ -3756,6 +3827,46 @@ a.cabinet__iconBtn { text-decoration: none; }
 
 .cabinet__swatch:hover { box-shadow: inset 0 0 0 1.5px rgba(14, 62, 105, 0.5); }
 
+/* The printed-dozen choices are part of the product card, not another card
+   inside it. Give the two icing modes full-width targets and the sprinkle
+   choices a regular grid that still fits the narrow cabinet column. */
+.cabinet__spec--print {
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.cabinet__spec--print .cabinet__packs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cabinet__spec--print .cabinet__pack {
+  min-height: 54px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: 8px;
+  background: #fff;
+}
+.cabinet__spec--print .cabinet__pack strong { font-size: 15px; letter-spacing: 0; }
+.cabinet__spec--print .cabinet__pack.is-on { background: var(--navy); color: #fff; }
+.cabinet__spec--print .cabinet__swatches { margin-top: 24px; }
+.cabinet__spec--print .cabinet__swatches > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.cabinet__spec--print .cabinet__swatch {
+  min-width: 0;
+  min-height: 48px;
+  justify-content: flex-start;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff;
+  white-space: normal;
+  line-height: 1.2;
+  text-align: left;
+}
+.cabinet__spec--print .cabinet__swatch > span { flex: none; }
+.cabinet__spec--print .cabinet__art { margin-top: 24px; padding-top: 22px; border-top: 1px solid rgba(14, 62, 105, .18); }
+
 /* Harbour ring at full weight for the chosen one — the same "you are here" the
    box-size pair and the category tabs use, rather than a fill, because a
    filled pill would fight the colour dots it contains. */
@@ -3977,14 +4088,16 @@ a.cabinet__iconBtn { text-decoration: none; }
    cards tightens, so all three fit and the button tells the truth. */
 @media (max-width: 560px) {
   .cabinet__bundleRow {
-    gap: 6px;
-    overflow-x: visible;
+    gap: 8px;
+    scroll-snap-type: x mandatory;
   }
 
   .cabinet__bundleItem {
+    flex: 0 0 calc((100% - 8px) / 2 - 14px);
     min-width: 0;
     padding: 8px;
     border-radius: 16px;
+    scroll-snap-align: start;
   }
 
   .cabinet__bundleItem strong {
@@ -4226,3 +4339,19 @@ a.cabinet__iconBtn { text-decoration: none; }
 .search-empty__all:hover {
   text-decoration-color: currentColor;
 }
+
+@media (max-width: 560px) {
+  .cabinet__media { aspect-ratio: 2; }
+  .cabinet__buybar { position: fixed; left: 0; right: 0; bottom: 0; width: 100%; display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; }
+  .cabinet__buybarMeta,
+  .cabinet__buybarSave { display: none; }
+  .cabinet__buybar .cabinet__buybarButton,
+  .cabinet__buybar .cabinet__buybarNow { display: flex; width: 100%; min-width: 0; min-height: 46px; justify-content: space-between; margin: 0; --bbtn-h: 46px; --bbtn-knob: 34px; }
+}
+.cart__promo { display: grid; gap: 8px; margin: 0 0 18px; padding: 16px; border-radius: 20px; background: var(--sand); color: var(--navy); }
+.cart__promo label { font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.cart__promo > div { display: flex; gap: 8px; }
+.cart__promo input { min-width: 0; flex: 1; border: 1px solid #b9c6d1; border-radius: 8px; padding: 10px 12px; background: #fff; color: var(--navy); }
+.cart__promo button { border: 2px solid var(--navy); border-radius: 8px; padding: 10px 16px; background: transparent; color: var(--navy); font-weight: 800; cursor: pointer; }
+.cart__promo button:hover { background: var(--navy); color: #fff; }
+.cart__promo small { line-height: 1.35; }

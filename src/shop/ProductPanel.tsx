@@ -10,6 +10,7 @@ import {
   Minus,
   Plus,
   Share2,
+  ShoppingBag,
   Truck,
   X
 } from 'lucide-react';
@@ -33,8 +34,11 @@ import {
 } from '../lib/custom-order';
 import FinishPicker, { EMPTY_FINISH, type Finish } from './FinishPicker';
 import BoxBuilder from './BoxBuilder';
-import { flyManyToCart, flyToCart } from '../lib/fly-to-cart';
 import { readRecentlyViewed } from '../lib/recently-viewed';
+import ProductPrice from '../components/ProductPrice';
+import ProductTile from '../components/ProductTile';
+import { fallbackProductImage } from '../lib/product-image';
+import { flyManyToCart, flyToCart } from '../lib/fly-to-cart';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -91,7 +95,7 @@ const REASSURANCE = [
  * different page with the same job, and which one opens is decided below.
  */
 function Cabinet({ product }: { product: Product }) {
-  const { closeProduct, openProduct, add, wishlist, toggleWishlist, products } = useShop();
+  const { closeProduct, openProduct, openCart, cartOpen, add, lines, count, wishlist, toggleWishlist, products } = useShop();
   const shopProducts = useMemo(() => products.filter(item => !INTERNAL_PRODUCT_IDS.has(item.id)), [products]);
   const [qty, setQty] = useState(1);
   const [pack, setPack] = useState<(typeof PACKS)[number]['id']>('single');
@@ -130,8 +134,6 @@ function Cabinet({ product }: { product: Product }) {
      the CTA under, and a breakpoint would miss that. */
   const cabRef = useRef<HTMLElement | null>(null);
   const addRef = useRef<HTMLDivElement | null>(null);
-  /* Where each add's flight starts. The photograph for the two buttons that
-     buy the product on show, and the strip itself for the bundle. */
   const mediaRef = useRef<HTMLDivElement | null>(null);
   const bundleRef = useRef<HTMLElement | null>(null);
   const [ctaOnScreen, setCtaOnScreen] = useState(true);
@@ -162,9 +164,9 @@ function Cabinet({ product }: { product: Product }) {
     if (!el || !root) return;
     /* Root is the cabinet, not the viewport: the cabinet is its own scroll
        container, so "off screen" here means scrolled out of the panel. */
-    const io = new IntersectionObserver(([entry]) => setCtaOnScreen(entry.isIntersecting), {
+    const io = new IntersectionObserver(([entry]) => setCtaOnScreen(entry.intersectionRatio >= 0.99), {
       root,
-      threshold: 0
+      threshold: [0, 0.99, 1]
     });
     io.observe(el);
     return () => io.disconnect();
@@ -232,7 +234,7 @@ function Cabinet({ product }: { product: Product }) {
   /* The chosen character, written onto the line as the `glyph` customization
      checkout already sends the bakery. Called from both add buttons, so the
      shape travels whichever one is pressed. */
-  const addToBag = () => {
+  const addToBag = (checkout = false, origin: Element | null = mediaRef.current) => {
     if (!ready) return;
     /* The spec goes in WITH the line, not onto it afterwards. Two steps worked
        for as long as a product could only be one row: `add` merged into the
@@ -256,11 +258,11 @@ function Cabinet({ product }: { product: Product }) {
         : isFinish
           ? finish
           : undefined;
-    /* Never opens the bag. The flying donut is the confirmation, and a drawer
-       over the picker is what made spelling a word out of single letters
-       unusable. */
-    add(product, pieces * qty, { openCart: false, customization: spec });
-    setAdded(true);
+    if (add(product, pieces * qty, { openCart: false, customization: spec })) {
+      setAdded(true);
+      if (!checkout) flyToCart(origin, product.img);
+      if (checkout) window.location.assign('/checkout/');
+    }
   };
 
   const minimumQuantity = minimumQuantityFor(product.id);
@@ -288,10 +290,10 @@ function Cabinet({ product }: { product: Product }) {
   }, [product.id]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeProduct();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !cartOpen) closeProduct(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [closeProduct]);
+  }, [closeProduct, cartOpen]);
 
   useEffect(() => {
     if (!added) return;
@@ -368,13 +370,15 @@ function Cabinet({ product }: { product: Product }) {
   const bundleTotal = unit + bundle.reduce((n, p) => n + priceOf(p), 0);
 
   const addBundle = () => {
-    add(product, pieces * qty, { openCart: false });
-    bundle.forEach((p) => add(p, minimumQuantityFor(p.id), { openCart: false }));
-    setAdded(true);
-    /* Three donuts, staggered — one per thing that just went in. Fired on the
-       same frame they would be three copies on one arc landing as a single
-       thick-outlined donut, which is why `flyManyToCart` spaces them. */
-    flyManyToCart(bundleRef.current, [product, ...bundle].map((p) => p.img));
+    const addedImages: string[] = [];
+    if (add(product, pieces * qty, { openCart: false })) addedImages.push(product.img);
+    bundle.forEach((p) => {
+      if (add(p, minimumQuantityFor(p.id), { openCart: false })) addedImages.push(p.img);
+    });
+    if (addedImages.length) {
+      flyManyToCart(bundleRef.current, addedImages);
+      setAdded(true);
+    }
   };
 
   const total = unit * pieces * qty;
@@ -458,6 +462,10 @@ function Cabinet({ product }: { product: Product }) {
               so by turning only the share control into a tick. The second
               control saves this product, which is distinct from sharing it. */}
           <div className="cabinet__mediaTools">
+            <button type="button" onClick={openCart} aria-label={`Open your bag, ${count} ${count === 1 ? 'item' : 'items'}`} title="Your bag" className="cabinet__iconBtn" data-cart-target="priority">
+              <ShoppingBag size={19} strokeWidth={2.2} aria-hidden="true" />
+              {count > 0 && <span className="cabinet__bagCount" aria-hidden="true">{count}</span>}
+            </button>
             <button
               type="button"
               onClick={shareNative}
@@ -497,6 +505,7 @@ function Cabinet({ product }: { product: Product }) {
               key={product.id}
               src={shown}
               alt={product.name}
+              onError={(event) => fallbackProductImage(event, product.id)}
               initial={{ opacity: 0, scale: 1.03 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
@@ -519,7 +528,7 @@ function Cabinet({ product }: { product: Product }) {
                   className={`cabinet__thumb${index === view ? ' is-active' : ''}`}
                   onClick={() => setView(index)}
                 >
-                  <img src={src} alt="" loading="lazy" />
+                  <img src={src} alt="" loading="lazy" onError={(event) => fallbackProductImage(event, product.id)} />
                 </button>
               ))}
             </div>
@@ -550,9 +559,7 @@ function Cabinet({ product }: { product: Product }) {
             </h2>
 
             <div style={{ marginTop: 12, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <p style={{ margin: 0, fontFamily: F.text, fontWeight: 700, fontSize: 22, color: C.price }}>
-                {product.price}
-              </p>
+              <ProductPrice product={product} style={{ margin: 0, fontFamily: F.text, fontWeight: 700, fontSize: 22, color: C.price }} />
               <span style={{ fontFamily: F.text, fontSize: 14, color: C.mute }}>
                 {packSize ? `per ${packSize}` : byThePiece ? 'per piece' : 'per box'}
               </span>
@@ -612,7 +619,7 @@ function Cabinet({ product }: { product: Product }) {
                 icings the bakery prints onto as a segmented pair, and the lab's
                 own sprinkle mixes as swatches. */}
             {isPrint && (
-              <div className="cabinet__spec">
+              <div className="cabinet__spec cabinet__spec--print">
                 <span className="cabinet__label">Icing</span>
                 <div className="cabinet__packs" role="radiogroup" aria-label="Icing">
                   {(['Chocolate', 'Vanilla'] as const).map((flavour) => (
@@ -700,7 +707,7 @@ function Cabinet({ product }: { product: Product }) {
                     <label className="cabinet__artDrop">
                       <input
                         type="file"
-                        accept="image/png,image/jpeg,image/webp"
+                        accept="image/jpeg,.jpg,.jpeg"
                         onChange={(event) => {
                           void addArtwork(event.target.files?.[0]);
                           event.currentTarget.value = '';
@@ -708,7 +715,7 @@ function Cabinet({ product }: { product: Product }) {
                       />
                       <FileImage size={20} strokeWidth={2.2} />
                       <span>
-                        <strong>{artworks.length ? 'Add another design' : 'Choose print file'}</strong>
+                        <strong>{artworks.length ? 'Add another JPG' : 'Choose JPG or JPEG file'}</strong>
                         <small>
                           This design covers {Math.min(4, remaining)} dozen
                           {Math.min(4, remaining) === 1 ? '' : 's'}
@@ -809,27 +816,16 @@ function Cabinet({ product }: { product: Product }) {
             {/* The media pane owns the wishlist action. Keeping this row for
                 purchase alone gives the label and its success state the full
                 card width. */}
-            <div ref={addRef} className="cabinet__addAnchor">
+            <div ref={addRef} className="cabinet__addAnchor cabinet__purchaseActions">
               <BrandButton
                 block
                 className="cabinet__brandAdd"
-                style={
-                  added
-                    ? { background: C.navy }
-                    : ready
-                      ? undefined
-                      : { opacity: 0.45, pointerEvents: 'none' }
-                }
-                onClick={() => {
-                  addToBag();
-                  flyToCart(mediaRef.current, product.img);
-                }}
+                knobIcon={added ? <Check size={20} strokeWidth={3} /> : undefined}
+                style={ready ? undefined : { opacity: 0.45, pointerEvents: 'none' }}
+                onClick={() => addToBag()}
               >
                 {added ? (
-                  <>
-                    <Check size={18} strokeWidth={3} />
-                    Added to bag
-                  </>
+                  <>Added to bag</>
                 ) : !ready ? (
                   <>{isPrint ? 'Finish your design' : 'Choose your colours'}</>
                 ) : (
@@ -841,6 +837,7 @@ function Cabinet({ product }: { product: Product }) {
                   <>Add to bag</>
                 )}
               </BrandButton>
+              <BrandButton block variant="outline" className="cabinet__buyNow" onClick={() => addToBag(true)} disabled={!ready}>Checkout</BrandButton>
             </div>
 
             <p className="cabinet__fineprint">
@@ -926,13 +923,7 @@ function Cabinet({ product }: { product: Product }) {
           <h3 className="cabinet__pairsTitle">Goes well with</h3>
           <div className="cabinet__pairsGrid">
             {pairsWith.map((p) => (
-              <button key={p.id} type="button" onClick={() => openProduct(p.id)} className="cabinet__pairCard">
-                <span className="cabinet__pairBed">
-                  <img src={p.img} alt="" loading="lazy" />
-                </span>
-                <strong>{p.name}</strong>
-                <span className="cabinet__pairPrice">{p.price}</span>
-              </button>
+              <ProductTile key={p.id} product={p} onOpen={item => openProduct(item.id)} inBox={lines.some(line => line.product.id === p.id)} />
             ))}
           </div>
         </section>
@@ -954,28 +945,7 @@ function Cabinet({ product }: { product: Product }) {
                   </span>
                 )}
                 {/* The product being viewed is not a link to itself. */}
-                {i === 0 ? (
-                  <span className="cabinet__bundleItem">
-                    <span className="cabinet__pairBed">
-                      <img src={p.img} alt="" loading="lazy" />
-                    </span>
-                    <strong>{p.name}</strong>
-                    <span className="cabinet__pairPrice">{p.price}</span>
-                    <span className="cabinet__bundleThis">This item</span>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => openProduct(p.id)}
-                    className="cabinet__bundleItem cabinet__bundleItem--link"
-                  >
-                    <span className="cabinet__pairBed">
-                      <img src={p.img} alt="" loading="lazy" />
-                    </span>
-                    <strong>{p.name}</strong>
-                    <span className="cabinet__pairPrice">{p.price}</span>
-                  </button>
-                )}
+                <div className="cabinet__bundleItem"><ProductTile product={p} onOpen={item => openProduct(item.id)} inBox={lines.some(line => line.product.id === p.id)} />{i === 0 && <span className="cabinet__bundleThis">This item</span>}</div>
               </Fragment>
             ))}
           </div>
@@ -1008,13 +978,7 @@ function Cabinet({ product }: { product: Product }) {
           <h3 className="cabinet__pairsTitle">Recently viewed</h3>
           <div className="cabinet__pairsGrid">
             {recentlyViewed.map((p) => (
-              <button key={p.id} type="button" onClick={() => openProduct(p.id)} className="cabinet__pairCard">
-                <span className="cabinet__pairBed">
-                  <img src={p.img} alt="" loading="lazy" />
-                </span>
-                <strong>{p.name}</strong>
-                <span className="cabinet__pairPrice">{p.price}</span>
-              </button>
+              <ProductTile key={p.id} product={p} onOpen={item => openProduct(item.id)} inBox={lines.some(line => line.product.id === p.id)} />
             ))}
           </div>
         </section>
@@ -1039,62 +1003,28 @@ function Cabinet({ product }: { product: Product }) {
             </span>
           </span>
         </span>
-        {/* Favourite, then add — the two things you can do with a product you
-            have decided about, kept together at the end of the bar rather than
-            split by the running total. On a phone the total is not there at
-            all, so the pair is the whole bar.
-
-            It used to float over the top-right of the photograph, which is the
-            part of the panel that scrolls away first: the moment the bar
-            appeared, the only way to save something was to scroll back up to
-            the picture. */}
-        <button
-          type="button"
-          onClick={saveToggle}
-          aria-pressed={saved}
-          aria-label={saved ? 'Saved to favourites' : 'Save to favourites'}
-          tabIndex={ctaOnScreen ? -1 : 0}
-          className={`cabinet__buybarSave${saved ? ' is-on' : ''}`}
-        >
-          <Heart size={19} strokeWidth={2.4} fill={saved ? 'currentColor' : 'none'} />
-        </button>
-
         <BrandButton
           className="cabinet__buybarButton"
+          knobIcon={added ? <Check size={20} strokeWidth={3} /> : undefined}
           /* Same gate as the inline button, and it has to be here too: the bar
              is the only Add on screen once the card has scrolled past, and
              `addToBag` refuses an unfinished petite line silently — so without
              this the bar reads as live and pressing it does nothing at all. */
-          style={
-            added
-              ? { background: C.navy }
-              : ready
-                ? undefined
-                : { opacity: 0.45, pointerEvents: 'none' }
-          }
+          style={ready ? undefined : { opacity: 0.45, pointerEvents: 'none' }}
           /* Not focusable while hidden, or a keyboard user tabs into a button
              that is translated off the bottom of the panel. */
           tabIndex={ctaOnScreen ? -1 : 0}
-          onClick={(event) => {
-            addToBag();
-            /* From the bar, not the photograph: by the time this button is on
-               screen the photograph has been scrolled off the top of the panel,
-               and a donut launching from above the fold is a donut nobody
-               sees. */
-            flyToCart(event.currentTarget, product.img);
-          }}
+          onClick={(event) => addToBag(false, event.currentTarget)}
         >
           {added ? (
-            <>
-              <Check size={18} strokeWidth={3} style={{ marginRight: 8 }} />
-              Added
-            </>
+            <>Added to bag</>
           ) : !ready ? (
             <>{isPrint ? 'Finish your design' : 'Choose your colours'}</>
           ) : (
             <>Add to bag</>
           )}
         </BrandButton>
+        <BrandButton variant="outline" className="cabinet__buybarNow" onClick={() => addToBag(true)} disabled={!ready} tabIndex={ctaOnScreen ? -1 : 0}>Checkout</BrandButton>
       </div>
 
       {/* Labelled "Back", not a bare cross. The panel is a product page over

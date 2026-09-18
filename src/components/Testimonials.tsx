@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, type Variants } from 'motion/react';
 import { ChevronDown, Star } from 'lucide-react';
 import { C, F } from './brand';
-import { PRODUCTS, type Product } from '../data/products';
+import type { Product } from '../data/products';
 import { RATING } from '../data/reviews';
 import ProductLine from './ProductLine';
 import GoogleG from './GoogleG';
@@ -56,8 +56,6 @@ const QUOTES: {
   { quote: 'We got challah and donuts a few times here. Very good, Friday mornings it’s a rush.', name: 'Hernan Garcia', role: 'Google review', stars: 5, product: 'challah-six-braid-friday-only' },
   { quote: 'Amazing fresh kosher donuts!', name: 'Y M', role: 'Google review', stars: 5, product: 'hava-nagilla-donut-blue-white-sprinkles' }
 ];
-
-const BY_ID = new Map(PRODUCTS.map((p) => [p.id, p]));
 
 const COLUMNS = [QUOTES.filter((_, i) => i % 2 === 0), QUOTES.filter((_, i) => i % 2 === 1)];
 
@@ -170,7 +168,8 @@ function QuoteCard({
   featured: boolean;
   revealed?: boolean;
 }) {
-  const product = q.product ? BY_ID.get(q.product) : undefined;
+  const { products } = useShop();
+  const product = q.product ? products.find((item) => item.id === q.product) : undefined;
 
   const Card = revealed ? 'article' : motion.article;
 

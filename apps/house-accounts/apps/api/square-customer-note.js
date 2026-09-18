@@ -46,12 +46,13 @@ export async function syncInstitutionalBalanceNote(square, customerId, available
 
 export async function syncInstitutionalAccountBalance(pool,square,accountId) {
   if(!accountId)return null;
+  const environment=square.environment||(String(square.baseUrl).includes("sandbox")?"sandbox":"production");
   const [accountResult,credit]=await Promise.all([
-    pool.query(`SELECT a.square_customer_id,array_remove(array_agg(DISTINCT cp.square_customer_id),NULL) AS purchaser_customer_ids,array_remove(array_agg(DISTINCT lower(u.email)),NULL) AS purchaser_emails FROM accounts a LEFT JOIN account_users au ON au.account_id=a.id AND au.status='active' LEFT JOIN users u ON u.id=au.user_id LEFT JOIN customer_profiles cp ON cp.tenant_id=a.tenant_id AND cp.user_id=au.user_id WHERE a.id=$1 GROUP BY a.id`,[accountId]),
+    pool.query(`SELECT a.square_customer_id,a.square_customer_ids,array_remove(array_agg(DISTINCT cp.square_customer_id),NULL) AS purchaser_customer_ids,array_remove(array_agg(DISTINCT lower(u.email)),NULL) AS purchaser_emails FROM accounts a LEFT JOIN account_users au ON au.account_id=a.id AND au.status='active' LEFT JOIN users u ON u.id=au.user_id LEFT JOIN customer_profiles cp ON cp.tenant_id=a.tenant_id AND cp.user_id=au.user_id WHERE a.id=$1 GROUP BY a.id`,[accountId]),
     accountCredit(pool,accountId)
   ]);
   if(!accountResult.rowCount)return null;
-  const account=accountResult.rows[0],matches=await Promise.all((account.purchaser_emails||[]).map(email=>square.searchCustomers({query:{filter:{email_address:{exact:email}}},limit:100}).catch(error=>{console.error("Square institutional customer search skipped",{email,error:error.message});return {customers:[]};}))),customerIds=[...new Set([account.square_customer_id,...(account.purchaser_customer_ids||[]),...matches.flatMap(result=>(result.customers||[]).map(customer=>customer.id))].filter(Boolean))];
+  const account=accountResult.rows[0],matches=await Promise.all((account.purchaser_emails||[]).map(email=>square.searchCustomers({query:{filter:{email_address:{exact:email}}},limit:100}).catch(error=>{console.error("Square institutional customer search skipped",{email,error:error.message});return {customers:[]};}))),accountCustomerId=account.square_customer_ids?.[environment]||account.square_customer_id,customerIds=[...new Set([accountCustomerId,...(account.purchaser_customer_ids||[]),...matches.flatMap(result=>(result.customers||[]).map(customer=>customer.id))].filter(Boolean))];
   const results=await Promise.allSettled(customerIds.map((customerId)=>syncInstitutionalBalanceNote(square,customerId,credit.available,"CAD")));
   results.forEach((result,index)=>{if(result.status==="rejected")console.error("Square institutional customer note skipped",{customerId:customerIds[index],error:result.reason?.message||String(result.reason)});});
   return credit;

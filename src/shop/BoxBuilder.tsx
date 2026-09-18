@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, Minus, Plus, Shuffle } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, ShoppingBag, Shuffle } from 'lucide-react';
 import { PRODUCTS, INTERNAL_PRODUCT_IDS, type Product } from '../data/products';
 import { BrandButton } from '../components/brand';
 import { restoreScroll } from '../lib/smooth-scroll';
@@ -12,9 +12,10 @@ import {
   isSpecialOrder,
   NOT_A_BOX_FLAVOUR
 } from '../lib/custom-order';
-import { useShop, money, priceOf } from '../lib/shop';
-import { flyToCart } from '../lib/fly-to-cart';
+import { useShop, money, priceOf, lineKeyOf } from '../lib/shop';
 import { useCutoutScale } from '../lib/cutout-scale';
+import ProductPrice from '../components/ProductPrice';
+import { flyToCart } from '../lib/fly-to-cart';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -133,22 +134,23 @@ function BoxSlot({
 }
 
 export default function BoxBuilder({ product }: { product: Product }) {
-  const { closeProduct, add, lines, products } = useShop();
+  const { closeProduct, openCart, add, remove, setQty, count, products } = useShop();
   const counts = BOX_PRODUCTS.get(product.id) ?? [6, 12];
   const max = boxMaxFor(product.id);
-  /* One id per donut, in the order they were added — the order IS the
-     placement, so removing the third donut shuffles the rest forward and the
-     box repacks itself the way a real one would.
-
-     Seeded from the bag when this box is already in it. The drawer's Edit
-     opens this screen, and opening it empty made Edit mean "start again": six
-     flavours already chosen were thrown away by the act of going to look at
-     them. Read once, in the initialiser — later changes to the line are this
-     screen's own doing and must not reset what is being edited under the
-     visitor's hands. */
+  /* Only an explicit Edit from the bag can seed a tray. A regular open starts
+     empty, even if a box of the same size is already in the bag. */
+  const editOrigin = useRef<{ donuts: string[]; qty: number } | null>(null);
   const [chosen, setChosen] = useState<string[]>(() => {
-    const line = lines.find((l) => l.product.id === product.id);
-    return line?.customization?.kind === 'box' ? [...line.customization.donuts] : [];
+    try {
+      const raw = sessionStorage.getItem('amazing:edit-box');
+      sessionStorage.removeItem('amazing:edit-box');
+      const edit = raw ? JSON.parse(raw) : null;
+      if (edit?.productId === product.id && Array.isArray(edit.donuts)) {
+        editOrigin.current = { donuts: edit.donuts, qty: Number(edit.qty) || 1 };
+        return edit.donuts;
+      }
+      return [];
+    } catch { return []; }
   });
 
   /* How far down the page furniture reaches. Measured rather than assumed: the
@@ -236,8 +238,7 @@ export default function BoxBuilder({ product }: { product: Product }) {
       products.filter(
         (p) =>
           !INTERNAL_PRODUCT_IDS.has(p.id) && p.available !== false &&
-          (product.boxFlavours === undefined || product.boxFlavours.includes(p.name)) &&
-          p.category === 'Donuts' &&
+          PRODUCTS.find(local => local.id === p.id)?.category === 'Donuts' &&
           p.id !== product.id &&
           !BOX_PRODUCTS.has(p.id) &&
           !NOT_A_BOX_FLAVOUR.has(p.id) &&
@@ -246,7 +247,7 @@ export default function BoxBuilder({ product }: { product: Product }) {
           priceOf(p) > 0 &&
           priceOf(p) <= 5
       ),
-    [product.id, product.boxFlavours, products]
+    [product.id, products]
   );
 
   /* The product decides the tray, so there is nothing to switch. */
@@ -291,15 +292,27 @@ export default function BoxBuilder({ product }: { product: Product }) {
     </button>
   );
 
-  // Each tray's price is refreshed from its own Square catalog item.
-  const price = priceOf(product);
+  const price = chosen.reduce((sum, id) => sum + priceOf(options.find(option => option.id === id) ?? { ...product, price: '$0.00' }), 0);
 
-  const addToBag = (event: React.MouseEvent<HTMLElement>) => {
+  const addToBag = (event: { currentTarget: Element }) => {
     if (!packable) return;
-    add(product, 1, { openCart: false, customization: { kind: 'box', donuts: chosen } });
-    /* Geometry is read synchronously here, so the flight is already launched
-       from the button's real position by the time the surface closes over it. */
+    const customization = { kind: 'box' as const, donuts: chosen };
+    const oldKey = editOrigin.current
+      ? lineKeyOf({ product, customization: { kind: 'box', donuts: editOrigin.current.donuts } })
+      : null;
+    const newKey = lineKeyOf({ product, customization });
+    if (oldKey === newKey) {
+      editOrigin.current = null;
+      setChosen([]);
+      return;
+    }
+    if (!add(product, 1, { openCart: false, customization })) return;
     flyToCart(event.currentTarget, tray.art);
+    if (editOrigin.current && oldKey) {
+      if (editOrigin.current.qty > 1) setQty(oldKey, editOrigin.current.qty - 1);
+      else remove(oldKey);
+      editOrigin.current = null;
+    }
     /* Cleared, and the builder stays open on the empty tray. Closing it on the
        visitor's behalf takes the decision away from them — a second box is a
        normal thing to want, and the bag knob in the header has already caught
@@ -323,12 +336,16 @@ export default function BoxBuilder({ product }: { product: Product }) {
       transition={{ duration: 0.34, ease: EASE }}
       style={{ paddingTop: chromeH }}
     >
-      {/* The same back control the product panel uses — same pill, same word,
-          same corner. This page had a bespoke one. */}
-      <button type="button" onClick={leave} className="cabinet__back boxer__back">
-        <ArrowLeft size={18} strokeWidth={2.6} aria-hidden="true" />
-        Back
-      </button>
+      <div className="boxer__toolbar">
+        <button type="button" onClick={leave} className="cabinet__back boxer__back">
+          <ArrowLeft size={18} strokeWidth={2.6} aria-hidden="true" />
+          Back
+        </button>
+        <button type="button" onClick={openCart} className="cabinet__iconBtn boxer__bag" aria-label={`Open your bag, ${count} ${count === 1 ? 'item' : 'items'}`} title="Your bag" data-cart-target="priority">
+          <ShoppingBag size={19} strokeWidth={2.2} aria-hidden="true" />
+          {count > 0 && <span className="cabinet__bagCount" aria-hidden="true">{count}</span>}
+        </button>
+      </div>
 
       <div className="boxer__inner">
         {/* --- the box --- */}
@@ -395,7 +412,7 @@ export default function BoxBuilder({ product }: { product: Product }) {
 
                   <span className="boxer__rowText">
                     <strong>{donut.name}</strong>
-                    <span>{donut.price}</span>
+                    <ProductPrice product={donut} />
                   </span>
 
                   <span className="boxer__stepper" role="group" aria-label={`${donut.name} in the box`}>

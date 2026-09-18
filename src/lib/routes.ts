@@ -10,6 +10,7 @@
  * Each is a static HTML entry — see `vite.config.ts`. The site has no router.
  */
 export const CONTACT_HREF = '/contact/';
+export const ABOUT_HREF = '/about/';
 export const CAREERS_HREF = '/careers/';
 export const BULK_HREF = '/bulk-orders/';
 

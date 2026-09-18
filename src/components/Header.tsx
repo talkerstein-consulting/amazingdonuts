@@ -5,13 +5,13 @@ import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useNavTheme } from '../lib/nav-theme';
 import { useShop, useBoxQty } from '../lib/shop';
 import ProductTile from './ProductTile';
-import { PRODUCTS, SHOP_PRODUCTS, type Product } from '../data/products';
+import { INTERNAL_PRODUCT_IDS, type Product } from '../data/products';
 import { BEST_SELLERS } from '../data/product-tags';
 import { LAB_HREF } from '../lib/lab-href';
 import { HOME_HREF, onHomeClick } from '../lib/home-href';
 import { SHOP_HREF, shopHref } from '../lib/shop-href';
 import { matchesQuery, matchingCategories, searchHref } from '../lib/search';
-import { CONTACT_HREF } from '../lib/routes';
+import { ABOUT_HREF, CONTACT_HREF } from '../lib/routes';
 import { openState } from '../lib/pickup';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -23,6 +23,7 @@ const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const NAV_LINKS = [
   { href: SHOP_HREF, label: 'Shop all' },
   { href: LAB_HREF, label: 'Donut lab' },
+  { href: ABOUT_HREF, label: 'About us' },
   { href: CONTACT_HREF, label: 'Contact' }
 ];
 
@@ -91,15 +92,10 @@ const PATH_LABEL: Record<string, string> = Object.fromEntries(
   NAV_LINKS.map((l) => [l.href, l.label])
 );
 
-/** The drawer promotes exactly what the grid tags, from the one shared list. */
-const BESTSELLERS = [...BEST_SELLERS]
-  .map((id) => PRODUCTS.find((p) => p.id === id))
-  .filter((p): p is (typeof PRODUCTS)[number] => Boolean(p));
-
 export default function Header({ onSignIn }: { onSignIn: () => void }) {
   const isDesktop = useIsDesktop();
   const { theme } = useNavTheme();
-  const { openCart, count, openProduct } = useShop();
+  const { openCart, count, openProduct, products, categories } = useShop();
   /* So the drawer's tiles show a stepper for anything already in the bag,
      exactly as the grid's do. */
   const boxQty = useBoxQty();
@@ -131,9 +127,12 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
      found the donut — so the suggestions could be empty for a query that had
      results, and could offer a product the results page would not return. */
   const productSuggestions = searchTerm
-    ? SHOP_PRODUCTS.filter((product) => matchesQuery(product, searchTerm)).slice(0, 4)
+    ? products.filter((product) => !INTERNAL_PRODUCT_IDS.has(product.id) && matchesQuery(product, searchTerm)).slice(0, 4)
     : [];
-  const categorySuggestions = searchTerm ? matchingCategories(searchTerm).slice(0, 2) : [];
+  const categorySuggestions = searchTerm ? matchingCategories(categories, searchTerm).slice(0, 2) : [];
+  const bestsellers = [...BEST_SELLERS]
+    .map((id) => products.find((product) => product.id === id))
+    .filter((product): product is Product => Boolean(product));
 
   const closeSearch = () => setSearchOpen(false);
 
@@ -282,6 +281,7 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
             {NAV_LINKS.map((link) => (
               <a
                 key={link.label}
+                className="main-nav-link"
                 href={link.href}
                 onMouseEnter={() => setHovered(link.label)}
                 style={{
@@ -290,7 +290,7 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                   alignItems: 'center',
                   /* The chip needs a box to fill, so the label carries its own
                      padding rather than sitting on a baseline. */
-                  padding: '9px 14px',
+                  padding: '9px clamp(8px,1vw,14px)',
                   borderRadius: 'var(--radius-pill)',
                   fontFamily: 'var(--font-cta)',
                   fontWeight: 700,
@@ -434,15 +434,15 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
             type="button"
             onClick={openCart}
             aria-label={`Bag, ${count} ${count === 1 ? 'item' : 'items'}`}
-            className="icon-btn"
-            /* Where an added product flies to — see `lib/fly-to-cart`. An
-               attribute rather than an id, because every page mounts its own
-               Header and an id would have to be unique across all of them. */
+            className="icon-btn nav-bag"
             data-cart-target=""
             style={{ color: theme.fg, position: 'relative' }}
           >
-            <ShoppingBag size={24} strokeWidth={2} />
-            {count > 0 && <span className="shop-badge">{count}</span>}
+            <span className="nav-bag__label">Your bag</span>
+            <span className="nav-bag__icon">
+              <ShoppingBag size={24} strokeWidth={2} />
+              {count > 0 && <span className="shop-badge">{count}</span>}
+            </span>
           </button>
           {!isDesktop && (
             <button
@@ -510,9 +510,7 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                     and the count they were tracking vanished behind the sheet
                     while they browsed.
 
-                    Same control as the bar's, same count, same flight target,
-                    so a donut added from the bestsellers below still lands
-                    somewhere the visitor can see. Closes the menu on the way,
+                    Same control as the bar's, with the same count. Closes the menu on the way,
                     because the bag drawer is where they asked to go. */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <button
@@ -715,7 +713,7 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
                     a Canvas page, and this drawer is Harbour. See
                     `.nav-bestsellers`. */}
                 <div className="nav-bestsellers">
-                  {BESTSELLERS.map((product) => (
+                  {bestsellers.map((product) => (
                     <article key={product.id} className="nav-bestsellers__tile">
                       <ProductTile
                         product={product}

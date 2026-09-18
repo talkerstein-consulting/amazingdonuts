@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {resolveHouseCustomer, assertHouseCard, ensureHouseCustomer, ensureProfileCustomer} from '../apps/api/house-customer.js';
+import {resolveHouseCustomer, assertHouseCard, ensureHouseCustomer, ensureProfileCustomer, ensureHouseCardCustomer} from '../apps/api/house-customer.js';
 
 const account={id:'account',tenant_id:'tenant',organization_name:'School',billing_email:'school@example.test',square_customer_id:'stale'};
 const missing=()=>Object.assign(new Error('Missing'),{status:404,details:[{code:'NOT_FOUND'}]});
@@ -38,6 +38,20 @@ test('stale, disabled and wrong-customer cards block credit before payment',asyn
   await assert.rejects(assertHouseCard({request:async()=>{throw missing();}},'card','new'),{code:'CARD_ON_FILE_REQUIRED'});
   await assertHouseCard({request:async()=>({card:{enabled:true,customer_id:'new'}})},'card','new');
 });
+test('verified card owner repairs the environment-specific account customer link',async()=>{
+  const updates=[];
+  const pool={query:async(sql,args)=>{updates.push({sql,args});return {rowCount:1};}};
+  const square={environment:'production',request:async()=>({card:{enabled:true,customer_id:'owner'}}),retrieveCustomer:async()=>({customer:{id:'owner',reference_id:'account'}})};
+  assert.equal(await ensureHouseCardCustomer(pool,square,'tenant','account','card'),'owner');
+  assert.deepEqual(updates[0].args,['account','tenant','production','owner']);
+  assert.match(updates[0].sql,/square_customer_ids/);
+});
+test('unowned or unavailable cards cannot enable account credit',async()=>{
+  const pool={query:()=>assert.fail('Unexpected account update')};
+  await assert.rejects(ensureHouseCardCustomer(pool,{environment:'production',request:async()=>({card:{enabled:true,customer_id:'other'}}),retrieveCustomer:async()=>({customer:{id:'other',reference_id:'another-account'}})},'tenant','account','card'),{code:'CARD_ON_FILE_REQUIRED'});
+  await assert.rejects(ensureHouseCardCustomer(pool,{environment:'production',request:async()=>({card:{enabled:false,customer_id:'owner'}})},'tenant','account','card'),{code:'CARD_ON_FILE_REQUIRED'});
+  await assert.rejects(ensureHouseCardCustomer(pool,{environment:'production',request:async()=>{throw missing();}},'tenant','account','card'),{code:'CARD_ON_FILE_REQUIRED'});
+});
 test('repair locks and updates only the existing tenant account link',async()=>{
   const statements=[];
   const client={query:async(sql,args)=>{statements.push({sql,args});return {rows:sql.startsWith('SELECT')?[account]:[]};},release(){}};
@@ -46,6 +60,14 @@ test('repair locks and updates only the existing tenant account link',async()=>{
   assert.ok(statements.some(s=>s.sql.includes('FOR UPDATE')));
   const updates=statements.filter(s=>s.sql.startsWith('UPDATE'));
   assert.equal(updates.length,1);
-  assert.deepEqual(updates[0].args,['account','tenant','new']);
+  assert.deepEqual(updates[0].args,['account','tenant','production','new']);
+  assert.ok(updates[0].sql.includes('square_customer_ids'));
   assert.ok(!updates[0].sql.includes('credit_limit'));
+});
+test('institutional Square customers remain isolated by environment',async()=>{
+  const sandbox={environment:'sandbox',retrieveCustomer:async id=>({customer:{id}}),createCustomer:()=>assert.fail('Unexpected creation')};
+  const production={environment:'production',retrieveCustomer:async id=>({customer:{id}}),createCustomer:()=>assert.fail('Unexpected creation')};
+  const scoped={...account,square_customer_ids:{sandbox:'sandbox-customer',production:'production-customer'}};
+  assert.equal(await resolveHouseCustomer(sandbox,scoped),'sandbox-customer');
+  assert.equal(await resolveHouseCustomer(production,scoped),'production-customer');
 });

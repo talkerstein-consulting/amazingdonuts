@@ -283,6 +283,7 @@ export default function Preloader({
     <div className="pre" role="status" aria-label="Loading Amazing Donuts">
       {/* the navy field — becomes the navbar */}
       <div ref={fieldRef} className="pre__field" style={{ height: '100vh' }} />
+      {!isReturn && <img className="pre__rolling-donut" src="/img/roll-donut.png" alt="" />}
 
       {/* The wordmark. Each letter is its own path with its own animation
           delay; `is-static` skips the whole thing on a return load, where the

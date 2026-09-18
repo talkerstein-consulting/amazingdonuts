@@ -7,31 +7,27 @@ import { Badge, BadgeDot } from './brand';
 import type { BadgeKey } from './brand';
 import KosherBadge from './KosherBadge';
 import { HOME_HREF, onHomeClick } from '../lib/home-href';
-import { BULK_HREF, CAREERS_HREF, CONTACT_HREF } from '../lib/routes';
+import { ABOUT_HREF, BULK_HREF, CAREERS_HREF, CONTACT_HREF } from '../lib/routes';
 import type { KosherKey } from './KosherBadge';
 import { LAB_HREF } from '../lib/lab-href';
 import { shopHref } from '../lib/shop-href';
 import CurvedInput from './CurvedInput';
 import { useCareersVisibility } from '../hooks/useCareersVisibility';
+import { useShop } from '../lib/shop';
 
 /* Donuts and Cupcakes both pointed at '#favorites', so two differently
    labelled links went to the same homepage teaser and neither of them to the
    counter it named. Each one now opens the catalogue on its own collection. */
-const MENU_LINKS = [
-  { label: 'Donuts', href: shopHref({ category: 'Donuts' }) },
-  { label: 'Donut lab', href: LAB_HREF },
-  { label: 'Cupcakes', href: shopHref({ category: 'Cupcakes' }) },
-  { label: 'Bulk orders', href: BULK_HREF }
-];
-
 /* Franchise is gone rather than pointed somewhere: there is no franchise
    programme, and a nav item is a promise that something exists behind it. All
    three used to point at `#top`, which on any page but the homepage went
    nowhere at all. */
 const COMPANY_LINKS = [
+  { label: 'About us', href: ABOUT_HREF },
   { label: 'Contact', href: CONTACT_HREF },
-  { label: 'Allergies & Kashruth', href: '/allergy-free/' },
-  { label: 'Privacy policy', href: '/privacy-policy/' },
+  { label: 'Allergy free', href: '/allergy-free/' },
+  { label: 'Kashruth', href: '/kashruth/' },
+  { label: 'Privacy policy & terms', href: '/privacy-policy-terms/' },
   { label: 'Shipping & returns', href: '/shipping-returns/' }
 ];
 
@@ -61,9 +57,9 @@ const item: Variants = {
 };
 
 /** On phones the two link columns collapse into a tab pair to save vertical space. */
-function LinkTabs({ companyLinks }: { companyLinks: typeof COMPANY_LINKS }) {
+function LinkTabs({ companyLinks, menuLinks }: { companyLinks: typeof COMPANY_LINKS; menuLinks: { label: string; href: string }[] }) {
   const groups = [
-    { label: 'Menu', links: MENU_LINKS },
+    { label: 'Menu', links: menuLinks },
     { label: 'Information', links: companyLinks }
   ];
   const [tab, setTab] = useState(0);
@@ -133,6 +129,12 @@ const FOOTER_MARK = {
 } as const;
 
 export default function Footer({ ready }: { ready: boolean }) {
+  const { categories } = useShop();
+  const menuLinks = [
+    ...categories.map((category) => ({ label: category, href: shopHref({ category }) })),
+    { label: 'Donut lab', href: LAB_HREF },
+    { label: 'Bulk orders', href: BULK_HREF }
+  ];
   // Matches the hero donut: turns with the scroll, and only after the
   // preloader has handed the wordmark to the navbar.
   const spin = useScrollSpin<HTMLImageElement>(150, ready);
@@ -353,7 +355,7 @@ export default function Footer({ ready }: { ready: boolean }) {
               Menu
             </span>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {MENU_LINKS.map((link) => (
+              {menuLinks.map((link) => (
                 <li key={link.label}>
                   <a href={link.href} style={{ fontFamily: 'var(--font-label)', fontSize: 15, color: 'var(--navy)' }}>
                     {link.label}
@@ -378,7 +380,7 @@ export default function Footer({ ready }: { ready: boolean }) {
           </nav>
             </>
           ) : (
-            <LinkTabs companyLinks={companyLinks} />
+            <LinkTabs companyLinks={companyLinks} menuLinks={menuLinks} />
           )}
         </motion.div>
 

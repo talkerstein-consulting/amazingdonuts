@@ -181,7 +181,9 @@ export const customizationComplete = (productId: string, qty: number, customizat
 };
 
 export async function imageDataUrl(file: File) {
-  if (!file.type.startsWith('image/')) throw new Error('Choose an image file.');
+  if (file.type !== 'image/jpeg' || !/\.jpe?g$/i.test(file.name)) {
+    throw new Error('Choose a JPG or JPEG image.');
+  }
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, 900 / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement('canvas');
