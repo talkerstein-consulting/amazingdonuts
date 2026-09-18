@@ -1131,12 +1131,10 @@ body:has(.bag-checkout-bar) .footer-baseline {
 }
 
 .main-nav-link { white-space: nowrap; }
-.nav-bag { width: auto; min-width: 48px; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 14px; padding-inline: 12px 16px; white-space: nowrap; }
-.nav-bag__label { font-family: var(--font-cta); font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.nav-bag { flex: 0 0 auto; display: inline-flex; align-items: center; }
 .nav-bag__icon { position: relative; display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; }
 .nav-bag__icon .shop-badge { top: 0; right: 0; transform: translate(15%, -15%); }
 @media (max-width: 1250px) { .nav-open { display: none; } }
-@media (max-width: 1050px) { .nav-bag__label { display: none; } }
 
 /* --- The Proudly Canadian seal, over the donut -------------------------
    Absolute so it overlaps the photo without taking a row of its own, and above

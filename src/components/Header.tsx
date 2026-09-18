@@ -11,7 +11,7 @@ import { LAB_HREF } from '../lib/lab-href';
 import { HOME_HREF, onHomeClick } from '../lib/home-href';
 import { SHOP_HREF, shopHref } from '../lib/shop-href';
 import { matchesQuery, matchingCategories, searchHref } from '../lib/search';
-import { ABOUT_HREF, CONTACT_HREF } from '../lib/routes';
+import { ABOUT_HREF, BULK_HREF, CONTACT_HREF } from '../lib/routes';
 import { openState } from '../lib/pickup';
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -88,8 +88,17 @@ function OpenStatus({ color }: { color: string }) {
  * page, plus a section-spy for the entries that were still homepage anchors.
  * Nothing the nav points at lives on the homepage any more.
  */
+/* Pages the drawer lists that the bar does not.
+
+   The bar is four entries wide and has the logo, search, account and bag to
+   fit beside them; the drawer is a full-height sheet with nothing competing
+   for the room. Bulk orders was reachable only from the footer, which on a
+   phone is the bottom of a long page — a school ordering sixty donuts had to
+   scroll past the whole catalogue to find the form. */
+const DRAWER_LINKS = [{ href: BULK_HREF, label: 'Bulk orders' }];
+
 const PATH_LABEL: Record<string, string> = Object.fromEntries(
-  NAV_LINKS.map((l) => [l.href, l.label])
+  [...NAV_LINKS, ...DRAWER_LINKS].map((l) => [l.href, l.label])
 );
 
 export default function Header({ onSignIn }: { onSignIn: () => void }) {
@@ -438,7 +447,6 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
             data-cart-target=""
             style={{ color: theme.fg, position: 'relative' }}
           >
-            <span className="nav-bag__label">Your bag</span>
             <span className="nav-bag__icon">
               <ShoppingBag size={24} strokeWidth={2} />
               {count > 0 && <span className="shop-badge">{count}</span>}
@@ -587,7 +595,7 @@ export default function Header({ onSignIn }: { onSignIn: () => void }) {
               </form>
 
               <motion.nav initial="hidden" animate="visible" variants={drawerStagger} style={{ marginTop: 24, display: 'flex', flexDirection: 'column' }}>
-                {NAV_LINKS.map((link) => (
+                {[...NAV_LINKS, ...DRAWER_LINKS].map((link) => (
                   <motion.a
                     key={link.label}
                     variants={drawerItem}
