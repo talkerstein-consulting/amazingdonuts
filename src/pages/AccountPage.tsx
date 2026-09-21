@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
-import { ArrowLeft, Building2, ChevronDown, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, Pencil, ReceiptText, RefreshCw, Trash2, Truck, UserRound, X } from "lucide-react";
+import { ArrowLeft, Building2, ChevronDown, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, Pencil, ReceiptText, RefreshCw, Trash2, UserRound, X } from "lucide-react";
 import { customizationFor } from "../lib/custom-order";
 import AuthModal from "../shop/AuthModal";
 import "../index.css";
@@ -19,6 +19,7 @@ import { ShopProvider, useBoxQty, useShop } from "../lib/shop";
 import { formatNorthAmericanPhone } from "../lib/phone";
 import { PRODUCTS } from "../data/products";
 import { fallbackProductImage } from "../lib/product-image";
+import { orderFulfillmentSummary, orderPaymentSummary } from "../lib/order-summary";
 
 const cash = (n: number, c = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency: c }).format(Number(n || 0) / 100);
 const organizationRoles: Record<string, [string, string][]> = {
@@ -385,8 +386,6 @@ function Orders({ orders }: { orders: any[] }) {
     if (added) openCart();
   };
   const statusLabel = (order: any) => /refund/i.test(order.paymentStatus || "") ? order.paymentStatus : order.fulfillmentStatus || "Order received";
-  const paymentLabel = (order: any) => order.payment_method === "house_account" ? "Pay on account" : order.payment_method === "cash" ? "Cash" : order.payment_method === "card" ? "Card" : "";
-  const orderMeta = (order: any) => [paymentLabel(order), order.paymentStatus, order.fulfillment?.type === 'pickup' ? 'Pickup' : order.fulfillment?.type === 'delivery' ? 'Delivery' : ''].filter(Boolean).join(' · ');
   return (
     <>
       <div className="commerce-heading">
@@ -425,17 +424,14 @@ function Orders({ orders }: { orders: any[] }) {
                 {order.breakdown.tip > 0 && <div><dt>Tip</dt><dd>{cash(order.breakdown.tip, order.currency)}</dd></div>}
                 <div><dt>Total</dt><dd>{cash(order.breakdown.total, order.currency)}</dd></div>
               </dl>}
-              {order.scheduledAt && <p className="order-schedule">Scheduled {order.fulfillment?.type === "delivery" ? "delivery" : "pickup"}: {new Date(order.scheduledAt).toLocaleString("en-CA", {timeZone:"America/Toronto",dateStyle:"medium",timeStyle:"short"})} Toronto time</p>}
-              {order.delivery?.estimatedDeliveryAt && order.delivery.status !== "dispatch_failed" && <p className="order-schedule">Estimated arrival: {new Date(order.delivery.estimatedDeliveryAt).toLocaleString("en-CA", {timeZone:"America/Toronto",dateStyle:"medium",timeStyle:"short"})} Toronto time</p>}
-              {order.liveStatusAvailable === false && <p className="order-schedule">Live updates temporarily unavailable.</p>}
+              <p className="order-schedule">{orderFulfillmentSummary(order)}</p>
               <footer>
                 <span>
-                  {orderMeta(order) || 'Order received'}
+                  {orderPaymentSummary(order)}
                 </span>
                 <strong>{cash(order.total, order.currency)}</strong>
               </footer>
               {order.receiptUrl && /^https:\/\/([^/]+\.)?squareup\.com\//i.test(order.receiptUrl) && <a className="order-receipt" href={order.receiptUrl} target="_blank" rel="noopener noreferrer"><Download size={17} /> Open Square receipt</a>}
-              {order.delivery && <p className="delivery-test-status"><Truck/> {order.delivery.provider === "uber_direct" ? `Uber Direct${order.delivery.environment === "sandbox" ? " test" : ""}` : order.delivery.provider === "own_driver" ? (order.delivery.assignedDriverName || "Amazing Donuts driver") : "Awaiting driver assignment"}: {String(order.delivery.statusLabel || order.delivery.status || 'Awaiting dispatch').replace(/_/g," ")}{order.delivery.trackingUrl&&<a href={order.delivery.trackingUrl} target="_blank" rel="noreferrer">Track delivery</a>}</p>}
               <button type="button" className="account-edit-action order-again" onClick={() => orderAgain(order)}>Order again</button>
             </article>
           ))}
@@ -875,26 +871,22 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
             const isCurrent=member.id===session.user.id||String(member.email).toLowerCase()===String(session.user.email).toLowerCase();
             const isAdmin=member.role==="account_admin";
             return <article key={member.id} className={`${isAdmin?'organization-member--admin ':''}${isCurrent?'organization-member--current':''}`.trim()}>
-              <header>
-                <div>
-                  <strong>
-                    {member.display_name || `${member.first_name} ${member.last_name}`}
-                  </strong>
-                  <span>{member.email}</span>
-                </div>
-                <div className="organization-member-badges">
-                  {isAdmin?<span>Account admin</span>:null}
-                  {isCurrent?<strong>You</strong>:null}
-                </div>
-              </header>
-              {canManage&&editingId===member.id?<form className="member-edit-form" onSubmit={async event=>{event.preventDefault();setMessage("");const data=new FormData(event.currentTarget);try{await api(`/storefront/house-members/${member.id}`,{method:"PATCH",body:JSON.stringify({organizationRole:data.get("organizationRole"),role:data.get("role"),purchaseLimit:data.get("purchaseLimit")?Math.round(Number(data.get("purchaseLimit"))*100):null,status:data.get("status"),pin:data.get("pin")})});setEditingId(null);setMessage("Member updated.");onChanged();}catch(cause){setMessage(cause instanceof Error?cause.message:"Member could not be updated.");}}}>
+              {canManage&&editingId===member.id?<><header>
+                <div><strong>{member.display_name || `${member.first_name} ${member.last_name}`}</strong><span>{member.email}</span></div>
+                <div className="organization-member-badges">{isAdmin?<span>Account admin</span>:null}{isCurrent?<strong>You</strong>:null}</div>
+              </header><form className="member-edit-form" onSubmit={async event=>{event.preventDefault();setMessage("");const data=new FormData(event.currentTarget);try{await api(`/storefront/house-members/${member.id}`,{method:"PATCH",body:JSON.stringify({organizationRole:data.get("organizationRole"),role:data.get("role"),purchaseLimit:data.get("purchaseLimit")?Math.round(Number(data.get("purchaseLimit"))*100):null,status:data.get("status"),pin:data.get("pin")})});setEditingId(null);setMessage("Member updated.");onChanged();}catch(cause){setMessage(cause instanceof Error?cause.message:"Member could not be updated.");}}}>
                 <label><span>Member role</span><div className="member-edit-select"><select name="organizationRole" defaultValue={member.organization_role}>{organizationRoles[organizationType].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><ChevronDown aria-hidden="true" size={18}/></div></label>
                 <label><span>Permissions</span><div className="member-edit-select"><select name="role" defaultValue={member.role}><option value="purchaser">Can purchase</option><option value="account_admin">Account admin</option><option value="viewer">View only</option></select><ChevronDown aria-hidden="true" size={18}/></div></label>
                 <label><span>Purchase limit</span><MoneyField name="purchaseLimit" min="0" max={(availableCredit/100).toFixed(2)} step="1" defaultValue={member.purchase_limit==null?"":Number(member.purchase_limit)/100}/><small>Maximum {cash(availableCredit)} currently available account-wide.</small></label>
                 <label><span>Reset PIN <small>Optional</small></span><PinField name="pin" placeholder="Leave unchanged"/></label>
                 <label><span>Status</span><div className="member-edit-select"><select name="status" defaultValue={member.status}><option value="active">Active</option><option value="disabled">Disabled</option></select><ChevronDown aria-hidden="true" size={18}/></div></label>
                 <div className="member-edit-actions"><BrandButton type="button" variant="outline" onClick={()=>setEditingId(null)}>Cancel</BrandButton><BrandButton type="submit">Save member</BrandButton></div>
-              </form>:<footer><span>{member.role==="account_admin"?"Account administrator":member.role==="viewer"?"View only":"Can purchase"}{member.purchase_limit!=null?` · ${cash(member.purchase_limit)} personal cap`:" · Up to account availability"}</span>{canManage?<button type="button" onClick={()=>setEditingId(member.id)}>Edit member</button>:null}</footer>}
+              </form></>:<div className="organization-member-row">
+                <div className="organization-member-identity"><strong>{member.display_name || `${member.first_name} ${member.last_name}`}</strong><span>{member.email}</span></div>
+                <span className="organization-member-access">{member.role==="account_admin"?"Account administrator":member.role==="viewer"?"View only":"Can purchase"}{member.purchase_limit!=null?` · ${cash(member.purchase_limit)} personal cap`:" · Up to account availability"}</span>
+                <div className="organization-member-badges">{isAdmin?<span>Account admin</span>:null}{isCurrent?<strong>You</strong>:null}</div>
+                {canManage?<button type="button" className="organization-member-edit" onClick={()=>setEditingId(member.id)}>Edit member</button>:null}
+              </div>}
             </article>;
           })}
         </div>

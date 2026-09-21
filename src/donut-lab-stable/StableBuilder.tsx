@@ -1241,7 +1241,10 @@ export default function StableBuilder({ autoAdvance = false }: { autoAdvance?: b
             onClick={onNext}
             style={{
               flex: 1, minWidth: 0, height: 58, border: 0, borderRadius: 'var(--radius-pill)',
-              background: 'var(--orange)', color: '#ffffff', display: 'flex', alignItems: 'center',
+              background: last && !s.added ? 'transparent' : 'var(--orange)',
+              color: last && !s.added ? 'var(--navy)' : '#ffffff',
+              boxShadow: last && !s.added ? 'inset 0 0 0 2px var(--navy)' : 'none',
+              display: 'flex', alignItems: 'center',
               justifyContent: 'space-between', gap: 14, padding: '0 8px 0 24px', cursor: 'pointer',
               fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: 18, textTransform: 'uppercase'
             }}

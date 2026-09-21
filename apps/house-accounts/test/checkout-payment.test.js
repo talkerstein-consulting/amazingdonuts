@@ -36,3 +36,14 @@ test("Google Pay initialization is not restricted to Chrome-family browsers", ()
   assert.match(checkout, /payments\.googlePay\(request\)/);
   assert.doesNotMatch(styles, /#google-pay-button:not\(\.is-ready\)\s*\{\s*display:\s*none/);
 });
+
+test("wallet marks and saved-card management use the compact checkout treatment", () => {
+  const checkout = readFileSync(new URL("../../../src/pages/CheckoutPage.tsx", import.meta.url), "utf8");
+  const styles = readFileSync(new URL("../../../src/pages/commerce.css", import.meta.url), "utf8");
+  assert.match(checkout, /buttonType: "plain"/);
+  assert.match(checkout, /buttonSizeMode: "fill"/);
+  assert.match(styles, /-apple-pay-button-type:\s*plain/);
+  assert.match(styles, /\.wallet-slot\s*\{[^}]*height:\s*56px[^}]*border-radius:\s*16px/s);
+  assert.match(checkout, /className="saved-card-manage"/);
+  assert.match(checkout, /\(!savedCard \|\| cardToolsOpen\)/);
+});

@@ -285,6 +285,7 @@ export default function ReturnPrompt() {
 
                   <div className="return-prompt__actions">
                     <BrandButton
+                      variant="outline"
                       onClick={() => {
                         add(saved!, 1, { openCart: false });
                         setOpen(false);

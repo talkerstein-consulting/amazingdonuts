@@ -78,10 +78,9 @@ export default function ProductCard({
         {donut.blurb}
       </p>
 
-      <BrandButton block onClick={() => onAdd?.(donut)}>
+      <BrandButton block variant={cta === 'Add to bag' ? 'outline' : 'primary'} onClick={() => onAdd?.(donut)}>
         {cta}
       </BrandButton>
     </div>
   );
 }
-

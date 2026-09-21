@@ -819,6 +819,7 @@ function Cabinet({ product }: { product: Product }) {
             <div ref={addRef} className="cabinet__addAnchor cabinet__purchaseActions">
               <BrandButton
                 block
+                variant="outline"
                 className="cabinet__brandAdd"
                 knobIcon={added ? <Check size={20} strokeWidth={3} /> : undefined}
                 style={ready ? undefined : { opacity: 0.45, pointerEvents: 'none' }}
@@ -837,7 +838,7 @@ function Cabinet({ product }: { product: Product }) {
                   <>Add to bag</>
                 )}
               </BrandButton>
-              <BrandButton block variant="outline" className="cabinet__buyNow" onClick={() => addToBag(true)} disabled={!ready}>Checkout</BrandButton>
+              <BrandButton block className="cabinet__buyNow" onClick={() => addToBag(true)} disabled={!ready}>Checkout</BrandButton>
             </div>
 
             <p className="cabinet__fineprint">
@@ -1004,6 +1005,7 @@ function Cabinet({ product }: { product: Product }) {
           </span>
         </span>
         <BrandButton
+          variant="outline"
           className="cabinet__buybarButton"
           knobIcon={added ? <Check size={20} strokeWidth={3} /> : undefined}
           /* Same gate as the inline button, and it has to be here too: the bar
@@ -1024,7 +1026,7 @@ function Cabinet({ product }: { product: Product }) {
             <>Add to bag</>
           )}
         </BrandButton>
-        <BrandButton variant="outline" className="cabinet__buybarNow" onClick={() => addToBag(true)} disabled={!ready} tabIndex={ctaOnScreen ? -1 : 0}>Checkout</BrandButton>
+        <BrandButton className="cabinet__buybarNow" onClick={() => addToBag(true)} disabled={!ready} tabIndex={ctaOnScreen ? -1 : 0}>Checkout</BrandButton>
       </div>
 
       {/* Labelled "Back", not a bare cross. The panel is a product page over

@@ -450,6 +450,7 @@ export default function BoxBuilder({ product }: { product: Product }) {
             </p>
 
             <BrandButton
+              variant="outline"
               className="boxer__add"
               onClick={addToBag}
               disabled={!packable}

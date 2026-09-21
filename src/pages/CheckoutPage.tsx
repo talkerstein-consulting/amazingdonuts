@@ -478,6 +478,7 @@ function Checkout() {
   const [confirmPayment, setConfirmPayment] = useState(false);
   const [saveCardForAccount, setSaveCardForAccount] = useState(false);
   const [managingCard, setManagingCard] = useState(false);
+  const [cardToolsOpen, setCardToolsOpen] = useState(false);
   const [cardConsent, setCardConsent] = useState(false);
   const [cardReady, setCardReady] = useState(false);
   const card = useRef<SquareCard | undefined>(undefined);
@@ -783,7 +784,8 @@ function Checkout() {
           googlePay.current = wallet;
           await wallet.attach?.("#google-pay-button", {
             buttonColor: "black",
-            buttonType: "pay",
+            buttonType: "plain",
+            buttonSizeMode: "fill",
           });
           if (!cancelled)
             setWallets((current) => ({ ...current, google: "ready" }));
@@ -1981,24 +1983,36 @@ function Checkout() {
                 number is the exception, so the blank form is behind the
                 second button. */}
                 {savedCard && (
-                  <button
-                    type="button"
-                    className={`saved-card${method === "saved_card" ? " active" : ""}`}
-                    onClick={() => { setManagingCard(false); setMethod("saved_card"); }}
-                  >
-                    <CreditCard />
-                    <span>
-                      <strong>
-                        {savedCard.brand || "Card"} ending in {savedCard.last4}
-                      </strong>
-                      <small>Saved to {session?.houseAccount?.organizationName}</small>
-                    </span>
-                  </button>
+                  <div className={`saved-card-row${method === "saved_card" ? " active" : ""}`}>
+                    <button
+                      type="button"
+                      className="saved-card"
+                      onClick={() => { setManagingCard(false); setMethod("saved_card"); }}
+                    >
+                      <CreditCard />
+                      <span>
+                        <strong>
+                          {savedCard.brand || "Card"} ending in {savedCard.last4}
+                        </strong>
+                        <small>Saved to {session?.houseAccount?.organizationName}</small>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="saved-card-manage"
+                      aria-expanded={cardToolsOpen}
+                      aria-controls="saved-card-tools"
+                      onClick={() => setCardToolsOpen((open) => !open)}
+                    >
+                      Manage
+                    </button>
+                  </div>
                 )}
-                {activeHouseAccount && <button type="button" className="manage-card-inline" onClick={() => { setManagingCard(true); setMethod("card"); }}>
-                  {savedCard ? "Update card on file" : "Add card on file"}
-                </button>}
-                <div className="payment-choice">
+                {(!savedCard || cardToolsOpen) && <div id="saved-card-tools" className="saved-card-tools">
+                  {activeHouseAccount && <button type="button" className="manage-card-inline" onClick={() => { setManagingCard(true); setMethod("card"); }}>
+                    {savedCard ? "Update card on file" : "Add card on file"}
+                  </button>}
+                  <div className="payment-choice">
                   <button
                     type="button"
                     className={method === "card" ? "active" : ""}
@@ -2037,7 +2051,8 @@ function Checkout() {
                       )}
                     </div>
                   )}
-                </div>
+                  </div>
+                </div>}
                 {activeHouseAccount && session?.houseAccount && (
                   <>
                     <button
