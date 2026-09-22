@@ -1542,6 +1542,7 @@ body:has(.bag-checkout-bar) .footer-baseline {
   padding: clamp(6px, 1.4vw, 18px) clamp(16px, 4vw, 40px) 0;
   margin-bottom: clamp(10px, 1.6vw, 20px);
 }
+.footer-signup__message { position:absolute; top:100%; left:50%; transform:translateX(-50%); width:max-content; max-width:calc(100vw - 32px); margin:4px 0 0; color:var(--navy); font-size:14px; text-align:center; }
 
 /* Tucked under the arc, and the navy panel below only overlaps its lower
    third — the previous margin swallowed most of the donut. */
@@ -1898,6 +1899,8 @@ body:has(.bag-checkout-bar) .footer-baseline {
   margin: 0 auto clamp(18px, 2.4vw, 30px);
   padding: 0 clamp(18px, 4vw, 40px);
 }
+.regulars-head__rating { display:flex; align-items:center; gap:8px; margin:12px 0 0; font: 600 15px var(--font-body); color:var(--navy); }
+.regulars-head__link { display:inline-flex; align-items:center; gap:6px; margin-top:14px; font: 800 14px var(--font-cta); color:var(--navy); text-decoration:underline; text-underline-offset:3px; }
 
 /* Same treatment as "Donuts in the wild." — section scale, 0.92 leading, and
    a 15ch measure on phones that opens up from 900px. */

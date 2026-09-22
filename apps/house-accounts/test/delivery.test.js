@@ -36,6 +36,13 @@ test("charges the configured postal tier regardless of courier", () => {
   assert.equal(deliveryFee(10000, { type: "delivery", address:{postalCode:"M5V 2T9"} }, policy), 4500);
 });
 
+test("documented delivery zones use only the four Square service-charge tiers", () => {
+  assert.deepEqual([...new Set(Object.values(policy.feeTiers))].sort((a,b)=>a-b),[1500,2000,2500,4500]);
+  for (const [postalCode,amount] of [["L4J 7A9",1500],["M2M 1A1",2000],["M3H 2A2",2500],["L6A 1A1",4500]]) {
+    assert.equal(deliveryFee(5000,{type:"delivery",address:{postalCode}},policy),amount);
+  }
+});
+
 test("enforces the delivery merchandise minimum", () => {
   assert.throws(() => deliveryFee(2499, { type: "delivery" }, policy), { code: "DELIVERY_MINIMUM" });
 });
@@ -48,9 +55,15 @@ test("sums Square line items when subtotal_money is absent", () => {
 });
 
 test("uses Square's taxable service-charge phase", () => {
-  assert.equal(deliveryServiceCharge(500)[0].calculation_phase, "SUBTOTAL_PHASE");
-  assert.equal(deliveryServiceCharge(500)[0].taxable, true);
-  assert.equal(deliveryServiceCharge(500)[0].name, "Delivery");
+  const object={id:"SQUARE_DELIVERY_15",type:"SERVICE_CHARGE",service_charge_data:{name:"Delivery – $15",amount_money:{amount:1500,currency:"CAD"},taxable:true}};
+  const charge=deliveryServiceCharge(1500,[object],"LOCATION")[0];
+  assert.equal(charge.calculation_phase, "SUBTOTAL_PHASE");
+  assert.equal(charge.taxable, true);
+  assert.equal(charge.catalog_object_id, object.id);
+  assert.equal(charge.amount_money, undefined);
+  assert.deepEqual(deliveryServiceCharge(0,[],"LOCATION"),[]);
+  assert.throws(()=>deliveryServiceCharge(4000,[object],"LOCATION"),{code:"DELIVERY_CHARGE_UNAVAILABLE"});
+  assert.throws(()=>deliveryServiceCharge(1500,[{...object,is_deleted:true}],"LOCATION"),{code:"DELIVERY_CHARGE_UNAVAILABLE"});
 });
 
 test("accepts 30-minute pickup and delivery windows", () => {

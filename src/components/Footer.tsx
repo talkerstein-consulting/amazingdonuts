@@ -129,6 +129,7 @@ const FOOTER_MARK = {
 } as const;
 
 export default function Footer({ ready }: { ready: boolean }) {
+  const [signupMessage,setSignupMessage]=useState('');
   const { categories } = useShop();
   const menuLinks = [
     ...categories.map((category) => ({ label: category, href: shopHref({ category }) })),
@@ -173,8 +174,15 @@ export default function Footer({ ready }: { ready: boolean }) {
           buttonTextColor="#ffffff"
           shadowColor="#0e3e69"
           shadowSize="sm"
-          onSubmit={() => {}}
+          onSubmit={async (value:string) => {
+            const email=value.trim();
+            if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){setSignupMessage('Enter a valid email address.');return;}
+            setSignupMessage('Signing you up...');
+            try {const response=await fetch('/api/house/public/newsletter',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});const body=await response.json();if(!response.ok)throw new Error(body?.error?.message||'Signup is unavailable.');setSignupMessage('You are on the list. Check your inbox.');}
+            catch(error){setSignupMessage(error instanceof Error?error.message:'Signup is unavailable.');}
+          }}
         />
+        {signupMessage && <p className="footer-signup__message" role="status">{signupMessage}</p>}
       </div>
 
       {/* A taller slice than before (5:2 showed only the top 40% and the navy

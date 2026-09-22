@@ -104,20 +104,23 @@ function ContactForm() {
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  const [sendState, setSendState] = useState<'idle'|'sending'|'sent'|'error'>('idle');
+  const [sendError, setSendError] = useState('');
 
-  const send = (e: React.FormEvent) => {
+  const send = async (e: React.FormEvent) => {
     e.preventDefault();
-    const body = ['From: ' + name, 'Email: ' + email, '', message].join('\n');
-    /* encodeURIComponent rather than interpolating straight in: names and
-       messages contain ampersands and newlines, which would truncate the
-       mailto at the first one. */
-    window.location.href =
-      'mailto:' +
-      SHOP_ADDRESS.email +
-      '?subject=' +
-      encodeURIComponent(subject || 'Website enquiry') +
-      '&body=' +
-      encodeURIComponent(body);
+    setSendState('sending');
+    setSendError('');
+    try {
+      const response = await fetch('/api/house/public/contact', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,subject,message})});
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error?.message || 'Message could not be sent.');
+      setSendState('sent');
+      setMessage('');
+    } catch (error) {
+      setSendState('error');
+      setSendError(error instanceof Error ? error.message : 'Message could not be sent.');
+    }
   };
 
   return (
@@ -164,12 +167,10 @@ function ContactForm() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         {/* No href, so BrandButton renders a real <button> — which is what a
             form submit needs. */}
-        <BrandButton type="submit">
-          Send it
+        <BrandButton type="submit" disabled={sendState === 'sending'}>
+          {sendState === 'sending' ? 'Sending...' : 'Send it'}
         </BrandButton>
-        <span style={{ fontFamily: F.text, fontSize: 13.5, color: 'rgba(14,62,105,.6)' }}>
-          Opens your mail app, addressed to {SHOP_ADDRESS.email}.
-        </span>
+        <span role="status" style={{ fontFamily: F.text, fontSize: 13.5, color: sendState === 'error' ? '#a23d24' : 'rgba(14,62,105,.6)' }}>{sendState === 'sent' ? 'Your message was sent. We will get back to you.' : sendState === 'error' ? sendError : `Your message goes to ${SHOP_ADDRESS.email}.`}</span>
       </div>
     </form>
   );

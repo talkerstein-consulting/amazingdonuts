@@ -69,6 +69,7 @@ type Session = {
   profile: null | {
     default_phone?: string;
     default_address?: Partial<Address>;
+    card?: { brand?: string; last4?: string } | null;
   };
   houseAccount: null | {
     id: string;
@@ -490,10 +491,10 @@ function Checkout() {
   const asGuest = !session?.user && identity === "guest";
   const savedCard =
     !asGuest && session?.houseAccount?.status === "active"
-      ? session.houseAccount.card
-      : undefined;
+      ? session.houseAccount.card || session?.profile?.card
+      : !asGuest ? session?.profile?.card : undefined;
   const activeHouseAccount = !asGuest && session?.houseAccount?.status === "active";
-  const canPayOnAccount = Boolean(activeHouseAccount && savedCard && session?.houseAccount?.creditEnabled);
+  const canPayOnAccount = Boolean(activeHouseAccount && session?.houseAccount?.card && session?.houseAccount?.creditEnabled);
   useEffect(() => {
     if (method === "house_account" && !canPayOnAccount) setMethod("");
   }, [method, canPayOnAccount]);
@@ -1152,7 +1153,7 @@ function Checkout() {
         throw new Error(
           token.errors?.[0]?.message || "Card authorization failed.",
         );
-      await api("/storefront/house-card", {
+      await api(activeHouseAccount ? "/storefront/house-card" : "/storefront/personal-card", {
         method: "POST",
         body: JSON.stringify({
           sourceId: token.token,
@@ -1199,7 +1200,7 @@ function Checkout() {
         },
       });
       if (token.status !== "OK" || !token.token) throw new Error(token.errors?.[0]?.message || "Card authorization failed.");
-      await api("/storefront/house-card", {
+      await api(activeHouseAccount ? "/storefront/house-card" : "/storefront/personal-card", {
         method: "POST",
         body: JSON.stringify({
           sourceId: token.token,
@@ -1247,7 +1248,7 @@ function Checkout() {
         <a href="/shop/">
           <ArrowLeft /> <span>Back to the shop</span>
         </a>
-        <CommerceLogo /><details className="checkout-security"><summary>Secure checkout <ChevronDown size={16} /></summary><div role="note">We secure your payment and personal information when you share or save it with us. We don’t share payment details with third-party sellers or sell your information. <a href="/privacy-policy/">Privacy notice</a></div></details>
+        <CommerceLogo /><details className="checkout-security"><summary><LockKeyhole size={16} aria-hidden="true" /> Secure checkout <ChevronDown size={16} /></summary><div role="note">We secure your payment and personal information when you share or save it with us. We don’t share payment details with third-party sellers or sell your information. <a href="/privacy-policy/">Privacy notice</a></div></details>
       </header>
       <div className={`checkout-grid${busy ? " is-processing-payment" : ""}`} aria-busy={busy}>
         {busy && (
@@ -1290,14 +1291,7 @@ function Checkout() {
                   {validPhone && !phoneEditing ? (
                     <span className="signed-row__phone">
                       {phone}
-                      <button
-                        type="button"
-                        className="edit-pencil"
-                        aria-label="Change phone number"
-                        onClick={() => setPhoneEditing(true)}
-                      >
-                        <Pencil />
-                      </button>
+                      <a href="/account/" className="signed-row__phone-manage">Update in profile</a>
                     </span>
                   ) : (
                     <label className="signed-row__phone-field">
@@ -1994,7 +1988,7 @@ function Checkout() {
                         <strong>
                           {savedCard.brand || "Card"} ending in {savedCard.last4}
                         </strong>
-                        <small>Saved to {session?.houseAccount?.organizationName}</small>
+                        <small>Saved to {activeHouseAccount ? session?.houseAccount?.organizationName : "your profile"}</small>
                       </span>
                     </button>
                     <button
@@ -2009,7 +2003,7 @@ function Checkout() {
                   </div>
                 )}
                 {(!savedCard || cardToolsOpen) && <div id="saved-card-tools" className="saved-card-tools">
-                  {activeHouseAccount && <button type="button" className="manage-card-inline" onClick={() => { setManagingCard(true); setMethod("card"); }}>
+                  {!asGuest && <button type="button" className="manage-card-inline" onClick={() => { setManagingCard(true); setMethod("card"); }}>
                     {savedCard ? "Update card on file" : "Add card on file"}
                   </button>}
                   <div className="payment-choice">
@@ -2030,7 +2024,7 @@ function Checkout() {
                     <div id="card-payment-fields" className="payment-choice__fields">
                       <div id="square-card" className="square-card" />
                       {managingCard && <div className="manage-card-inline__form">
-                        <label className="save-card-choice"><input type="checkbox" checked={cardConsent} onChange={(event) => setCardConsent(event.target.checked)} /><span>I authorize Amazing Donuts to save this card and charge outstanding statements when due.</span></label>
+                        <label className="save-card-choice"><input type="checkbox" checked={cardConsent} onChange={(event) => setCardConsent(event.target.checked)} /><span>{activeHouseAccount ? "I authorize Amazing Donuts to save this card and charge outstanding statements when due." : "I authorize Amazing Donuts to save this card for future purchases."}</span></label>
                         <button type="button" disabled={!cardConsent || busy || !cardReady} onClick={() => void saveAccountCard()}>{busy ? "Saving card..." : savedCard ? "Save replacement card" : "Save card on file"}</button>
                         <button type="button" onClick={() => { setManagingCard(false); setCardConsent(false); setMethod(savedCard ? "saved_card" : ""); }}>Cancel</button>
                       </div>}

@@ -195,14 +195,15 @@ export default function CartCustomization({
 
   /* --- the cake's shape -------------------------------------------------- */
   if (customization.kind === 'glyph') {
+    const isLettering = productId === 'cupcakes-lettering';
     const editing = draft?.kind === 'glyph';
 
     if (editing) {
       const glyph = (draft as { kind: 'glyph'; glyph: string }).glyph;
       return (
         <div className="cart-custom is-editing">
-          {head('Cut as', glyph ? '1 cake' : 'Choose one')}
-          <GlyphPicker value={glyph} onChange={(next) => setDraft({ kind: 'glyph', glyph: next })} />
+          {head(isLettering ? 'Lettering' : 'Cut as', isLettering ? 'Cupcake message' : glyph ? '1 cake' : 'Choose one')}
+          {isLettering ? <input type="text" maxLength={120} value={glyph} onChange={event => setDraft({kind:'glyph',glyph:event.target.value})} aria-label="Cupcake lettering" /> : <GlyphPicker value={glyph} onChange={(next) => setDraft({ kind: 'glyph', glyph: next })} />}
           {actions(glyph.trim().length > 0)}
         </div>
       );
@@ -211,8 +212,8 @@ export default function CartCustomization({
     return (
       <div className="cart-custom">
         {head(
-          'Cut as',
-          `${customization.glyph.length} ${customization.glyph.length === 1 ? 'cake' : 'cakes'}`,
+          isLettering ? 'Lettering' : 'Cut as',
+          isLettering ? 'Cupcake message' : `${customization.glyph.length} ${customization.glyph.length === 1 ? 'cake' : 'cakes'}`,
           () => setDraft(customization)
         )}
         <p className="cart-glyph-value">{customization.glyph || '—'}</p>

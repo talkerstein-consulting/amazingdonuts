@@ -323,7 +323,7 @@ export default function ShopAll() {
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
       const grid = gridRef.current;
       if (!grid) return;
-      const top = grid.getBoundingClientRect().top + window.scrollY - 150;
+      const top = grid.getBoundingClientRect().top + window.scrollY - (bar.stickyTop + 112);
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) window.scrollTo({ top });
       else smoothScrollTo(top);
     }));

@@ -1,8 +1,7 @@
 const DEFAULT_FEE_TIERS = {
-  M3H: 1500, M3K: 1500, M6C: 1500, M3M: 1500, M6A: 1500, M6B: 1500, M5N: 1500, M5M: 1500,
-  M6E: 2000, M4N: 2000, M4P: 2000, M4R: 2000, M3J: 2000, M2R: 2000, L4J: 2000,
-  M5P: 2500, M4V: 2500, M5R: 2500,
-  M2N: 4000, M2M: 4000, M2P: 4000,
+  M3K: 1500, M6C: 1500, M3M: 1500, M6A: 1500, M6B: 1500, M5N: 1500, M5M: 1500, L4J: 1500,
+  M6E: 2000, M4N: 2000, M4P: 2000, M4R: 2000, M3J: 2000, M2R: 2000, M2N: 2000, M2M: 2000, M2P: 2000,
+  M5P: 2500, M4V: 2500, M5R: 2500, M3H: 2500,
   M4S: 4500, M4T: 4500, M4W: 4500, M4X: 4500, M6N: 4500, M6P: 4500, M6R: 4500, M6J: 4500,
   M6K: 4500, M5V: 4500, M5T: 4500, M5S: 4500, M7A: 4500, M5G: 4500, M5H: 4500, M5J: 4500,
   M5E: 4500, M4Y: 4500, M5A: 4500, M3C: 4500, M4A: 4500, M4B: 4500, M4C: 4500, M1L: 4500,
@@ -125,12 +124,19 @@ export function merchandiseSubtotal(order) {
   );
 }
 
-export function deliveryServiceCharge(amount) {
+export function deliveryServiceCharge(amount, catalogObjects = [], locationId) {
   if (!amount) return [];
+  const match = catalogObjects.find(object => object.type === "SERVICE_CHARGE" && !object.is_deleted &&
+    !object.absent_at_location_ids?.includes(locationId) &&
+    (object.present_at_all_locations !== false || object.present_at_location_ids?.includes(locationId)) &&
+    /^Delivery\s*[–-]\s*\$\d+/i.test(object.service_charge_data?.name || "") &&
+    Number(object.service_charge_data?.amount_money?.amount) === amount &&
+    object.service_charge_data?.amount_money?.currency === "CAD" &&
+    object.service_charge_data?.taxable === true);
+  if (!match) throw checkoutError(`Delivery pricing is temporarily unavailable for this postal code. Please contact the bakery.`, "DELIVERY_CHARGE_UNAVAILABLE");
   return [{
     uid: "website-delivery-fee",
-    name: "Delivery",
-    amount_money: { amount, currency: "CAD" },
+    catalog_object_id: match.id,
     calculation_phase: "SUBTOTAL_PHASE",
     taxable: true,
     scope: "ORDER",

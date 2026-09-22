@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
-import { ArrowLeft, Building2, ChevronDown, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, Pencil, ReceiptText, RefreshCw, Trash2, UserRound, X } from "lucide-react";
+import { ArrowLeft, Building2, ChevronDown, CreditCard, Download, Eye, EyeOff, Heart, LogOut, Package, Pencil, ReceiptText, RefreshCw, RotateCcw, Trash2, UserRound, X } from "lucide-react";
 import { customizationFor } from "../lib/custom-order";
 import AuthModal from "../shop/AuthModal";
 import "../index.css";
@@ -424,15 +424,9 @@ function Orders({ orders }: { orders: any[] }) {
                 {order.breakdown.tip > 0 && <div><dt>Tip</dt><dd>{cash(order.breakdown.tip, order.currency)}</dd></div>}
                 <div><dt>Total</dt><dd>{cash(order.breakdown.total, order.currency)}</dd></div>
               </dl>}
-              <p className="order-schedule">{orderFulfillmentSummary(order)}</p>
-              <footer>
-                <span>
-                  {orderPaymentSummary(order)}
-                </span>
-                <strong>{cash(order.total, order.currency)}</strong>
-              </footer>
+              <footer className="order-meta"><span>{orderFulfillmentSummary(order)}</span><span>{orderPaymentSummary(order)}</span></footer>
               {order.receiptUrl && /^https:\/\/([^/]+\.)?squareup\.com\//i.test(order.receiptUrl) && <a className="order-receipt" href={order.receiptUrl} target="_blank" rel="noopener noreferrer"><Download size={17} /> Open Square receipt</a>}
-              <button type="button" className="account-edit-action order-again" onClick={() => orderAgain(order)}>Order again</button>
+              <button type="button" className="account-edit-action order-again" onClick={() => orderAgain(order)}><RotateCcw size={17} aria-hidden="true" /> Order again</button>
             </article>
           ))}
         </div>
@@ -459,12 +453,14 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
   const [placesEnabled,setPlacesEnabled]=useState(false);
   const [message,setMessage]=useState("");
   const [editing,setEditing]=useState(false);
+  const [replacingPersonalCard,setReplacingPersonalCard]=useState(false);
   const [deleteOpen,setDeleteOpen]=useState(false),[deleteConfirmation,setDeleteConfirmation]=useState(""),[deleteError,setDeleteError]=useState(""),[deleting,setDeleting]=useState(false);
   const loadAddresses=()=>api('/storefront/addresses').then(body=>setAddresses(body.addresses||[]));
   useEffect(()=>{void loadAddresses();void api('/storefront/config').then(body=>setPlacesEnabled(Boolean(body.placesEnabled)))},[]);
   const selectAddress=(item:SavedAddress)=>{setSelectedId(item.id);setAddress({addressLine1:item.addressLine1,addressLine2:item.addressLine2,locality:item.locality,administrativeDistrictLevel1:item.administrativeDistrictLevel1,postalCode:item.postalCode,country:item.country});setLabel(item.label);setAddressType(item.addressType);setIsDefault(item.isDefault);setMessage("");};
   const resetAddress=()=>{setSelectedId(null);setAddress(blank);setLabel("Other");setAddressType('other');setIsDefault(addresses.length===0);setMessage("");};
   const removeAddress=async(item:SavedAddress)=>{if(!window.confirm(`Delete ${item.label} address?`))return;try{await api(`/storefront/addresses/${item.id}`,{method:'DELETE'});if(selectedId===item.id)resetAddress();await loadAddresses();setMessage(`${item.label} address deleted.`);}catch(cause){setMessage(cause instanceof Error?cause.message:'Address could not be deleted.');}};
+  const defaultAddress=addresses.find(item=>item.isDefault);
   return (
     <>
       <div className="commerce-heading">
@@ -472,8 +468,9 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
         <h1>Your profile</h1>
         {!editing && <button type="button" className="account-edit-action" onClick={() => {setEditing(true);if(addresses.length&&!selectedId)selectAddress(addresses[0]);}}>Edit profile</button>}
       </div>
-      {!editing && <div className="profile-summary"><strong>{[profile.first_name || session.user?.firstName, profile.last_name || session.user?.lastName].filter(Boolean).join(" ") || "Account details"}</strong><span>{profile.email || session.user?.email}</span><span>{formatNorthAmericanPhone(profile.default_phone || profile.phone || "")}</span></div>}
-      <div className="saved-addresses" aria-label="Saved addresses">{addresses.map(item=><div className={`saved-addresses__card${selectedId===item.id&&editing?' active':''}`} key={item.id}><div><strong>{item.label}{item.isDefault?' · Default':''}</strong><span>{item.addressLine1}{item.addressLine2?`, ${item.addressLine2}`:''}</span><small>{item.locality} {item.postalCode}</small></div><div className="saved-addresses__actions"><button type="button" aria-label={`Edit ${item.label}`} onClick={()=>{selectAddress(item);setEditing(true);}}><Pencil size={17}/></button><button type="button" aria-label={`Delete ${item.label}`} onClick={()=>void removeAddress(item)}><Trash2 size={17}/></button></div></div>)}<button type="button" className="saved-addresses__add" onClick={()=>{resetAddress();setEditing(true);}}>+ Add address</button></div>
+      {!editing && <div className="profile-summary"><strong>{[profile.first_name || session.user?.firstName, profile.last_name || session.user?.lastName].filter(Boolean).join(" ") || "Account details"}</strong><span>{profile.email || session.user?.email}</span><span>{formatNorthAmericanPhone(profile.default_phone || profile.phone || "")}</span>{defaultAddress && <span>{[defaultAddress.addressLine1,defaultAddress.addressLine2,defaultAddress.locality,defaultAddress.postalCode].filter(Boolean).join(', ')}</span>}</div>}
+      <section className="profile-addresses"><h2>Addresses</h2><div className="saved-addresses" aria-label="Saved addresses">{addresses.map(item=><div className={`saved-addresses__card${selectedId===item.id&&editing?' active':''}`} key={item.id}><div><strong>{item.label}{item.isDefault?' · Default':''}</strong><span>{item.addressLine1}{item.addressLine2?`, ${item.addressLine2}`:''}</span><small>{item.locality} {item.postalCode}</small></div><div className="saved-addresses__actions"><button type="button" aria-label={`Edit ${item.label}`} onClick={()=>{selectAddress(item);setEditing(true);}}><Pencil size={17}/></button><button type="button" aria-label={`Delete ${item.label}`} onClick={()=>void removeAddress(item)}><Trash2 size={17}/></button></div></div>)}<button type="button" className="saved-addresses__add" onClick={()=>{resetAddress();setEditing(true);}}>+ Add address</button></div></section>
+      <section className="profile-addresses"><h2>Payment card</h2>{profile.card&&!replacingPersonalCard?<div className="personal-card-summary"><span><CreditCard size={20}/> {profile.card.brand || 'Card'} ending in {profile.card.last4}</span><button type="button" className="account-edit-action" onClick={()=>setReplacingPersonalCard(true)}>Change card</button></div>:<SaveHouseCard session={session} personal replacing={Boolean(profile.card)} onCancel={profile.card?()=>setReplacingPersonalCard(false):undefined} onSaved={()=>{setReplacingPersonalCard(false);onSaved();}}/>}</section>
       {!editing && message && <p className="profile-message" role="status">{message}</p>}
       {editing && <form
         className="profile-form"
@@ -541,7 +538,7 @@ function Profile({ session, onSaved }: { session: any; onSaved: () => void }) {
         <label className="profile-default"><input type="checkbox" checked={isDefault} onChange={event=>setIsDefault(event.target.checked)}/><span>Use as my default address</span></label>
         {selectedId&&<button className="profile-delete" type="button" onClick={()=>{const item=addresses.find(saved=>saved.id===selectedId);if(item)void removeAddress(item);}}>Delete address</button>}
         {message&&<p className="profile-message" role="status">{message}</p>}
-        <BrandButton type="submit">Save profile</BrandButton>
+        <BrandButton type="submit" block>Save profile</BrandButton>
         <button type="button" className="account-edit-cancel" onClick={() => setEditing(false)}>Cancel</button>
         </fieldset>
       </form>}
@@ -899,7 +896,7 @@ function CustomerMemberManager({ session, account, onChanged }: { session: any; 
   );
 }
 
-function SaveHouseCard({ session, replacing = false, onCancel, onSaved }: { session: any; replacing?: boolean; onCancel?: () => void; onSaved: () => void }) {
+function SaveHouseCard({ session, replacing = false, personal = false, onCancel, onSaved }: { session: any; replacing?: boolean; personal?: boolean; onCancel?: () => void; onSaved: () => void }) {
   const card = useRef<SquareCard | undefined>(undefined),
     [ready, setReady] = useState(false),
     [consent, setConsent] = useState(false),
@@ -921,7 +918,7 @@ function SaveHouseCard({ session, replacing = false, onCancel, onSaved }: { sess
       }
       if (cancelled || !window.Square) return;
       card.current = await window.Square.payments(config.applicationId, config.locationId).card();
-      await card.current.attach("#house-card-fields");
+      await card.current.attach(personal ? "#personal-card-fields" : "#house-card-fields");
       setReady(true);
     };
     void mount().catch((cause) => setError(cause.message));
@@ -930,7 +927,7 @@ function SaveHouseCard({ session, replacing = false, onCancel, onSaved }: { sess
       void card.current?.destroy().catch(() => {});
       card.current = undefined;
     };
-  }, []);
+  }, [personal]);
   return (
     <form
       className="house-card-form"
@@ -952,7 +949,7 @@ function SaveHouseCard({ session, replacing = false, onCancel, onSaved }: { sess
             },
           });
           if (token.status !== "OK" || !token.token) throw new Error(cardErrorMessage(token.errors?.[0]?.message));
-          await api("/storefront/house-card", {
+          await api(personal ? "/storefront/personal-card" : "/storefront/house-card", {
             method: "POST",
             body: JSON.stringify({
               sourceId: token.token,
@@ -971,18 +968,18 @@ function SaveHouseCard({ session, replacing = false, onCancel, onSaved }: { sess
     >
       <div>
         <h2>{replacing ? "Change card on file" : "Add a card on file"}</h2>
-        <p>{replacing ? "Your current card stays active until the replacement is securely saved." : "This card secures the credit account and may be charged for statement balances."}</p>
-        <div id="house-card-fields" className="square-card" />
+        <p>{replacing ? "Your current card stays active until the replacement is securely saved." : personal ? "Save a card for future purchases." : "This card secures the credit account and may be charged for statement balances."}</p>
+        <div id={personal ? "personal-card-fields" : "house-card-fields"} className="square-card" />
       </div>
       <label className="house-card-consent">
         <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-        <span>I authorize Amazing Donuts to save this card and charge outstanding statements when due.</span>
+        <span>{personal ? "I authorize Amazing Donuts to save this card for future purchases." : "I authorize Amazing Donuts to save this card and charge outstanding statements when due."}</span>
       </label>
       {error ? <p className="checkout-error">{error}</p> : null}
       <div className="house-card-actions">
         {onCancel ? <button className="house-card-cancel" type="button" disabled={busy} onClick={onCancel}>Cancel</button> : null}
         <button disabled={!ready || !consent || busy}>
-          {busy ? "Saving card..." : replacing ? "Save replacement card" : "Save card and enable credit"}
+          {busy ? "Saving card..." : replacing ? "Save replacement card" : personal ? "Save card" : "Save card and enable credit"}
         </button>
       </div>
     </form>

@@ -133,7 +133,7 @@ export default function CartDrawer() {
 
             <div className="cart__body" data-lenis-prevent>
               {lines.length > 0 && <section className={`cart__deliveryProgress${amountToFreeDelivery === 0 ? ' is-complete' : ''}`} aria-label="Free delivery progress"><div><Gift size={19} /><strong>{amountToFreeDelivery === 0 ? 'Free delivery unlocked' : `${money(amountToFreeDelivery)} away from free delivery`}</strong></div><progress value={Math.min(subtotal, freeDeliveryThreshold)} max={freeDeliveryThreshold} /></section>}
-              {lines.length > 0 && <div className="promo-code cart__promo"><label htmlFor="cart-promo">Promo code</label><div><input id="cart-promo" value={promoDraft} onChange={event => setPromoDraft(event.target.value)} maxLength={40} autoComplete="off" /><button type="button" disabled={promoBusy} onClick={() => void applyPromo()}>{promoBusy ? 'Checking...' : 'Apply'}</button></div>{promoMessage && <small role="status">{promoMessage}</small>}</div>}
+              {lines.length > 0 && <details className="promo-code cart__promo"><summary>Discount code <ChevronDown size={17} aria-hidden="true" /></summary><label htmlFor="cart-promo">Code</label><div><input id="cart-promo" value={promoDraft} onChange={event => setPromoDraft(event.target.value)} maxLength={40} autoComplete="off" /><button type="button" disabled={promoBusy} onClick={() => void applyPromo()}>{promoBusy ? 'Checking...' : 'Apply'}</button></div>{promoMessage && <small role="status">{promoMessage}</small>}</details>}
               {lines.length === 0 ? (
                 <div className="cart__empty">
                   <span className="cart__emptyIcon">

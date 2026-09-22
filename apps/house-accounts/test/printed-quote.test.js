@@ -38,6 +38,14 @@ test("signed-in print quotes accept a four-dozen assignment before artwork uploa
   assert.equal(drafts[0].line_items[0].quantity, "4");
   assert.match(drafts[0].line_items[0].note, /Design 1 x 4 dozen units/);
 
+  body.items[0].quantity=6;
+  body.customizations[0].artworks=[{count:6}];
+  const larger=await fetch(`http://127.0.0.1:${server.address().port}/api/storefront/quote`,{
+    method:"POST",headers:{"Content-Type":"application/json",Cookie:"house_session=test"},body:JSON.stringify(body)
+  });
+  assert.equal(larger.status,200,await larger.text());
+  assert.match(drafts.at(-1).line_items[0].note,/Design 1 x 6 dozen units/);
+
   body.customizations[0].artworks = [{ count: 3 }];
   const invalid = await fetch(`http://127.0.0.1:${server.address().port}/api/storefront/quote`, {
     method: "POST", headers: { "Content-Type": "application/json", Cookie: "house_session=test" }, body: JSON.stringify(body)

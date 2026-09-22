@@ -125,7 +125,7 @@ const bentRectPath = (g, u0, u1, vTop, vBot, radius) => {
 
 const bentLinePath = (g, u0, u1, v) => `M ${fmt(g, u0, v)} ${edgeSeg(g, u1, v, true)}`;
 
-const SELECTABLE_TYPES = ['text', 'search', 'tel', 'url', 'password'];
+const SELECTABLE_TYPES = ['text', 'email', 'search', 'tel', 'url', 'password'];
 
 const CurvedInput = ({
   value,

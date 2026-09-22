@@ -41,13 +41,14 @@ export default function CheckoutFix({
   onChange: (next: Customization) => void;
 }) {
   if (GLYPH_PRODUCTS.has(productId)) {
+    const isLettering = productId === 'cupcakes-lettering';
     return (
       <div className="checkout-fix">
-        <p className="checkout-fix__ask">Which shape should this cake be cut as?</p>
-        <GlyphPicker
+        <p className="checkout-fix__ask">{isLettering ? 'What should the cupcakes say?' : 'Which shape should this cake be cut as?'}</p>
+        {isLettering ? <input type="text" maxLength={120} value={value?.kind === 'glyph' ? value.glyph : ''} onChange={event => onChange({kind:'glyph',glyph:event.target.value})} aria-label="Cupcake lettering" /> : <GlyphPicker
           value={value?.kind === 'glyph' ? value.glyph : ''}
           onChange={(glyph) => onChange({ kind: 'glyph', glyph })}
-        />
+        />}
       </div>
     );
   }

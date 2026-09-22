@@ -91,6 +91,7 @@ function OptionCard({ layers = [], mark, name, note, active, disabled, title, on
         {mark ? <span className="bld__cardNone">{mark}</span> : null}
       </span>
       <span className="bld__baseName">{name}</span>
+      {layers.some((layer) => layer.colors?.length) && <span className="bld__colorDots" aria-hidden="true">{[...new Set(layers.flatMap((layer) => layer.colors || []))].map((color) => <i key={color} style={{ backgroundColor: color }} />)}</span>}
       {note ? <span className="bld__baseNote">{note}</span> : null}
     </button>
   );

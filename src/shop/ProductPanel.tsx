@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   ArrowLeft,
   Check,
-  ChefHat,
   ChevronDown,
   Heart,
   FileImage,
@@ -11,7 +10,6 @@ import {
   Plus,
   Share2,
   ShoppingBag,
-  Truck,
   X
 } from 'lucide-react';
 import { INTERNAL_PRODUCT_IDS, type Product } from '../data/products';
@@ -69,10 +67,6 @@ const PACKS = [
  * The earliest slot the counter offers is tomorrow — see `PickupBanner` — so
  * the product page was promising a collection time the order form declines.
  */
-const REASSURANCE = [
-  { Icon: ChefHat, title: 'Made in our own kitchen', body: 'Mixed, proofed and finished by hand in Toronto.' },
-  { Icon: Truck, title: 'Pickup or delivery', body: 'Next-day pickup, or local delivery to your door.' }
-];
 
 /**
  * The product page, on the ecommerce-1 frame — its big media pane, thumbnail
@@ -103,7 +97,7 @@ function Cabinet({ product }: { product: Product }) {
   /* One character, and which list it came from. Only meaningful for the letter
      and number cake — see `isGlyph`. */
   const [glyphMode, setGlyphMode] = useState<GlyphMode>('number');
-  const [glyph, setGlyph] = useState('1');
+  const [glyph, setGlyph] = useState(product.id === 'cupcakes-lettering' ? '' : '1');
   /* The petite tray's finish, and the colours it asks for. Only meaningful for
      a bulk-only product - see `bulkMinimum`. */
   /* The finish, as the two answers it now is — see `FinishPicker`. */
@@ -147,6 +141,7 @@ function Cabinet({ product }: { product: Product }) {
      of a donut would otherwise carry into the next one — which has its own
      second photograph, or none at all. */
   useEffect(() => setView(0), [product.id]);
+  useEffect(() => setGlyph(product.id === 'cupcakes-lettering' ? '' : '1'), [product.id]);
   const shown = views[view] ?? product.img;
 
   /* A new product opens at the top of the panel. The cabinet is one scroll
@@ -175,6 +170,7 @@ function Cabinet({ product }: { product: Product }) {
   const unit = priceOf(product);
   const requiresPrintLeadTime = PRINT_PRODUCTS.has(product.id);
   const isGlyph = GLYPH_PRODUCTS.has(product.id);
+  const isLettering = product.id === 'cupcakes-lettering';
   /* Bulk-only, and the smallest order it takes. Petite donuts are priced per
      donut with a 75 minimum, so the stepper counts donuts and simply starts
      there — see `BULK_PACK_SIZES`. How many donuts are in one pack, or
@@ -204,7 +200,7 @@ function Cabinet({ product }: { product: Product }) {
      glyph starts empty and nothing required one, so an ordinary add put a line
      in the bag that `customizationComplete` rejects — and checkout then refused
      to proceed over an item whose question had never been asked out loud. */
-  const glyphReady = !isGlyph || glyph.trim().length > 0;
+  const glyphReady = !isGlyph || (glyph.trim().length > 0 && (!isLettering || glyph.trim().length <= 120));
 
   /* Every gate behind one name, so the two add buttons and the label they share
      each ask one question. */
@@ -217,7 +213,7 @@ function Cabinet({ product }: { product: Product }) {
       const dataUrl = await imageDataUrl(file);
       setArtworks((list) => [
         ...list,
-        { key: crypto.randomUUID(), name: file.name, dataUrl, count: Math.min(4, remaining) }
+        { key: crypto.randomUUID(), name: file.name, dataUrl, count: remaining }
       ]);
     } catch (error) {
       setArtError(error instanceof Error ? error.message : 'That file could not be read.');
@@ -226,7 +222,7 @@ function Cabinet({ product }: { product: Product }) {
   const setArtworkCount = (key: string, next: number) =>
     setArtworks((list) =>
       list.map((art) =>
-        art.key === key ? { ...art, count: Math.max(1, Math.min(4, art.count + remaining, next || 1)) } : art
+        art.key === key ? { ...art, count: Math.max(1, Math.min(art.count + remaining, next || 1)) } : art
       )
     );
   const removeArtwork = (key: string) => setArtworks((list) => list.filter((art) => art.key !== key));
@@ -665,9 +661,8 @@ function Cabinet({ product }: { product: Product }) {
                 </div>
 
                 {/* The artwork, and how much of the order each design covers.
-                    One design prints up to four dozen, so a larger order is
-                    several designs — and the count beside the label is what
-                    says whether the order is accounted for yet. */}
+                    One design may cover the full order; additional designs
+                    can divide the quantity when the customer needs them. */}
                 <div className="cabinet__art">
                   <span className="cabinet__label">
                     Print artwork
@@ -688,7 +683,7 @@ function Cabinet({ product }: { product: Product }) {
                         <input
                           type="number"
                           min={1}
-                          max={Math.min(4, art.count + remaining)}
+                          max={art.count + remaining}
                           value={art.count}
                           onChange={(event) => setArtworkCount(art.key, Number(event.target.value))}
                         />
@@ -717,8 +712,8 @@ function Cabinet({ product }: { product: Product }) {
                       <span>
                         <strong>{artworks.length ? 'Add another JPG' : 'Choose JPG or JPEG file'}</strong>
                         <small>
-                          This design covers {Math.min(4, remaining)} dozen
-                          {Math.min(4, remaining) === 1 ? '' : 's'}
+                          This design covers {remaining} dozen
+                          {remaining === 1 ? '' : 's'}
                         </small>
                       </span>
                       <Plus size={18} strokeWidth={2.6} />
@@ -733,7 +728,8 @@ function Cabinet({ product }: { product: Product }) {
               </div>
             )}
 
-            {isGlyph && (
+            {isLettering && <label className="cabinet__lettering"><span className="cabinet__label">What should the cupcakes say?</span><input type="text" maxLength={120} value={glyph} onChange={event => setGlyph(event.target.value)} placeholder="Enter the lettering" required /></label>}
+            {isGlyph && !isLettering && (
               <div className="cabinet__spec">
                 <span className="cabinet__label">Cut as</span>
                 <div className="cabinet__packs" role="radiogroup" aria-label="Letter or number">
@@ -849,23 +845,8 @@ function Cabinet({ product }: { product: Product }) {
                      size is only sold in bulk. It said nothing about a lead
                      time, so nothing here claims one. */
                   ? `${qty * packSize} donuts · this size is bulk order only`
-                  : `${pieces * qty} ${pieces * qty === 1 ? 'piece' : 'pieces'} · order by 4pm for next-day collection`}
+                  : `${pieces * qty} ${pieces * qty === 1 ? 'piece' : 'pieces'}`}
             </p>
-          </div>
-
-          {/* reassurance strip */}
-          <div className="cabinet__card cabinet__card--flush">
-            <ul className="cabinet__promises">
-              {REASSURANCE.map(({ Icon, title, body }) => (
-                <li key={title}>
-                  <Icon size={18} strokeWidth={2.2} />
-                  <div>
-                    <strong>{title}</strong>
-                    <span>{requiresPrintLeadTime && title === 'Pickup or delivery' ? "Please allow a minimum of one week's notice." : body}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* collapsible sections, as the block has them */}

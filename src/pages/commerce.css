@@ -1738,6 +1738,14 @@
 .customer-orders article p > span { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
 .order-line-image { width: 42px; height: 42px; flex: none; object-fit: contain; border-radius: 6px; background: #fff; }
 .customer-orders article .order-again { justify-self: end; margin-top: 8px; }
+.customer-orders article .order-again { display:inline-flex; align-items:center; gap:8px; border-color:var(--orange); background:var(--orange); color:var(--navy); }
+.customer-orders article .order-again:hover { background:var(--navy); border-color:var(--navy); color:#fff; }
+.customer-orders article .order-meta { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:8px 20px; }
+.customer-orders article .order-meta span { display:inline-flex; min-width:0; overflow-wrap:anywhere; }
+.customer-orders article .order-meta span + span { padding-left:20px; border-left:1px solid rgba(14,62,105,.22); }
+.profile-addresses { margin-top:28px; }
+.profile-addresses h2 { margin:0; color:var(--navy); font:400 var(--type-card-heading-sm) var(--font-display); }
+.profile-addresses .saved-addresses { margin-top:14px; }
 .payment-panel .payment-submit,
 .payment-panel .payment-options > button.active,
 .payment-panel .payment-choice > button.active { background: var(--navy); color: #fff; }
@@ -1911,6 +1919,11 @@
 .profile-form button {
   margin-top: 18px;
 }
+.profile-form button.bbtn { min-height:var(--bbtn-h); padding:0 var(--bbtn-pad-r) 0 var(--bbtn-pad-l); font-size:var(--type-cta); justify-content:space-between; }
+.personal-card-summary { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:14px; padding:16px 20px; background:var(--sand); border-radius:8px; }
+.personal-card-summary span { display:flex; align-items:center; gap:10px; }
+.personal-card-summary button { flex:none; }
+@media(max-width:640px){.personal-card-summary{align-items:flex-start; flex-direction:column;}}
 
 .saved-addresses { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:24px; }
 .saved-addresses__card,.saved-addresses__add { min-height:116px; padding:16px; display:grid; align-content:center; gap:4px; border:0; border-radius:16px; background:var(--sand); box-shadow:inset 0 0 0 2px rgba(14,62,105,.12); color:var(--navy); text-align:left; }

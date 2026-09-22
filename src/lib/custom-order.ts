@@ -65,7 +65,7 @@ export const FINISH_PRODUCTS = new Set([
 
 /** Design choices are included in the Square catalog price. */
 export const LAB_ELEMENT_PRICE = 0;
-export const GLYPH_PRODUCTS = new Set(['letter-number-donut-cake']);
+export const GLYPH_PRODUCTS = new Set(['letter-number-donut-cake', 'cupcakes-lettering']);
 
 /**
  * Donuts that are not flavours, and so cannot go into a build-your-own box.
@@ -155,7 +155,7 @@ export const customizationFor = (productId: string): Customization | undefined =
 
 export const customizationComplete = (productId: string, qty: number, customization?: Customization) => {
   if (PRINT_PRODUCTS.has(productId)) {
-    return qty >= 4 && customization?.kind === 'print' && !!customization.icingFlavour && customization.artworks.length > 0 && customization.artworks.every(art => art.count > 0 && art.count <= 4) && customization.artworks.reduce((sum, art) => sum + art.count, 0) === qty;
+    return qty >= 4 && customization?.kind === 'print' && !!customization.icingFlavour && customization.artworks.length > 0 && customization.artworks.every(art => art.count > 0 && art.count <= qty) && customization.artworks.reduce((sum, art) => sum + art.count, 0) === qty;
   }
   if (GLYPH_PRODUCTS.has(productId)) return customization?.kind === 'glyph' && customization.glyph.trim().length > 0 && customization.glyph.trim().length <= 120;
   /* A part-filled box is not a thing the counter can pack. Six or twelve, and

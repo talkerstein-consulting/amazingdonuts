@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, type Variants } from 'motion/react';
-import { ChevronDown, Star } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Star } from 'lucide-react';
 import { C, F } from './brand';
 import type { Product } from '../data/products';
 import { RATING } from '../data/reviews';
@@ -217,6 +217,8 @@ export default function Testimonials() {
           two stay left-aligned. */}
       <div className="regulars-head">
         <h2 className="regulars-title">Loved by our regulars</h2>
+        <p className="regulars-head__rating"><GoogleG size={18} /> {RATING.score} out of {RATING.of} across {RATING.count} Google reviews</p>
+        <a className="regulars-head__link" href="https://www.google.com/maps/search/?api=1&query=Amazing%20Donuts%203499%20Bathurst%20St%20Toronto" target="_blank" rel="noopener noreferrer">Read all Google reviews <ArrowUpRight size={17} aria-hidden="true" /></a>
       </div>
 
       <div className="regulars-grid">

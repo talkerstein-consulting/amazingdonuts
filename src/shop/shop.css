@@ -317,7 +317,7 @@
 .bag-checkout-bar > div > span { font-size: 13px; }
 .bag-checkout-bar__recent { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; color: #fff; }
 .bag-checkout-bar__cta { flex: none; text-decoration: none; white-space: nowrap; }
-.shop-grid { scroll-margin-top: 150px; }
+.shop-grid { scroll-margin-top: 180px; }
 @media (max-width: 480px) { .bag-checkout-bar { width: calc(100% - 24px); border-radius: 20px 20px 0 0; } }
 @media (max-width: 600px) { .bag-checkout-bar__recent { display: none; } }
 .cart__deliveryProgress { display: grid; gap: 7px; margin-bottom: 12px; padding: 14px 16px; background: var(--sand); border-radius: 20px; color: var(--navy); }
@@ -4349,6 +4349,14 @@ a.cabinet__iconBtn { text-decoration: none; }
   .cabinet__buybar .cabinet__buybarNow { display: flex; width: 100%; min-width: 0; min-height: 46px; justify-content: space-between; margin: 0; --bbtn-h: 46px; --bbtn-knob: 34px; }
 }
 .cart__promo { display: grid; gap: 8px; margin: 0 0 18px; padding: 16px; border-radius: 20px; background: var(--sand); color: var(--navy); }
+.cart__promo:not([open]) { display: block; }
+.cart__promo summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; font-weight: 800; list-style: none; }
+.cart__promo summary::-webkit-details-marker { display: none; }
+.cart__promo[open] summary { margin-bottom: 8px; }
+.cart__promo[open] summary svg { rotate: 180deg; }
+.cart__promo:not([open]) > :not(summary) { display: none; }
+.cabinet__lettering { display: grid; gap: 8px; margin-bottom: 18px; }
+.cabinet__lettering input { width: 100%; min-height: 50px; padding: 12px 16px; border: 2px solid rgba(14,62,105,.25); border-radius: 8px; background: var(--cream); color: var(--navy); font: inherit; }
 .cart__promo label { font-size: 12px; font-weight: 800; text-transform: uppercase; }
 .cart__promo > div { display: flex; gap: 8px; }
 .cart__promo input { min-width: 0; flex: 1; border: 1px solid #b9c6d1; border-radius: 8px; padding: 10px 12px; background: #fff; color: var(--navy); }
